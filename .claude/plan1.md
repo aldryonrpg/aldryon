@@ -93,11 +93,24 @@ implements interfaces defined by inner layers.
   verification, HTTP server wiring.
 - **interface/** — route handlers / controllers, request/response DTOs, mapping.
 
-**Supabase:**
-- Database access and Google auth go through Supabase.
-- Keep Supabase SDK usage confined to `infrastructure/` behind interfaces.
-- Provide a local/CI Postgres via testcontainers for integration tests
-  (do not hit the real Supabase project in tests).
+**Supabase — data access goes direct to Postgres, not through PostgREST:**
+
+- **Google auth** verification uses `supabase-js`'s `auth.getUser(token)` against
+  Supabase Auth (GoTrue) — see `SupabaseAuthGateway`. That's a real external
+  service and stays as-is.
+- **Data access does NOT go through `supabase-js .from()` (PostgREST).**
+  apps/api is a trusted backend using the **service role key**, which already
+  bypasses Row Level Security — PostgREST's entire reason to exist. Routing
+  our own server through PostgREST would add a network hop and a dependency
+  for zero benefit. Instead, `PostgresUserRepository` connects **directly to
+  Postgres** using Bun's native `SQL` client (`Bun.SQL` / `import { SQL } from
+  "bun"`) against `DATABASE_URL` (Supabase's direct connection string).
+    - *This was PostgREST-based in an earlier iteration of this plan; changed
+      after review — see "Findings" below for why.*
+- Keep both the Supabase Auth client and the Postgres client confined to
+  `infrastructure/` behind interfaces (`AuthGateway`, `UserRepository`).
+- Integration tests use a **plain testcontainers Postgres** (no PostgREST, no
+  Supabase project) — see "Findings" below for why this got much simpler.
 
 ## 3a. Shared Contracts — `apps/shared/dtos`
 
@@ -113,6 +126,72 @@ implements interfaces defined by inner layers.
   `apps/web` (Next.js) and `apps/api` (Bun).
 - Configure a shared root `biome.json` (with per-app overrides only where
   needed). No ESLint/Prettier.
+
+## 4b. User Schema
+
+`users` table / domain `User` fields, beyond the auth basics (`id`,
+`external_auth_id`, `email`, `display_name`, `avatar_url`):
+
+- **`id` is a UUIDv7**, generated in application code (usecase layer) via
+  `Bun.randomUUIDv7()` — not a Postgres `DEFAULT`, since Postgres 16 has no
+  native `uuidv7()` and id generation belongs to the domain, not the DB.
+- **`username`** — string, **max 40 alphanumeric characters**
+  (`^[A-Za-z0-9]{1,40}$`), enforced in both `User.create()` (domain) and a DB
+  `CHECK` constraint. **Nullable** — Google gives no username, so it starts
+  `null` on first login and is set later via a "choose username" flow that
+  doesn't exist yet. *Open question: should it be unique? Not decided —
+  flagging rather than assuming, since the conflict-handling UX isn't defined
+  yet.*
+- **`is_vip` / `isVip`** — boolean, **not null, defaults to `false`**. Both
+  the domain type and the DB column are non-nullable.
+- **Preservation rule:** `username` and `isVip` are player-owned profile
+  state, not Google/Supabase auth claims. `AuthenticateUserUseCase` carries
+  them forward from the existing record on every login instead of resetting
+  them — only `email`/`displayName`/`avatarUrl` re-sync from the identity
+  provider each time.
+
+## 4c. Findings — Windows + Podman local dev
+
+Discovered while first running the integration suite locally against Podman:
+
+- **Bun's `node:http` client cannot reach Windows named pipes.** A raw
+  `net.connect()` to Podman's pipe (`\\.\pipe\podman-machine-default`) works
+  fine, but dockerode's HTTP-over-`socketPath` calls (used by testcontainers)
+  fail with a generic `"Was there a typo in the url or port?"` — this is a
+  Bun-on-Windows gap, not a Podman or testcontainers problem.
+- **Tried auto-spawning the relay per test run — reverted.** A first attempt
+  auto-detected Windows + Podman and transparently spun up a TCP↔named-pipe
+  relay (in-process, then as a per-run spawned child process) so `bun test`
+  would "just work" with zero setup. Both versions broke in ways that ate a
+  lot of debugging time: the in-process relay stalled specifically once
+  Postgres started continuously streaming logs over one relayed connection
+  while testcontainers needed other Docker API calls concurrently (confirmed
+  by isolating it — plain `GenericContainer` start/stop worked fine over the
+  *same* relay, only `PostgreSqlContainer` hung); the spawned-child version
+  then hit an unresolved CPU-spin bug (one relay process pegged ~100% CPU for
+  6+ minutes with no forward progress). Root cause not fully nailed down for
+  either — diminishing returns, so this was abandoned rather than chased
+  further.
+- **What actually works, reliably:** a **single, manually-started, long-lived
+  relay process** — `bun run apps/api/scripts/podman-pipe-relay.ts`, run once
+  in its own terminal — with `DOCKER_HOST` pointed at the port it prints in
+  the terminal running the tests. This is the exact shape of the very first
+  thing that worked when this was diagnosed by hand, before any "make it
+  automatic" attempts. `startPostgresEnvironment()` just checks `DOCKER_HOST`
+  is set on Windows and throws a clear, actionable error pointing at the
+  script if it isn't — no magic, easy to reason about when it breaks.
+- **Dropping PostgREST from the persistence design (§4) independently fixed
+  most of the pain anyway** — the old PostgREST-based harness needed a Docker
+  `Network` + Postgres + PostgREST containers + an extra REST-path proxy, all
+  through the same relay; going direct-to-Postgres removed 3 of those 4
+  moving parts and was likely most of why the *final*, simple Postgres-only
+  setup is stable enough for the manual-relay approach to just work.
+- **Practical consequence:** on Windows + Podman, running the integration
+  suite (and therefore a pre-commit that touches `apps/api`) requires one
+  manual one-time step per dev session (`bun run
+  apps/api/scripts/podman-pipe-relay.ts` in a separate terminal + setting
+  `DOCKER_HOST`). Not needed on Linux/macOS or in CI (GitHub Actions runners
+  have a real Docker socket, so this whole file is a no-op there).
 
 ## 5. Testing Strategy (`apps/api`)
 

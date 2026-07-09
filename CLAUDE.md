@@ -29,16 +29,34 @@ See [`.claude/plan1.md`](.claude/plan1.md) for the full bootstrap plan.
       actual map); it is an **empty placeholder for now** (to be evolved
       later). It is protected — an unauthenticated visitor is redirected to
       `/login`. After login the user is routed to `/`.
-  - `apps/api` — **Bun** back-end. Connects to **Supabase** for the database and
-    for **Google auth** (Supabase Auth + Google provider).
+  - `apps/api` — **Bun** back-end. Uses **Supabase Auth** (`supabase-js`) to
+    verify Google login tokens, and connects **directly to Postgres**
+    (Supabase's connection string, via `Bun.SQL`) for data — **not** through
+    `supabase-js .from()`/PostgREST. apps/api is a trusted service using the
+    service role key, which already bypasses PostgREST's reason to exist
+    (Row Level Security), so going through it would just be an extra network
+    hop for nothing.
 - The back-end MUST follow **Clean Architecture + DDD**:
   - Layers: `domain` → `usecase` → `interface`, with `infrastructure`
     implementing the interfaces defined by inner layers.
   - **Dependency rule:** dependencies point inward only. `domain` has no
-    framework or I/O dependencies. Supabase SDK usage stays inside
-    `infrastructure/`, behind interfaces.
+    framework or I/O dependencies. Supabase Auth client and Postgres client
+    both stay inside `infrastructure/`, behind interfaces (`AuthGateway`,
+    `UserRepository`).
 - Shared request/response **contracts (DTOs) live in `apps/shared/dtos`** as a
   workspace package. Both apps import from there — never duplicate contracts.
+
+### User schema
+
+- **`id` is a UUIDv7**, generated in the usecase layer via
+  `Bun.randomUUIDv7()` — never a Postgres default.
+- **`username`** — nullable string, max 40 alphanumeric characters
+  (`^[A-Za-z0-9]{1,40}$`), enforced in both `User.create()` and a DB `CHECK`
+  constraint. Null until the player sets one (Google gives no username).
+- **`isVip`** — boolean, **mandatory, defaults to `false`**. Never nullable.
+- **`username` and `isVip` are player-owned profile state, not auth claims —
+  preserve them across logins.** Only `email`/`displayName`/`avatarUrl`
+  re-sync from the identity provider on each login.
 
 ## Tooling
 
@@ -49,6 +67,10 @@ See [`.claude/plan1.md`](.claude/plan1.md) for the full bootstrap plan.
 - Assume every developer and CI runner has a **Docker or Podman** runtime
   available locally, so **testcontainers** integration tests run in pre-commit
   and CI.
+- **Windows + Podman:** Bun can't reach Podman's named pipe directly. Run
+  `bun run apps/api/scripts/podman-pipe-relay.ts` once in its own terminal
+  first, then set `DOCKER_HOST` to the port it prints before running
+  integration tests. Not needed on Linux/macOS or in CI.
 
 ## Back-end quality gates (`apps/api`)
 
@@ -90,7 +112,7 @@ pre-commit.
 
 ## Conventions
 
-- Keep shared contract types between web and api explicit (either in
-  `packages/` or as clearly duplicated DTOs — decide once, stay consistent).
+- Shared contract types between web and api live in `apps/shared/dtos` —
+  import from there, never duplicate DTOs.
 - Don't put business logic in `interface/` or `infrastructure/`; it belongs in
   `domain/` and `usecase/`.

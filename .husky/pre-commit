@@ -1,0 +1,7 @@
+bunx lint-staged
+
+if git diff --cached --name-only | grep -q '^apps/api/'; then
+  echo "apps/api changes detected — running back-end quality gates"
+  bun run --cwd apps/api test:unit || exit 1
+  bun run --cwd apps/api test:integration:coverage || exit 1
+fi

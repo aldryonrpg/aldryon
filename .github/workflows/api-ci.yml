@@ -1,0 +1,82 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "apps/api/**"
+      - "apps/shared/dtos/**"
+      - "biome.json"
+      - ".github/workflows/api-ci.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "apps/shared/dtos/**"
+      - "biome.json"
+      - ".github/workflows/api-ci.yml"
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Biome linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx biome check .
+
+  vulnerability-check:
+    name: Vulnerability check (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: apps/api
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+  unit-tests:
+    name: Unit tests (bun test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd apps/api test:unit
+
+  integration-tests:
+    name: Integration tests (testcontainers) — optional
+    runs-on: ubuntu-latest
+    # Does not block the pipeline: see .claude/plan1.md §6a. Requires Docker,
+    # which ubuntu-latest runners provide out of the box for testcontainers.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd apps/api test:integration:coverage
+
+  deploy:
+    name: Deploy apps/api on Render
+    needs: [ lint, vulnerability-check, unit-tests ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        run: curl --fail-with-body -sS -X POST "$RENDER_DEPLOY_HOOK_URL"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}

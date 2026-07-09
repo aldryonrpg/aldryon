@@ -1,4 +1,12 @@
-# Test binary, built with `go test -c`
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
 *.test
 
 # Code coverage profiles and other test artifacts
@@ -6,9 +14,12 @@
 coverage.*
 *.coverprofile
 profile.cov
+coverage/
 
-# env file
+# env files
 .env
+.env.local
+.env.*.local
 
 # Editor/IDE
 .idea/

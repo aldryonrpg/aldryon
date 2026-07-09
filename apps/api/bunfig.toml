@@ -1,0 +1,8 @@
+[test]
+coverage = false
+coverageReporter = ["text", "lcov"]
+# Only src/usecase/** counts toward the coverage threshold — see
+# .claude/plan1.md §5 for why (coverage gate is scoped to the usecase layer
+# and measured from the integration run, not unit tests).
+coveragePathIgnorePatterns = ["^(?!.*/src/usecase/).*$"]
+coverageThreshold = { line = 0.75, function = 0.75 }
