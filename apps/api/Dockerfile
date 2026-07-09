@@ -9,6 +9,7 @@ RUN bun install --frozen-lockfile
 COPY apps/api apps/api
 COPY apps/shared/dtos apps/shared/dtos
 
+WORKDIR /repo/apps/api
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["bun", "run", "--cwd", "apps/api", "start"]
+CMD ["bun", "run", "start"]

@@ -1,6 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthenticatedIdentity } from "@/domain/user/AuthenticatedIdentity";
 import { type AuthGateway, InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Verifies a Supabase access token (issued after the client-side Google

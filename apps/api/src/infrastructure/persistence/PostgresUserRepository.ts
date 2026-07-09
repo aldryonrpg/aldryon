@@ -1,6 +1,6 @@
+import type { SQL } from "bun";
 import { User } from "@/domain/user/User";
 import type { UserRepository } from "@/usecase/user/UserRepository";
-import type { SQL } from "bun";
 
 interface UserRow {
   id: string;

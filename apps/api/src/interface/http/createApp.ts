@@ -1,7 +1,7 @@
-import { createAuthController } from "@/interface/http/authController";
-import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createAuthController } from "@/interface/http/authController";
+import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 
 export interface AppDependencies {
   authenticateUserUseCase: AuthenticateUserUseCase;

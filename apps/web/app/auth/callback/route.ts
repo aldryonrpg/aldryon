@@ -1,6 +1,6 @@
+import { NextResponse } from "next/server";
 import { loginWithSupabaseToken } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
 
 /**
  * Supabase redirects here after the Google OAuth round trip. We exchange the

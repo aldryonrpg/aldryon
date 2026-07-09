@@ -1,5 +1,5 @@
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "@/infrastructure/config/env";
-import { type SupabaseClient, createClient } from "@supabase/supabase-js";
 
 /**
  * Server-side Supabase client using the service role key. Confined to

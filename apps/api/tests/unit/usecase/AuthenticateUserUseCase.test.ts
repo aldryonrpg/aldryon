@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { User } from "@/domain/user/User";
+import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
-import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { UserRepository } from "@/usecase/user/UserRepository";
 
 class StubAuthGateway implements AuthGateway {

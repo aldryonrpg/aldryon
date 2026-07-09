@@ -9,8 +9,9 @@ RUN bun install --frozen-lockfile
 COPY apps/web apps/web
 COPY apps/shared/dtos apps/shared/dtos
 
-RUN bun run --cwd apps/web build
+WORKDIR /repo/apps/web
+RUN bun run build
 
 ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["bun", "run", "--cwd", "apps/web", "start"]
+CMD ["bun", "run", "start"]

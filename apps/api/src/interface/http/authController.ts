@@ -1,8 +1,8 @@
-import { mapUserToProfile } from "@/interface/http/dto/mapUserToProfile";
-import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
-import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { LoginRequestSchema } from "@aldryon/dtos";
 import { Hono } from "hono";
+import { mapUserToProfile } from "@/interface/http/dto/mapUserToProfile";
+import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
+import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
 
 export function createAuthController(authenticateUserUseCase: AuthenticateUserUseCase): Hono {
   const app = new Hono();

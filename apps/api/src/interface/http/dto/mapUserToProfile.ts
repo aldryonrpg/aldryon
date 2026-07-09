@@ -1,5 +1,5 @@
-import type { User } from "@/domain/user/User";
 import type { UserProfile } from "@aldryon/dtos";
+import type { User } from "@/domain/user/User";
 
 export function mapUserToProfile(user: User): UserProfile {
   return {

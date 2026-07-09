@@ -29,6 +29,10 @@ See [`.claude/plan1.md`](.claude/plan1.md) for the full bootstrap plan.
       actual map); it is an **empty placeholder for now** (to be evolved
       later). It is protected — an unauthenticated visitor is redirected to
       `/login`. After login the user is routed to `/`.
+    - **`apps/web` must stay on TypeScript 6.x, not 7.x** — Next.js 16 doesn't
+      support TS 7 yet (crashes trying to npm-auto-install a "missing"
+      TypeScript that's actually already installed). `apps/api` is pinned to
+      6.x too, kept in sync rather than mixing major versions across the repo.
   - `apps/api` — **Bun** back-end. Uses **Supabase Auth** (`supabase-js`) to
     verify Google login tokens, and connects **directly to Postgres**
     (Supabase's connection string, via `Bun.SQL`) for data — **not** through
@@ -63,14 +67,12 @@ See [`.claude/plan1.md`](.claude/plan1.md) for the full bootstrap plan.
 - **Biome** is the one linter + formatter for the whole repo — both `apps/web`
   and `apps/api`. Do not add ESLint or Prettier.
 - **husky + lint-staged** is the git hook manager.
-- **Trivy** is the vulnerability scanner.
+- **Trivy** and **`bun audit`** are both run as the vulnerability check —
+  complementary, not redundant (Trivy: broad multi-ecosystem/container/IaC/
+  secrets; `bun audit`: Bun-native CVE check against `bun.lock`).
 - Assume every developer and CI runner has a **Docker or Podman** runtime
   available locally, so **testcontainers** integration tests run in pre-commit
   and CI.
-- **Windows + Podman:** Bun can't reach Podman's named pipe directly. Run
-  `bun run apps/api/scripts/podman-pipe-relay.ts` once in its own terminal
-  first, then set `DOCKER_HOST` to the port it prints before running
-  integration tests. Not needed on Linux/macOS or in CI.
 
 ## Back-end quality gates (`apps/api`)
 
@@ -89,19 +91,24 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
 - The **75% coverage requirement applies specifically to the `usecase/` folder**
   (Clean Architecture use cases) and is derived from the integration suite.
 
-### Back-end CI stages (in order)
+### Back-end CI (`.github/workflows/api-ci.yml`)
 
-1. **Biome linter** — *required, blocking*
-2. **Vulnerability check** — **Trivy** — *required, blocking*
-3. **Unit tests** via `bun test` — *required, blocking*
-4. **Integration tests** — testcontainers; also produces the `usecase/` ≥ 75%
-   coverage report — ***optional (does NOT block the pipeline)***
-5. **Deploy on Render** — after all required stages pass
+**One workflow, one sequential pipeline job** (not separate parallel jobs):
 
-**Every stage is required and fails the CI on error, EXCEPT the integration
-stage, which is optional.** Because coverage is derived from the (optional)
-integration stage, the coverage gate is advisory in CI but hard-enforced in
-pre-commit.
+1. **Lint (Biome)**
+2. **Vulnerability check (Trivy)** — pinned to a commit SHA, not a version
+   tag, in the workflow file (`aquasecurity/trivy-action` had 76 of 77 tags
+   hijacked in a March 2026 supply-chain attack).
+3. **Unit tests** (`bun test`)
+4. **Build** (`docker build` on `apps/api/Dockerfile`)
+5. **Deploy on Render** — push to `main` only
+
+Every step in that job blocks the next on failure. **Integration tests are a
+separate, optional job** in the same workflow file — no `needs:` link to the
+pipeline job, `continue-on-error: true`, so it never blocks lint/vuln/unit/
+build/deploy. It still produces the `usecase/` ≥ 75% coverage report; that
+gate is hard-enforced in **pre-commit** (integration tests always run there —
+see above) but only advisory in CI, matching its optional status.
 
 ## Deployment
 

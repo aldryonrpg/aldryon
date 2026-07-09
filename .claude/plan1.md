@@ -79,6 +79,9 @@ Use **Bun workspaces** at the root so everything under `apps/*` (including
 - Store static game assets under `apps/web/public/` (move `papiro.png` and
   `mapa.png` — both currently at the repo root — here).
 - Configure the API base URL via an env var (`NEXT_PUBLIC_API_URL`).
+- **Next.js 16 requires TypeScript 6.x, not 7.x** (Next's dev server
+  misdetects TS 7 as "not installed" and crashes trying to auto-install via
+  npm, which isn't available in this project).
 
 ## 4. Back-end — `apps/api` (Bun) — Clean Architecture + DDD
 
@@ -150,49 +153,6 @@ implements interfaces defined by inner layers.
   them — only `email`/`displayName`/`avatarUrl` re-sync from the identity
   provider each time.
 
-## 4c. Findings — Windows + Podman local dev
-
-Discovered while first running the integration suite locally against Podman:
-
-- **Bun's `node:http` client cannot reach Windows named pipes.** A raw
-  `net.connect()` to Podman's pipe (`\\.\pipe\podman-machine-default`) works
-  fine, but dockerode's HTTP-over-`socketPath` calls (used by testcontainers)
-  fail with a generic `"Was there a typo in the url or port?"` — this is a
-  Bun-on-Windows gap, not a Podman or testcontainers problem.
-- **Tried auto-spawning the relay per test run — reverted.** A first attempt
-  auto-detected Windows + Podman and transparently spun up a TCP↔named-pipe
-  relay (in-process, then as a per-run spawned child process) so `bun test`
-  would "just work" with zero setup. Both versions broke in ways that ate a
-  lot of debugging time: the in-process relay stalled specifically once
-  Postgres started continuously streaming logs over one relayed connection
-  while testcontainers needed other Docker API calls concurrently (confirmed
-  by isolating it — plain `GenericContainer` start/stop worked fine over the
-  *same* relay, only `PostgreSqlContainer` hung); the spawned-child version
-  then hit an unresolved CPU-spin bug (one relay process pegged ~100% CPU for
-  6+ minutes with no forward progress). Root cause not fully nailed down for
-  either — diminishing returns, so this was abandoned rather than chased
-  further.
-- **What actually works, reliably:** a **single, manually-started, long-lived
-  relay process** — `bun run apps/api/scripts/podman-pipe-relay.ts`, run once
-  in its own terminal — with `DOCKER_HOST` pointed at the port it prints in
-  the terminal running the tests. This is the exact shape of the very first
-  thing that worked when this was diagnosed by hand, before any "make it
-  automatic" attempts. `startPostgresEnvironment()` just checks `DOCKER_HOST`
-  is set on Windows and throws a clear, actionable error pointing at the
-  script if it isn't — no magic, easy to reason about when it breaks.
-- **Dropping PostgREST from the persistence design (§4) independently fixed
-  most of the pain anyway** — the old PostgREST-based harness needed a Docker
-  `Network` + Postgres + PostgREST containers + an extra REST-path proxy, all
-  through the same relay; going direct-to-Postgres removed 3 of those 4
-  moving parts and was likely most of why the *final*, simple Postgres-only
-  setup is stable enough for the manual-relay approach to just work.
-- **Practical consequence:** on Windows + Podman, running the integration
-  suite (and therefore a pre-commit that touches `apps/api`) requires one
-  manual one-time step per dev session (`bun run
-  apps/api/scripts/podman-pipe-relay.ts` in a separate terminal + setting
-  `DOCKER_HOST`). Not needed on Linux/macOS or in CI (GitHub Actions runners
-  have a real Docker socket, so this whole file is a no-op there).
-
 ## 5. Testing Strategy (`apps/api`)
 
 - **Unit tests** (`tests/unit/`): pure domain + usecase logic, fast, no I/O.
@@ -228,27 +188,36 @@ Implementation:
 
 ## 6a. CI Pipeline — Back-end (`apps/api`)
 
-Stages, in order. **Every stage is required and blocks the pipeline on failure,
-EXCEPT the integration-test stage, which is optional (allowed to fail without
-failing the pipeline).**
+**One workflow file (`.github/workflows/api-ci.yml`), one sequential pipeline
+job** — not separate parallel jobs stitched together with `needs:`. Each step
+runs in order and blocks the next on failure:
 
-1. **Biome linter** — lint + format check. *(required)*
-2. **Vulnerability check** — **Trivy** (open-source, broadest coverage:
-   language deps, OS packages, IaC/misconfig, secrets, licenses). Fails the
-   build on known vulnerabilities. *(required)*
-3. **Unit tests** — `bun test`. *(required)*
-4. **Integration tests** — testcontainers-based; **also produces the
-   `usecase/` ≥ 75% coverage report** (coverage is measured here, not in the
-   unit stage). Requires a Docker/Podman-capable runner. *(optional — does not
-   block the pipeline)*
-5. **Deploy on Render** — runs after all required stages pass.
+1. **Lint (Biome)**
+2. **Vulnerability check — Trivy + `bun audit`, both in this step:**
+   - **Trivy** — open-source, broadest coverage: language deps, OS packages,
+     IaC/misconfig, secrets, licenses. **Pinned to a commit SHA in the
+     workflow file, not a version tag** — `aquasecurity/trivy-action` had a
+     real supply-chain attack (March 2026) where 76 of 77 version tags were
+     force-pushed to malicious commits, so mutable-tag pinning isn't safe for
+     this specific action. Verify the tag's signature and dereference to a
+     commit SHA via the GitHub API before ever bumping this pin.
+   - **`bun audit --audit-level=high`** — Bun's native dependency-CVE check
+     against `bun.lock` (built into Bun since 1.2.15). Complements Trivy
+     rather than duplicating it: catches JS dependency CVEs specifically,
+     runs in seconds, zero extra tooling since it ships with Bun.
+3. **Unit tests** — `bun test`
+4. **Build** — `docker build` on `apps/api/Dockerfile`, validating the image
+   actually builds before deploy is attempted.
+5. **Deploy on Render** — triggers a Render deploy hook. Only runs on push to
+   `main` (not on pull requests).
 
-> **Note on the coverage gate:** the 75% `usecase/` coverage is derived from the
-> **integration** run, which is the *optional* CI stage — so in CI a coverage
-> shortfall is advisory, not blocking. It is enforced hard in **pre-commit**,
-> where integration tests always run. If you want CI to hard-block on coverage
-> too, promote the coverage assertion (or the whole integration stage) to
-> required.
+**Integration tests are a separate, optional job** in the same workflow file
+(`integration-tests`), not part of the sequential pipeline above — it has no
+`needs:` dependency linking it to the pipeline job and runs with
+`continue-on-error: true`, so it never blocks lint/vuln/unit/build/deploy. It
+still produces the `usecase/` ≥ 75% coverage report; that gate is enforced
+hard in **pre-commit** (where integration tests always run — see §6) but is
+advisory-only in CI, matching its optional status there.
 
 ## 7. Rules Documentation
 

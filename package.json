@@ -12,15 +12,15 @@
     "test:api": "bun test --cwd apps/api",
     "test:api:unit": "bun test --cwd apps/api tests/unit",
     "test:api:integration": "bun test --cwd apps/api tests/integration",
-    "test:api:integration:coverage": "bun run --cwd apps/api test:integration:coverage",
-    "dev:web": "bun --cwd apps/web run dev",
-    "dev:api": "bun --cwd apps/api run dev",
+    "test:api:integration:coverage": "bun run --filter=@aldryon/api test:integration:coverage",
+    "dev:web": "bun run --filter=@aldryon/web dev",
+    "dev:api": "bun run --filter=@aldryon/api dev",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.5.3",
     "husky": "^9.1.7",
-    "lint-staged": "^15.2.10"
+    "lint-staged": "^17.0.8"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUserRepository";
-import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
-import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { SQL } from "bun";
+import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUserRepository";
+import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
+import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
 import { FakeAuthGateway } from "../support/fakeAuthGateway";
 import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
 
