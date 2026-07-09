@@ -1,0 +1,80 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "apps/shared/dtos/**"
+      - "biome.json"
+      - ".github/workflows/api-ci.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "apps/shared/dtos/**"
+      - "biome.json"
+      - ".github/workflows/api-ci.yml"
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # One sequential pipeline: linter -> vulnerability -> unit test -> build ->
+  # deploy. Each step blocks the next on failure. Integration tests run as a
+  # separate, optional job (see below) and never gate this one.
+  pipeline:
+    name: Lint, scan, test, build, deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+
+      - name: Lint (Biome)
+        run: bun run lint
+
+      - name: Vulnerability check (Trivy)
+        # Pinned to a commit SHA, not a version tag: this action had a real
+        # supply-chain attack (March 2026) where 76 of 77 version tags were
+        # force-pushed to malicious commits. SHA below = v0.36.0, verified
+        # signed tag (dereferenced via GitHub API before pinning).
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: apps/api
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Vulnerability check (bun audit)
+        run: bun audit --audit-level=high
+
+      - name: Unit tests (bun test)
+        run: bun run test:api:unit
+
+      - name: Build (validate Docker image)
+        run: docker build -f apps/api/Dockerfile -t aldryon-api:ci .
+
+      - name: Deploy on Render
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: curl --fail-with-body -sS -X POST "$RENDER_DEPLOY_HOOK_URL"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}
+
+  integration-tests:
+    name: Integration tests (testcontainers) — optional
+    runs-on: ubuntu-latest
+    # Does not gate the pipeline job above — no `needs:` link between them,
+    # and continue-on-error means a failure here never fails the workflow.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test:api:integration:coverage

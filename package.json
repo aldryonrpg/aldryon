@@ -1,0 +1,30 @@
+{
+  "name": "aldryon",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "apps/shared/*"
+  ],
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test:api": "bun test --cwd apps/api",
+    "test:api:unit": "bun test --cwd apps/api tests/unit",
+    "test:api:integration": "bun test --cwd apps/api tests/integration",
+    "test:api:integration:coverage": "bun run --filter=@aldryon/api test:integration:coverage",
+    "dev:web": "bun run --filter=@aldryon/web dev",
+    "dev:api": "bun run --filter=@aldryon/api dev",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
+  }
+}
