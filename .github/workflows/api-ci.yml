@@ -27,7 +27,7 @@ jobs:
     name: Lint, scan, test, build, deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -72,7 +72,7 @@ jobs:
     # and continue-on-error means a failure here never fails the workflow.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
