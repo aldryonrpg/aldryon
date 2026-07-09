@@ -1,8 +1,15 @@
+# Base test config — used by plain `bun test` / unit runs.
+# Coverage prints for information only; there is NO threshold here. The
+# usecase/ >= 75% gate lives in bunfig.integration.toml and is enforced only
+# on the integration (testcontainers) run — see .claude/plan1.md §5.
+#
+# Note: keep `coverage = true`. In Bun 1.3.10 a bunfig `coverage = false`
+# silently overrides the `--coverage` CLI flag, so flag-based opt-in does not
+# work.
 [test]
-coverage = false
-coverageReporter = ["text", "lcov"]
-# Only src/usecase/** counts toward the coverage threshold — see
-# .claude/plan1.md §5 for why (coverage gate is scoped to the usecase layer
-# and measured from the integration run, not unit tests).
-coveragePathIgnorePatterns = ["^(?!.*/src/usecase/).*$"]
-coverageThreshold = { line = 0.75, function = 0.75 }
+coverage = true
+coverageReporter = ["text"]
+# Bun matches these as globs against workspace-root-relative paths, and the
+# leading **/ is required for them to match (a bare "tests/**" matches
+# nothing). A regex like `^(?!…)` also silently matches nothing.
+coveragePathIgnorePatterns = ["**/tests/**", "**/scripts/**"]

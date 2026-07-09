@@ -1,0 +1,24 @@
+# Integration-coverage config — loaded via `bun --config=bunfig.integration.toml`
+# by the test:integration:coverage script (plain `bun test` uses ./bunfig.toml).
+# Only src/usecase/** counts toward the threshold — the coverage gate is scoped
+# to the usecase layer and measured from the integration run, not unit tests
+# (see .claude/plan1.md §5).
+[test]
+coverage = true
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage/integration"
+# Globs against workspace-root-relative paths; the leading **/ is required.
+# Everything outside src/usecase is excluded entry by entry because Bun has
+# no include-only option (and a negative-lookahead regex silently matches
+# nothing — these are globs, not regexes).
+coveragePathIgnorePatterns = [
+  "**/tests/**",
+  "**/scripts/**",
+  "**/src/main.ts",
+  "**/src/domain/**",
+  "**/src/infrastructure/**",
+  "**/src/interface/**",
+]
+# No coverageThreshold here: Bun 1.3.10 never fails the run on it (verified).
+# The >= 75% gate is enforced by scripts/check-usecase-coverage.ts, chained in
+# the test:integration:coverage script.

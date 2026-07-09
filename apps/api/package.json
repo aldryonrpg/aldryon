@@ -9,7 +9,7 @@
     "test": "bun test",
     "test:unit": "bun test tests/unit",
     "test:integration": "bun test tests/integration",
-    "test:integration:coverage": "bun test tests/integration --coverage --coverage-dir coverage/integration"
+    "test:integration:coverage": "bun --config=bunfig.integration.toml test tests/integration && bun run scripts/check-usecase-coverage.ts"
   },
   "dependencies": {
     "@aldryon/dtos": "workspace:*",

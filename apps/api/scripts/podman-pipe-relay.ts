@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import { RELAY_PORT_FILE } from "./relayPortFile";
 
 /**
  * Windows + Podman local dev only. Bun's node:http client can't make HTTP
@@ -9,15 +11,14 @@ import net from "node:net";
  * pipe directly on Windows. This relays it over plain TCP instead, which
  * Bun's HTTP client handles fine.
  *
- * Run this once in its own terminal, then in another terminal:
- *   DOCKER_HOST=tcp://127.0.0.1:<printed-port> bun run test:api:integration:coverage
- *
- * An earlier version of this spawned the relay automatically as a per-run
- * child process, but that hit an unresolved CPU-spin bug under load
- * (possibly retry contention between testcontainers and a freshly-spawned
- * relay) — a single long-lived relay you start yourself is simpler and
- * proven to work. Not needed on Linux/macOS/CI (real Docker daemons expose a
- * proper Unix socket, which Bun handles fine).
+ * Normally you never run this by hand: the integration test setup
+ * (tests/integration/support/postgresEnvironment.ts) auto-starts it detached
+ * when no live relay is advertised, and it keeps serving later runs. An old
+ * per-run auto-spawn attempt hit a CPU-spin under load, but that was almost
+ * certainly the Wait.forListeningPorts() exec hang (since fixed by waiting
+ * on the health check instead), and a single long-lived relay avoids the
+ * per-run churn anyway. Not needed on Linux/macOS/CI (real Docker daemons
+ * expose a proper Unix socket, which Bun handles fine).
  */
 
 const pipePath = resolvePodmanPipe();
@@ -39,9 +40,24 @@ const server = net.createServer((client) => {
 server.listen(0, "127.0.0.1", () => {
   const address = server.address();
   const port = address && typeof address === "object" ? address.port : undefined;
-  console.log(`Relaying ${pipePath} -> tcp://127.0.0.1:${port}`);
-  console.log(`Set DOCKER_HOST=tcp://127.0.0.1:${port} in the terminal running the tests.`);
+  const dockerHost = `tcp://127.0.0.1:${port}`;
+  // Advertise the URI so test runs (and the pre-commit hook, which can't
+  // easily be handed an env var) discover the relay automatically — see
+  // resolveDockerHost() in tests/integration/support/postgresEnvironment.ts.
+  writeFileSync(RELAY_PORT_FILE, dockerHost);
+  console.log(`Relaying ${pipePath} -> ${dockerHost}`);
+  console.log(`Advertised at ${RELAY_PORT_FILE}; tests pick it up automatically.`);
+  console.log(`(Or set DOCKER_HOST=${dockerHost} manually.)`);
 });
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    try {
+      unlinkSync(RELAY_PORT_FILE);
+    } catch {}
+    process.exit(0);
+  });
+}
 
 function resolvePodmanPipe(): string | undefined {
   try {
