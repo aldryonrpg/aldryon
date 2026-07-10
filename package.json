@@ -15,6 +15,10 @@
     "test:api:integration:coverage": "bun run --filter=@aldryon/api test:integration:coverage",
     "dev:web": "bun run --filter=@aldryon/web dev",
     "dev:api": "bun run --filter=@aldryon/api dev",
+    "db:up": "podman compose up -d db",
+    "db:down": "podman compose down",
+    "db:reset": "podman compose down -v && podman compose up -d db",
+    "db:logs": "podman compose logs -f db",
     "prepare": "husky"
   },
   "devDependencies": {

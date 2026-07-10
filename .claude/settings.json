@@ -1,5 +1,25 @@
 {
   "permissions": {
-    "allow": ["Edit(.claude/**)", "Write(.claude/**)"]
+    "allow": [
+      "Read(.claude/**)",
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Read(**/*.md)",
+      "Edit(**/*.md)",
+      "Write(**/*.md)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/ask-on-delete.ts\""
+          }
+        ]
+      }
+    ]
   }
 }

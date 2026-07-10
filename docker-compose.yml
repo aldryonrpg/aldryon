@@ -1,0 +1,36 @@
+# Local development stack. Primary purpose: a real Postgres for the back-end
+# to talk to (apps/api connects directly via DATABASE_URL — see plan1 §4),
+# so you can play/test without a Supabase project for data.
+#
+#   docker compose up -d db      # just Postgres (podman compose also works)
+#   bun run dev:api              # point DATABASE_URL at it (see below)
+#
+# The migrations folder is mounted into /docker-entrypoint-initdb.d, so every
+# numbered *.sql migration is applied, in order, the first time the data
+# volume is created. To re-run them from scratch after adding migrations:
+#   docker compose down -v && docker compose up -d db
+#
+# Local DATABASE_URL for apps/api (put in apps/api/.env, which is gitignored):
+#   DATABASE_URL=postgres://aldryon:aldryon@localhost:5432/aldryon
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aldryon
+      POSTGRES_PASSWORD: aldryon
+      POSTGRES_DB: aldryon
+    ports:
+      - "5432:5432"
+    volumes:
+      - aldryon-db-data:/var/lib/postgresql/data
+      # Numbered migrations run alphabetically on first init: 0001_, 0002_, …
+      # then seeds numbered 9000+ so they land after every schema migration.
+      - ./apps/api/src/infrastructure/persistence/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aldryon -d aldryon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aldryon-db-data:

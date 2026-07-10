@@ -3,7 +3,7 @@
 Aldryon is a text-based RPG. This repo is a **monorepo** with two deployable apps.
 These rules are **non-negotiable** and apply to every instance/session working here.
 
-See [`.claude/plan1.md`](.claude/plan1.md) for the full bootstrap plan.
+See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
 
 ## Agent working rules
 

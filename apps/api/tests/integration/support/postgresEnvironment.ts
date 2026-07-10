@@ -17,7 +17,7 @@ export interface PostgresEnvironment {
 }
 
 /**
- * apps/api talks to Postgres directly (see .claude/plan1.md §4 — it's a
+ * apps/api talks to Postgres directly (see plans/plan1.md §4 — it's a
  * trusted backend, so it skips PostgREST/RLS entirely), so integration tests
  * only need a real Postgres container, not a full Supabase-alike stack.
  *

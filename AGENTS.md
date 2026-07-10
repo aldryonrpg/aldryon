@@ -2,7 +2,7 @@
 
 The authoritative project rules live in **[`CLAUDE.md`](CLAUDE.md)**. Read and
 follow that file. The full bootstrap plan is in
-[`.claude/plan1.md`](.claude/plan1.md).
+[`plans/plan1.md`](plans/plan1.md).
 
 Summary of the non-negotiable rules (see `CLAUDE.md` for detail):
 
