@@ -1,45 +1,21 @@
-# Local development stack — three services, mirroring exactly how Render
-# deploys: apps/api and apps/web each run from their own Dockerfile
-# (render.yaml uses `runtime: docker` for both), plus an optional local
-# Postgres for the back-end to talk to instead of Supabase (apps/api
-# connects directly via DATABASE_URL — see plan1 §4).
+# Local development stack — mirrors exactly how Render deploys: apps/api and
+# apps/web each run from their own Dockerfile (render.yaml uses
+# `runtime: docker` for both). No local Postgres here on purpose — the app
+# always talks to the real Supabase project (DATABASE_URL in apps/api/.env
+# points at Supabase directly; see plans/plan1.md §4). Integration tests use
+# a separate, ephemeral testcontainers Postgres instead — unrelated to this
+# file, see apps/api/tests/integration/support/postgresEnvironment.ts.
 #
-#   bun run docker:up      # build + start api & web (matches Render)
-#   bun run docker:up:all  # same, plus the local db
-#   bun run db:up          # just Postgres, on its own (unchanged)
+#   bun run docker:up   # build + start api & web
 #
 # api and web read their env vars from apps/api/.env and apps/web/.env.local
 # respectively (both gitignored) — see the "Running locally" section of
 # README.md for what each needs. NEXT_PUBLIC_* vars are baked into the web
 # image at BUILD time (Next.js inlines them client-side), so they're passed
 # as build args below via docker-compose's ${VAR} substitution — that's why
-# `docker:up`/`docker:up:all` pass --env-file apps/web/.env.local (see the
-# root package.json scripts), not because api or db need it.
-#
-# The migrations folder is mounted into db's /docker-entrypoint-initdb.d, so
-# every numbered *.sql migration is applied, in order, the first time the
-# data volume is created. To re-run them from scratch after adding
-# migrations: `podman compose down -v && bun run db:up`.
+# `docker:up` passes --env-file apps/web/.env.local (see the root
+# package.json script), not because api needs it.
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: aldryon
-      POSTGRES_PASSWORD: aldryon
-      POSTGRES_DB: aldryon
-    ports:
-      - "5432:5432"
-    volumes:
-      - aldryon-db-data:/var/lib/postgresql/data
-      # Numbered migrations run alphabetically on first init: 0001_, 0002_, …
-      # then seeds numbered 9000+ so they land after every schema migration.
-      - ./apps/api/src/infrastructure/persistence/migrations:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aldryon -d aldryon"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: .
@@ -70,6 +46,3 @@ services:
     depends_on:
       api:
         condition: service_healthy
-
-volumes:
-  aldryon-db-data:

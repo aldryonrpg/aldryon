@@ -1,7 +1,9 @@
+-- Mirrors apps/api/src/infrastructure/persistence/migrations/0001_create_users.sql
+-- (the canonical source, applied automatically to the docker-compose and
+-- testcontainers Postgres instances). This copy is what the Supabase CLI
+-- pushes to the real Supabase project via `bun run db:push:supabase` — see
+-- apps/api's migrations folder for the authoring source and comments.
 create table if not exists users (
-  -- Generated in application code as UUIDv7 (Bun.randomUUIDv7()), not here —
-  -- Postgres 16 has no native uuidv7() default, and id generation belongs to
-  -- the domain layer per Clean Architecture. Still a plain `uuid` column.
   id uuid primary key,
   external_auth_id text not null unique,
   email text not null,

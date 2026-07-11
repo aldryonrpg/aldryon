@@ -41,45 +41,27 @@ attributes. The core risk: **if you die, you lose 1% of your XP.**
 
 ## Running locally
 
-You need **[Bun](https://bun.sh/)** and a **Docker or Podman** runtime.
+You need **[Bun](https://bun.sh/)**. There is **no local Postgres** — the app
+always talks to a real **Supabase** project for data, both locally and in
+production (Docker/Podman is only needed for the container path below and
+for integration tests, not for a database).
 
 ```bash
 bun install
-bun run db:up      # start local Postgres via docker-compose (see below)
 bun run dev:api    # back-end on http://localhost:3001
 bun run dev:web    # front-end on http://localhost:3000
 ```
-
-### Local database (docker-compose)
-
-The repo-root **`docker-compose.yml`** runs `postgres:16-alpine` and mounts
-`apps/api/src/infrastructure/persistence/migrations/` into the container's
-init directory, so **every numbered `*.sql` migration is applied in order on
-first boot** — a fresh DB comes up already migrated.
-
-The `db:*` scripts use **`podman compose`** (Podman is the assumed local
-runtime). On **Docker Desktop**, run the same `docker compose …` commands
-directly, or edit the scripts. With **Podman**, start the machine first:
-`podman machine start`.
-
-| Script            | What it does                                             |
-| ----------------- | ------------------------------------------------------- |
-| `bun run db:up`   | Start Postgres in the background                         |
-| `bun run db:down` | Stop it (keeps the data volume)                         |
-| `bun run db:reset`| Wipe the volume **and re-apply all migrations** — run this after adding a migration |
-| `bun run db:logs` | Tail Postgres logs                                      |
-
-The API talks to Postgres **directly** (it's a trusted service — see
-[CLAUDE.md](CLAUDE.md)); auth still verifies Google tokens against a real
-**Supabase** project, so Supabase keys are required even locally.
 
 ### Environment variables
 
 Create **`apps/api/.env`** (gitignored):
 
 ```bash
-# Direct Postgres connection — points at the docker-compose database.
-DATABASE_URL=postgres://aldryon:aldryon@localhost:5432/aldryon
+# Direct Postgres connection — your Supabase project's connection string
+# (Project Settings > Database > Connection string). Use the Session
+# pooler string if the direct db.<ref>.supabase.co host isn't reachable
+# (it's IPv6-only on many networks).
+DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
 # Supabase Auth (GoTrue) — used only to verify Google login tokens.
 SUPABASE_URL=https://<your-project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
@@ -94,6 +76,38 @@ NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 ```
 
+### Running via Docker (matches Render)
+
+`bun run docker:up` builds and starts **both** apps from the same
+Dockerfiles Render deploys (`apps/api/Dockerfile`, `apps/web/Dockerfile`) via
+the repo-root `docker-compose.yml` — api on `:3001`, web on `:3000`. Both
+read their env vars from the files above (`api` via `env_file`; `web`'s
+`NEXT_PUBLIC_*` are baked in at **build time**, since Next.js inlines them
+client-side — that's why the script passes
+`--env-file apps/web/.env.local`).
+
+| Script              | What it does                          |
+| ------------------- | -------------------------------------- |
+| `bun run docker:up`   | Build + start both containers          |
+| `bun run docker:down` | Stop them                              |
+| `bun run docker:logs` | Tail both containers' logs             |
+
+Uses **`podman compose`** (Podman is the assumed local runtime — start the
+machine first: `podman machine start`). On **Docker Desktop**, run the same
+`docker compose …` commands directly, or edit the scripts.
+
+### Migrations
+
+**`supabase/migrations/*.sql`** is the one canonical migrations folder —
+see the `push-supabase-migrations` Claude Code skill (or
+`scripts/push-supabase-migrations.ts` directly) for adding and pushing a new
+one to the real Supabase project:
+
+```bash
+bun run db:push:supabase:dry-run   # preview what would push
+bun run db:push:supabase           # actually push
+```
+
 ### Tests
 
 ```bash
@@ -102,11 +116,12 @@ bun run test:api:unit               # unit only
 bun run test:api:integration:coverage   # integration + usecase coverage gate
 ```
 
-Integration tests spin up their **own** throwaway Postgres via
-testcontainers — they do **not** use the docker-compose database, so the two
-never interfere.
+Integration tests spin up their **own ephemeral Postgres via
+testcontainers** — a throwaway container, unrelated to Supabase and to the
+`docker:up` app containers above; it exists only for the duration of the
+test run and reads its schema straight from `supabase/migrations/`.
 
-> **Windows + Podman:** the compose provider connects to the Podman machine's
-> Docker-API named pipe. If a stale `DOCKER_HOST` is exported (e.g. a dead
+> **Windows + Podman:** compose connects to the Podman machine's Docker-API
+> named pipe. If a stale `DOCKER_HOST` is exported (e.g. a dead
 > testcontainers relay port), compose can't connect — run
 > `unset DOCKER_HOST`, or set it to `npipe:////./pipe/docker_engine`.

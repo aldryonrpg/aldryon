@@ -1,15 +1,20 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { SQL } from "bun";
 import { Wait } from "testcontainers";
 import { RELAY_PORT_FILE } from "../../../scripts/relayPortFile";
 
-const MIGRATION_PATH = join(
-  import.meta.dir,
-  "../../../src/infrastructure/persistence/migrations/0001_create_users.sql",
-);
+// supabase/migrations/ is the ONE canonical migrations source (also what the
+// Supabase CLI pushes to the real project — see
+// .claude/skills/push-supabase-migrations). No mirrored/duplicate copy lives
+// under apps/api; every consumer (this test harness, and Supabase itself)
+// reads straight from here. Filenames are Supabase's required
+// `<timestamp>_description.sql` format, which happens to sort correctly in
+// plain lexical order — same reason `docker-entrypoint-initdb.d`-style
+// runners work without any special-casing.
+const MIGRATIONS_DIR = join(import.meta.dir, "../../../../../supabase/migrations");
 
 export interface PostgresEnvironment {
   connectionUri: string;
@@ -50,7 +55,12 @@ export async function startPostgresEnvironment(): Promise<PostgresEnvironment> {
 
   const sql = new SQL(connectionUri);
   try {
-    await sql.unsafe(readFileSync(MIGRATION_PATH, "utf-8"));
+    const migrationFiles = readdirSync(MIGRATIONS_DIR)
+      .filter((name) => name.endsWith(".sql"))
+      .sort();
+    for (const file of migrationFiles) {
+      await sql.unsafe(readFileSync(join(MIGRATIONS_DIR, file), "utf-8"));
+    }
   } finally {
     await sql.close();
   }
