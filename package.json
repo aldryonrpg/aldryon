@@ -15,12 +15,18 @@
     "test:api:integration:coverage": "bun run --filter=@aldryon/api test:integration:coverage",
     "dev:web": "bun run --filter=@aldryon/web dev",
     "dev:api": "bun run --filter=@aldryon/api dev",
+    "db:push:supabase": "bun run scripts/push-supabase-migrations.ts",
+    "db:push:supabase:dry-run": "bun run scripts/push-supabase-migrations.ts -- --dry-run",
+    "docker:up": "podman compose --env-file apps/web/.env.local up -d --build",
+    "docker:down": "podman compose down",
+    "docker:logs": "podman compose logs -f",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.3",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.0.8"
+    "@biomejs/biome": "2.5.3",
+    "husky": "9.1.7",
+    "lint-staged": "17.0.8",
+    "supabase": "2.109.1"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [

@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 /**
  * Enforces the usecase/ >= 75% coverage gate on the integration run
- * (.claude/plan1.md §5). Bun 1.3.10's own `coverageThreshold` never fails
+ * (plans/plan1.md §5). Bun 1.3.10's own `coverageThreshold` never fails
  * the run (verified: an aggregate of 90% passes a 95% bar, in both the
  * 0-1 and percent scales), so the gate is checked here from the lcov file
  * that bunfig.integration.toml writes.

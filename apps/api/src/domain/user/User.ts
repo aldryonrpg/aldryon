@@ -8,7 +8,7 @@ export interface UserProps {
   isVip: boolean;
 }
 
-const USERNAME_PATTERN = /^[A-Za-z0-9]{1,40}$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9]{5,40}$/;
 
 /**
  * Aggregate root for an authenticated player. `externalAuthId` is the
@@ -24,7 +24,7 @@ export class User {
       throw new Error("User email must be a valid email address");
     }
     if (props.username !== null && !USERNAME_PATTERN.test(props.username)) {
-      throw new Error("Username must be 1-40 alphanumeric characters");
+      throw new Error("Username must be 5-40 alphanumeric characters");
     }
     return new User(props);
   }

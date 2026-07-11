@@ -24,3 +24,6 @@ coverage/
 # Editor/IDE
 .idea/
 .vscode/
+
+# Local-only planning docs (kept out of the repo on purpose)
+plans/
