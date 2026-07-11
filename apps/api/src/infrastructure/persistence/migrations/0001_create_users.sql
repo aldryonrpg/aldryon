@@ -11,5 +11,5 @@ create table if not exists users (
   is_vip boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint username_alphanumeric check (username is null or username ~ '^[A-Za-z0-9]{1,40}$')
+  constraint username_alphanumeric check (username is null or username ~ '^[A-Za-z0-9]{5,40}$')
 );

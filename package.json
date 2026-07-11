@@ -19,12 +19,19 @@
     "db:down": "podman compose down",
     "db:reset": "podman compose down -v && podman compose up -d db",
     "db:logs": "podman compose logs -f db",
+    "db:push:supabase": "bun run scripts/push-supabase-migrations.ts",
+    "db:push:supabase:dry-run": "bun run scripts/push-supabase-migrations.ts -- --dry-run",
+    "docker:up": "podman compose --env-file apps/web/.env.local up -d --build api web",
+    "docker:up:all": "podman compose --env-file apps/web/.env.local up -d --build",
+    "docker:down": "podman compose down",
+    "docker:logs": "podman compose logs -f",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.3",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.0.8"
+    "@biomejs/biome": "2.5.3",
+    "husky": "9.1.7",
+    "lint-staged": "17.0.8",
+    "supabase": "2.109.1"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [

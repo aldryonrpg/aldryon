@@ -54,8 +54,8 @@ See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
 
 - **`id` is a UUIDv7**, generated in the usecase layer via
   `Bun.randomUUIDv7()` — never a Postgres default.
-- **`username`** — nullable string, max 40 alphanumeric characters
-  (`^[A-Za-z0-9]{1,40}$`), enforced in both `User.create()` and a DB `CHECK`
+- **`username`** — nullable string, 5-40 alphanumeric characters
+  (`^[A-Za-z0-9]{5,40}$`), enforced in both `User.create()` and a DB `CHECK`
   constraint. Null until the player sets one (Google gives no username).
 - **`isVip`** — boolean, **mandatory, defaults to `false`**. Never nullable.
 - **`username` and `isVip` are player-owned profile state, not auth claims —

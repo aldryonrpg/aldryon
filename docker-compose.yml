@@ -1,17 +1,25 @@
-# Local development stack. Primary purpose: a real Postgres for the back-end
-# to talk to (apps/api connects directly via DATABASE_URL — see plan1 §4),
-# so you can play/test without a Supabase project for data.
+# Local development stack — three services, mirroring exactly how Render
+# deploys: apps/api and apps/web each run from their own Dockerfile
+# (render.yaml uses `runtime: docker` for both), plus an optional local
+# Postgres for the back-end to talk to instead of Supabase (apps/api
+# connects directly via DATABASE_URL — see plan1 §4).
 #
-#   docker compose up -d db      # just Postgres (podman compose also works)
-#   bun run dev:api              # point DATABASE_URL at it (see below)
+#   bun run docker:up      # build + start api & web (matches Render)
+#   bun run docker:up:all  # same, plus the local db
+#   bun run db:up          # just Postgres, on its own (unchanged)
 #
-# The migrations folder is mounted into /docker-entrypoint-initdb.d, so every
-# numbered *.sql migration is applied, in order, the first time the data
-# volume is created. To re-run them from scratch after adding migrations:
-#   docker compose down -v && docker compose up -d db
+# api and web read their env vars from apps/api/.env and apps/web/.env.local
+# respectively (both gitignored) — see the "Running locally" section of
+# README.md for what each needs. NEXT_PUBLIC_* vars are baked into the web
+# image at BUILD time (Next.js inlines them client-side), so they're passed
+# as build args below via docker-compose's ${VAR} substitution — that's why
+# `docker:up`/`docker:up:all` pass --env-file apps/web/.env.local (see the
+# root package.json scripts), not because api or db need it.
 #
-# Local DATABASE_URL for apps/api (put in apps/api/.env, which is gitignored):
-#   DATABASE_URL=postgres://aldryon:aldryon@localhost:5432/aldryon
+# The migrations folder is mounted into db's /docker-entrypoint-initdb.d, so
+# every numbered *.sql migration is applied, in order, the first time the
+# data volume is created. To re-run them from scratch after adding
+# migrations: `podman compose down -v && bun run db:up`.
 services:
   db:
     image: postgres:16-alpine
@@ -31,6 +39,37 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - apps/api/.env
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # Build-time only — Next.js inlines these into the client bundle, so
+      # NEXT_PUBLIC_API_URL must be the browser-facing URL (localhost),
+      # never an internal compose hostname the browser can't resolve.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   aldryon-db-data:
