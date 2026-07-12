@@ -4,17 +4,14 @@ export interface UserProps {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
-  username: string | null;
   isVip: boolean;
 }
 
-const USERNAME_PATTERN = /^[A-Za-z0-9]{5,40}$/;
-
 /**
- * Aggregate root for an authenticated player. `externalAuthId` is the
- * Supabase auth user id — the domain never sees raw Google/Supabase tokens.
- * `username` is chosen by the player after signup (Google gives us no
- * username), so it starts out null on first login.
+ * Aggregate root for an authenticated identity — auth/profile only.
+ * `externalAuthId` is the Supabase auth user id — the domain never sees raw
+ * Google/Supabase tokens. Gameplay state (the on-screen player name,
+ * attributes, etc.) lives on the separate `Player` aggregate, never here.
  */
 export class User {
   private constructor(private readonly props: UserProps) {}
@@ -22,9 +19,6 @@ export class User {
   static create(props: UserProps): User {
     if (!props.email.includes("@")) {
       throw new Error("User email must be a valid email address");
-    }
-    if (props.username !== null && !USERNAME_PATTERN.test(props.username)) {
-      throw new Error("Username must be 5-40 alphanumeric characters");
     }
     return new User(props);
   }
@@ -47,10 +41,6 @@ export class User {
 
   get avatarUrl(): string | null {
     return this.props.avatarUrl;
-  }
-
-  get username(): string | null {
-    return this.props.username;
   }
 
   get isVip(): boolean {

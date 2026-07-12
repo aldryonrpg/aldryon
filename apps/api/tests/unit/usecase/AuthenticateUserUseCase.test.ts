@@ -44,7 +44,6 @@ describe("AuthenticateUserUseCase", () => {
 
     expect(user.externalAuthId).toBe("ext-1");
     expect(user.email).toBe("player@example.com");
-    expect(user.username).toBeNull();
     expect(user.isVip).toBe(false);
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -57,7 +56,6 @@ describe("AuthenticateUserUseCase", () => {
       email: "old@example.com",
       displayName: null,
       avatarUrl: null,
-      username: null,
       isVip: false,
     });
     await repo.upsert(existing);
@@ -76,7 +74,7 @@ describe("AuthenticateUserUseCase", () => {
     expect(user.email).toBe("new@example.com");
   });
 
-  it("preserves username and isVip across repeat logins instead of resetting them", async () => {
+  it("preserves isVip across repeat logins instead of resetting it", async () => {
     const repo = new InMemoryUserRepository();
     const existing = User.create({
       id: "existing-id",
@@ -84,7 +82,6 @@ describe("AuthenticateUserUseCase", () => {
       email: "vip@example.com",
       displayName: null,
       avatarUrl: null,
-      username: "DragonSlayer99",
       isVip: true,
     });
     await repo.upsert(existing);
@@ -99,7 +96,6 @@ describe("AuthenticateUserUseCase", () => {
 
     const { user } = await useCase.execute({ supabaseAccessToken: "any" });
 
-    expect(user.username).toBe("DragonSlayer99");
     expect(user.isVip).toBe(true);
   });
 

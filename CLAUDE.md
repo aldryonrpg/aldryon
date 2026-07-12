@@ -3,8 +3,6 @@
 Aldryon is a text-based RPG. This repo is a **monorepo** with two deployable apps.
 These rules are **non-negotiable** and apply to every instance/session working here.
 
-See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
-
 ## Agent working rules
 
 - **NEVER commit or push anything.** Do not run `git commit`, `git push`, or any
@@ -54,13 +52,16 @@ See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
 
 - **`id` is a UUIDv7**, generated in the usecase layer via
   `Bun.randomUUIDv7()` — never a Postgres default.
-- **`username`** — nullable string, 5-40 alphanumeric characters
-  (`^[A-Za-z0-9]{5,40}$`), enforced in both `User.create()` and a DB `CHECK`
-  constraint. Null until the player sets one (Google gives no username).
 - **`isVip`** — boolean, **mandatory, defaults to `false`**. Never nullable.
-- **`username` and `isVip` are player-owned profile state, not auth claims —
-  preserve them across logins.** Only `email`/`displayName`/`avatarUrl`
-  re-sync from the identity provider on each login.
+- **`isVip` is player-owned profile state, not an auth claim — preserve it
+  across logins.** Only `email`/`displayName`/`avatarUrl` re-sync from the
+  identity provider on each login.
+- `users` is auth/profile only. The on-screen name lives on `players` as
+  `player_name` — never on `users` — so gameplay concerns
+  never mix into the auth table. Same constraint as the old `username` did:
+  nullable, 5-40 alphanumeric characters (`^[A-Za-z0-9]{5,40}$`), enforced in
+  both `Player.create()` and a DB `CHECK` constraint, null until the player
+  sets one.
 
 ## Tooling
 
