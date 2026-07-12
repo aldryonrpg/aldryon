@@ -3,8 +3,9 @@ import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
-import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
+import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import {
   createTestMonster,
   createTestMonsterAttack,
@@ -14,17 +15,15 @@ import {
 } from "../support/testFixtures";
 
 describe("StartBattleUseCase (integration)", () => {
-  let env: PostgresEnvironment;
   let sql: SQL;
 
   beforeAll(async () => {
-    env = await startPostgresEnvironment();
+    const env = await getSharedPostgresEnvironment();
     sql = new SQL(env.connectionUri);
   }, 120_000);
 
   afterAll(async () => {
     await sql.close();
-    await env.stop();
   });
 
   it("finds a monster and creates a battle row (happy path)", async () => {
@@ -56,7 +55,8 @@ describe("StartBattleUseCase (integration)", () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId);
 
-    const uc = buildUseCases(sql, new FakeRng([10])); // <=20 -> empty
+    // roll1=10 (<=20 -> empty), roll2=0 (pick the flavor message)
+    const uc = buildUseCases(sql, new FakeRng([10, 0]));
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
@@ -95,9 +95,10 @@ describe("StartBattleUseCase (integration)", () => {
       }),
     );
 
-    await expect(
+    await expectRejection(
       uc.startBattleUseCase.execute({ playerId, isVip: false, region: "ruins" }),
-    ).rejects.toBeInstanceOf(BattleAlreadyInProgressError);
+      BattleAlreadyInProgressError,
+    );
   });
 
   it("rejects starting a battle within the run cooldown window (429)", async () => {
@@ -106,9 +107,10 @@ describe("StartBattleUseCase (integration)", () => {
 
     const uc = buildUseCases(sql, new FakeRng([1]));
 
-    await expect(
+    await expectRejection(
       uc.startBattleUseCase.execute({ playerId, isVip: false, region: "sewage" }),
-    ).rejects.toBeInstanceOf(RunCooldownError);
+      RunCooldownError,
+    );
   });
 
   it("uses the shorter 15s cooldown for VIP players", async () => {

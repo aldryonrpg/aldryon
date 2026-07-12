@@ -5,8 +5,9 @@ import { maxHp } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { AttackNotUsableError, UnknownAttackError } from "@/usecase/battle/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
-import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
+import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import {
   createTestItem,
   createTestMonster,
@@ -18,17 +19,15 @@ import {
 } from "../support/testFixtures";
 
 describe("AttackUseCase (integration)", () => {
-  let env: PostgresEnvironment;
   let sql: SQL;
 
   beforeAll(async () => {
-    env = await startPostgresEnvironment();
+    const env = await getSharedPostgresEnvironment();
     sql = new SQL(env.connectionUri);
   }, 120_000);
 
   afterAll(async () => {
     await sql.close();
-    await env.stop();
   });
 
   async function setupBasicBattle(overrides: {
@@ -112,9 +111,10 @@ describe("AttackUseCase (integration)", () => {
     const uc = buildUseCases(sql, new FakeRng([1]));
     await uc.battleRepository.create(battle);
 
-    await expect(
+    await expectRejection(
       uc.attackUseCase.execute({ playerId, attackName: "NOT_REAL" }),
-    ).rejects.toBeInstanceOf(UnknownAttackError);
+      UnknownAttackError,
+    );
   });
 
   it("rejects an attack the player can't afford (insufficient stamina)", async () => {
@@ -125,9 +125,10 @@ describe("AttackUseCase (integration)", () => {
     const uc = buildUseCases(sql, new FakeRng([1]));
     await uc.battleRepository.create(battle);
 
-    await expect(
+    await expectRejection(
       uc.attackUseCase.execute({ playerId, attackName: costlyAttackName }),
-    ).rejects.toBeInstanceOf(AttackNotUsableError);
+      AttackNotUsableError,
+    );
   });
 
   it("kill flow: awards XP, rolls drops into pending_loot, deletes the battle row", async () => {

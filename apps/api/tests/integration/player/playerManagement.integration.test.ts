@@ -2,8 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { InsufficientAttributePointsError, ItemNotEquippableError } from "@/usecase/player/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
-import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
+import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import {
   createTestItem,
   createTestPlayer,
@@ -12,17 +13,15 @@ import {
 } from "../support/testFixtures";
 
 describe("Player management use cases (integration)", () => {
-  let env: PostgresEnvironment;
   let sql: SQL;
 
   beforeAll(async () => {
-    env = await startPostgresEnvironment();
+    const env = await getSharedPostgresEnvironment();
     sql = new SQL(env.connectionUri);
   }, 120_000);
 
   afterAll(async () => {
     await sql.close();
-    await env.stop();
   });
 
   describe("GetOrCreatePlayerUseCase", () => {
@@ -60,9 +59,10 @@ describe("Player management use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       const uc = buildUseCases(sql, new FakeRng([1]));
 
-      await expect(
+      await expectRejection(
         uc.updatePlayerNameUseCase.execute({ playerId, playerName: "no" }),
-      ).rejects.toThrow();
+        Error,
+      );
     });
   });
 
@@ -87,9 +87,10 @@ describe("Player management use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId, { attributePoints: 2 });
       const uc = buildUseCases(sql, new FakeRng([1]));
 
-      await expect(
+      await expectRejection(
         uc.allocateAttributePointsUseCase.execute({ playerId, allocations: { force: 3 } }),
-      ).rejects.toBeInstanceOf(InsufficientAttributePointsError);
+        InsufficientAttributePointsError,
+      );
     });
   });
 
@@ -120,9 +121,10 @@ describe("Player management use cases (integration)", () => {
       });
       const greatswordPlayerItemId = await createTestPlayerItem(sql, playerId, greatswordId);
 
-      await expect(
+      await expectRejection(
         uc.equipItemUseCase.execute({ playerId, playerItemId: greatswordPlayerItemId }),
-      ).rejects.toBeInstanceOf(ItemNotEquippableError);
+        ItemNotEquippableError,
+      );
     });
 
     it("equipping a two-handed weapon occupies weapon_1 and blocks weapon_2", async () => {
@@ -144,9 +146,10 @@ describe("Player management use cases (integration)", () => {
       const daggerId = await createTestItem(sql, { name: "Off-hand Dagger", slot: "weapon" });
       const daggerPlayerItemId = await createTestPlayerItem(sql, playerId, daggerId);
 
-      await expect(
+      await expectRejection(
         uc.equipItemUseCase.execute({ playerId, playerItemId: daggerPlayerItemId }),
-      ).rejects.toBeInstanceOf(ItemNotEquippableError);
+        ItemNotEquippableError,
+      );
     });
 
     it("unequips an item back to the bag", async () => {

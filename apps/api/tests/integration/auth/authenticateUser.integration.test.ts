@@ -1,26 +1,22 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUserRepository";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
+import { expectRejection } from "../support/expectRejection";
 import { FakeAuthGateway } from "../support/fakeAuthGateway";
-import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
+import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 
 describe("AuthenticateUserUseCase (integration)", () => {
-  let env: PostgresEnvironment;
   let authGateway: FakeAuthGateway;
   let useCase: AuthenticateUserUseCase;
 
   beforeAll(async () => {
-    env = await startPostgresEnvironment();
+    const env = await getSharedPostgresEnvironment();
     const sql = new SQL(env.connectionUri);
     authGateway = new FakeAuthGateway();
     useCase = new AuthenticateUserUseCase(authGateway, new PostgresUserRepository(sql));
   }, 120_000);
-
-  afterAll(async () => {
-    await env.stop();
-  });
 
   it("creates a new user on first login (happy path)", async () => {
     authGateway.register("token-new-player", {
@@ -61,8 +57,9 @@ describe("AuthenticateUserUseCase (integration)", () => {
   });
 
   it("rejects an unverifiable access token (edge case)", async () => {
-    await expect(
+    await expectRejection(
       useCase.execute({ supabaseAccessToken: "not-a-real-token" }),
-    ).rejects.toBeInstanceOf(InvalidAccessTokenError);
+      InvalidAccessTokenError,
+    );
   });
 });

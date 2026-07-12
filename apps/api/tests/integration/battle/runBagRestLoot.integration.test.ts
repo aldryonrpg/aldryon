@@ -9,8 +9,9 @@ import {
   NoPendingLootError,
 } from "@/usecase/battle/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
-import { type PostgresEnvironment, startPostgresEnvironment } from "../support/postgresEnvironment";
+import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import {
   createTestItem,
   createTestMonster,
@@ -22,17 +23,15 @@ import {
 } from "../support/testFixtures";
 
 describe("Run / Bag / Rest / Loot use cases (integration)", () => {
-  let env: PostgresEnvironment;
   let sql: SQL;
 
   beforeAll(async () => {
-    env = await startPostgresEnvironment();
+    const env = await getSharedPostgresEnvironment();
     sql = new SQL(env.connectionUri);
   }, 120_000);
 
   afterAll(async () => {
     await sql.close();
-    await env.stop();
   });
 
   async function setupBattle(overrides: {
@@ -40,6 +39,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     monsterAgility?: number;
     playerHp?: number;
     playerForce?: number;
+    monsterForce?: number;
   }) {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
@@ -48,7 +48,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     });
     const monsterId = await createTestMonster(sql, {
       agility: overrides.monsterAgility ?? 1,
-      force: 1,
+      force: overrides.monsterForce ?? 1,
     });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
     await linkMonsterMoveset(sql, monsterId, attackId);
@@ -92,6 +92,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
+        monsterForce: 20,
         playerHp: 500,
       });
       const uc = buildUseCases(sql, new FakeRng([1]));
@@ -108,6 +109,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
+        monsterForce: 50,
         playerHp: 1,
         playerForce: 1,
       });
@@ -128,9 +130,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       const uc = buildUseCases(sql, new FakeRng([1]));
 
-      await expect(uc.runFromBattleUseCase.execute({ playerId })).rejects.toBeInstanceOf(
-        NoActiveBattleError,
-      );
+      await expectRejection(uc.runFromBattleUseCase.execute({ playerId }), NoActiveBattleError);
     });
   });
 
@@ -185,7 +185,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
       await uc.battleRepository.create(battle);
 
-      await expect(uc.useBagItemUseCase.execute({ playerId, playerItemId })).rejects.toBeInstanceOf(
+      await expectRejection(
+        uc.useBagItemUseCase.execute({ playerId, playerItemId }),
         InvalidBagItemError,
       );
     });
@@ -247,9 +248,10 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       const uc = buildUseCases(sql, new FakeRng([1]));
 
-      await expect(
+      await expectRejection(
         uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [] }),
-      ).rejects.toBeInstanceOf(NoPendingLootError);
+        NoPendingLootError,
+      );
     });
 
     it("throws when a pick isn't part of the current loot offer", async () => {
@@ -261,9 +263,10 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
 
       const uc = buildUseCases(sql, new FakeRng([1]));
 
-      await expect(
+      await expectRejection(
         uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [otherItemId] }),
-      ).rejects.toBeInstanceOf(InvalidLootPickError);
+        InvalidLootPickError,
+      );
     });
   });
 });

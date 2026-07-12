@@ -86,11 +86,31 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
    run only, scoped to `src/usecase/**`. Unit-test coverage does NOT count.
 
 - These gates run in **pre-commit** and are mirrored in **CI** (do not bypass
-  with `--no-verify`).
+  with `--no-verify`). Concretely, `.husky/pre-commit` runs `bun run
+  test:api:unit` **and** `bun run test:api:integration:coverage` (the latter
+  both runs the integration suite and enforces the ≥75% gate) whenever staged
+  files touch `apps/api/`.
 - Use **testcontainers** for integration tests — cover the **happy path** and
   key **edge cases**.
 - The **75% coverage requirement applies specifically to the `usecase/` folder**
   (Clean Architecture use cases) and is derived from the integration suite.
+- **Integration test files share ONE testcontainers Postgres** via
+  `tests/integration/support/sharedPostgresEnvironment.ts` (`
+  getSharedPostgresEnvironment()`) instead of each file starting its own —
+  don't revert individual files back to calling `startPostgresEnvironment()`
+  directly, that was the pre-fix pattern and is slower for no benefit.
+- **Known Bun 1.3.10 bug — never write
+  `await expect(promise).rejects.toBeInstanceOf(ErrorClass)`** when `promise`'s
+  chain includes a `Bun.SQL` query (i.e. almost every integration-test
+  rejection assertion). It hangs forever: confirmed via `pg_stat_activity`
+  that Postgres finishes the query and goes idle, but the JS promise never
+  settles — a Bun-internal bug, not a real deadlock. Use
+  `tests/integration/support/expectRejection.ts`'s `expectRejection(promise,
+  ErrorClass)` helper instead (plain try/catch under the hood). If a "the
+  integration suite hangs for a very long time" report comes up again, this
+  is the first thing to check — confirm the Podman machine is actually
+  running (`podman info`) first, then grep the diff for a reintroduced
+  `.rejects.toBeInstanceOf(`.
 
 ### Back-end CI (`.github/workflows/api-ci.yml`)
 
