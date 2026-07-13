@@ -15,10 +15,6 @@ export const UserProfileSchema = z.object({
   email: z.string().email(),
   displayName: z.string().nullable(),
   avatarUrl: z.string().url().nullable(),
-  username: z
-    .string()
-    .regex(/^[A-Za-z0-9]{1,40}$/)
-    .nullable(),
   isVip: z.boolean(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;

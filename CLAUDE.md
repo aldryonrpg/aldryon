@@ -3,8 +3,6 @@
 Aldryon is a text-based RPG. This repo is a **monorepo** with two deployable apps.
 These rules are **non-negotiable** and apply to every instance/session working here.
 
-See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
-
 ## Agent working rules
 
 - **NEVER commit or push anything.** Do not run `git commit`, `git push`, or any
@@ -54,13 +52,16 @@ See [`plans/plan1.md`](plans/plan1.md) for the full bootstrap plan.
 
 - **`id` is a UUIDv7**, generated in the usecase layer via
   `Bun.randomUUIDv7()` — never a Postgres default.
-- **`username`** — nullable string, 5-40 alphanumeric characters
-  (`^[A-Za-z0-9]{5,40}$`), enforced in both `User.create()` and a DB `CHECK`
-  constraint. Null until the player sets one (Google gives no username).
 - **`isVip`** — boolean, **mandatory, defaults to `false`**. Never nullable.
-- **`username` and `isVip` are player-owned profile state, not auth claims —
-  preserve them across logins.** Only `email`/`displayName`/`avatarUrl`
-  re-sync from the identity provider on each login.
+- **`isVip` is player-owned profile state, not an auth claim — preserve it
+  across logins.** Only `email`/`displayName`/`avatarUrl` re-sync from the
+  identity provider on each login.
+- `users` is auth/profile only. The on-screen name lives on `players` as
+  `player_name` — never on `users` — so gameplay concerns
+  never mix into the auth table. Same constraint as the old `username` did:
+  nullable, 5-40 alphanumeric characters (`^[A-Za-z0-9]{5,40}$`), enforced in
+  both `Player.create()` and a DB `CHECK` constraint, null until the player
+  sets one.
 
 ## Tooling
 
@@ -81,15 +82,38 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
 1. **Biome** passes (lint + format).
 2. **Unit tests** pass (`bun test`).
 3. **Integration tests** pass (using **testcontainers**).
-4. **`usecase/` folder coverage ≥ 75%** — measured from the **integration**
+4. **`usecase/` folder coverage ≥ 85%** — measured from the **integration**
    run only, scoped to `src/usecase/**`. Unit-test coverage does NOT count.
+   (Raised from 75% once the suite had enough integration tests in place to
+   hold a higher bar comfortably — see `apps/api/scripts/check-usecase-
+   coverage.ts`.)
 
 - These gates run in **pre-commit** and are mirrored in **CI** (do not bypass
-  with `--no-verify`).
+  with `--no-verify`). Concretely, `.husky/pre-commit` runs `bun run
+  test:api:unit` **and** `bun run test:api:integration:coverage` (the latter
+  both runs the integration suite and enforces the ≥85% gate) whenever staged
+  files touch `apps/api/`.
 - Use **testcontainers** for integration tests — cover the **happy path** and
   key **edge cases**.
-- The **75% coverage requirement applies specifically to the `usecase/` folder**
+- The **85% coverage requirement applies specifically to the `usecase/` folder**
   (Clean Architecture use cases) and is derived from the integration suite.
+- **Integration test files share ONE testcontainers Postgres** via
+  `tests/integration/support/sharedPostgresEnvironment.ts` (`
+  getSharedPostgresEnvironment()`) instead of each file starting its own —
+  don't revert individual files back to calling `startPostgresEnvironment()`
+  directly, that was the pre-fix pattern and is slower for no benefit.
+- **Known Bun 1.3.10 bug — never write
+  `await expect(promise).rejects.toBeInstanceOf(ErrorClass)`** when `promise`'s
+  chain includes a `Bun.SQL` query (i.e. almost every integration-test
+  rejection assertion). It hangs forever: confirmed via `pg_stat_activity`
+  that Postgres finishes the query and goes idle, but the JS promise never
+  settles — a Bun-internal bug, not a real deadlock. Use
+  `tests/integration/support/expectRejection.ts`'s `expectRejection(promise,
+  ErrorClass)` helper instead (plain try/catch under the hood). If a "the
+  integration suite hangs for a very long time" report comes up again, this
+  is the first thing to check — confirm the Podman machine is actually
+  running (`podman info`) first, then grep the diff for a reintroduced
+  `.rejects.toBeInstanceOf(`.
 
 ### Back-end CI (`.github/workflows/api-ci.yml`)
 
@@ -106,7 +130,7 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
 Every step in that job blocks the next on failure. **Integration tests are a
 separate, optional job** in the same workflow file — no `needs:` link to the
 pipeline job, `continue-on-error: true`, so it never blocks lint/vuln/unit/
-build/deploy. It still produces the `usecase/` ≥ 75% coverage report; that
+build/deploy. It still produces the `usecase/` ≥ 85% coverage report; that
 gate is hard-enforced in **pre-commit** (integration tests always run there —
 see above) but only advisory in CI, matching its optional status.
 

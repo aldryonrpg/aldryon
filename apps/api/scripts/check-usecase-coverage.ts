@@ -2,17 +2,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Enforces the usecase/ >= 75% coverage gate on the integration run
- * (plans/plan1.md §5). Bun 1.3.10's own `coverageThreshold` never fails
- * the run (verified: an aggregate of 90% passes a 95% bar, in both the
- * 0-1 and percent scales), so the gate is checked here from the lcov file
- * that bunfig.integration.toml writes.
+ * Enforces the usecase/ >= 85% coverage gate on the integration run
+ * (plans/plan1.md §5, raised from 75% once the codebase had enough
+ * integration tests in place to hold a higher bar comfortably). Bun
+ * 1.3.10's own `coverageThreshold` never fails the run (verified: an
+ * aggregate of 90% passes a 95% bar, in both the 0-1 and percent scales),
+ * so the gate is checked here from the lcov file that
+ * bunfig.integration.toml writes.
  *
  * Run via `bun run test:integration:coverage` (which chains this script),
  * from apps/api.
  */
 
-const THRESHOLD = 75;
+const THRESHOLD = 85;
 const LCOV_PATH = join(import.meta.dir, "../coverage/integration/lcov.info");
 
 let lcov: string;

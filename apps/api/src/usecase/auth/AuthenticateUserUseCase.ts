@@ -32,9 +32,8 @@ export class AuthenticateUserUseCase {
       email: identity.email,
       displayName: identity.displayName,
       avatarUrl: identity.avatarUrl,
-      // username/isVip are player-owned profile state, not auth claims —
-      // preserve them across logins instead of resetting on every sync.
-      username: existing?.username ?? null,
+      // isVip is player-owned profile state, not an auth claim — preserve
+      // it across logins instead of resetting on every sync.
       isVip: existing?.isVip ?? false,
     });
 

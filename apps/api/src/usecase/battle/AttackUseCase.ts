@@ -1,0 +1,245 @@
+import { buildBattleEffect, isStunned, tickEffects } from "@/domain/battle/BattleEffect";
+import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
+import { computeDamage } from "@/domain/battle/services/DamageCalculator";
+import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
+import { rollHit } from "@/domain/battle/services/HitCheck";
+import type { Rng } from "@/domain/shared/Rng";
+import type { AttackRepository } from "@/usecase/attack/AttackRepository";
+import type { BattleRepository } from "@/usecase/battle/BattleRepository";
+import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
+import {
+  AttackNotUsableError,
+  NoActiveBattleError,
+  UnknownAttackError,
+} from "@/usecase/battle/errors";
+import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
+import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
+import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
+import { settleTurn } from "@/usecase/battle/settleTurn";
+import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { LevelRepository } from "@/usecase/level/LevelRepository";
+import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
+import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
+import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
+import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
+
+export interface AttackInput {
+  playerId: string;
+  attackName: string;
+}
+
+/**
+ * A full battle turn (plan2 §5a): player's strike, monster's reply (via the
+ * shared `resolveMonsterTurn`, incl. the charge/unleash state machine),
+ * effect ticks, and kill/death settlement (via the shared `settleTurn`). If
+ * the player is stunned, the whole turn is delegated to
+ * `resolveStunnedTurn` instead — no attack is validated or resolved.
+ */
+export class AttackUseCase {
+  constructor(
+    private readonly playerRepository: PlayerRepository,
+    private readonly playerItemRepository: PlayerItemRepository,
+    private readonly itemRepository: ItemRepository,
+    private readonly battleRepository: BattleRepository,
+    private readonly monsterRepository: MonsterRepository,
+    private readonly monsterAttackRepository: MonsterAttackRepository,
+    private readonly attackRepository: AttackRepository,
+    private readonly levelRepository: LevelRepository,
+    private readonly rng: Rng,
+    private readonly levelUpAttributePoints: number,
+    private readonly stunCooldownRounds: number,
+  ) {}
+
+  async execute(input: AttackInput): Promise<TurnReportOutput> {
+    const battle = await this.battleRepository.findByPlayerId(input.playerId);
+    if (!battle) throw new NoActiveBattleError();
+
+    const player = await this.playerRepository.findById(input.playerId);
+    if (!player) throw new Error("Player not found");
+
+    const monster = await this.monsterRepository.findById(battle.monsterId);
+    if (!monster) throw new Error("Monster not found");
+
+    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+      this.attackRepository.findAll(),
+      this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        battle.playerEffects,
+      ),
+    ]);
+
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+
+    if (isStunned(battle.playerEffects)) {
+      return resolveStunnedTurn({
+        battle,
+        player,
+        monster,
+        moveset,
+        playerAttacks,
+        effectiveAttributes,
+        playerMaxHp,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        playerRepository: this.playerRepository,
+        battleRepository: this.battleRepository,
+        levelRepository: this.levelRepository,
+        levelUpAttributePoints: this.levelUpAttributePoints,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+    }
+
+    const attack = playerAttacks.find((a) => a.name === input.attackName);
+    if (!attack) throw new UnknownAttackError(input.attackName);
+    if (battle.playerCurrentStamina < attack.staminaCost) {
+      throw new AttackNotUsableError("Not enough stamina for this attack");
+    }
+    if (!attack.meetsRequirements(player.level, effectiveAttributes.toValues())) {
+      throw new AttackNotUsableError("Attack requirements not met");
+    }
+
+    const monsterAttributes = monster.getAttributes();
+    const messages: string[] = [];
+
+    let monsterCurrentHp = battle.monsterCurrentHp;
+    let playerCurrentStamina = battle.playerCurrentStamina - attack.staminaCost;
+    let monsterCurrentStamina = battle.monsterCurrentStamina;
+    let playerCurrentHp = battle.playerCurrentHp;
+    let playerEffects = battle.playerEffects;
+    let monsterEffects = battle.monsterEffects;
+    let monsterChargingAttackId = battle.monsterChargingAttackId;
+    let chargeRoundsLeft = battle.chargeRoundsLeft;
+    let monsterAttackWeights = battle.monsterAttackWeights;
+    let stunCooldownRoundsLeft = battle.stunCooldownRoundsLeft;
+
+    // Step 1-3: resolve the player's strike (plan2 §6).
+    const playerHit = rollHit(
+      {
+        attackerDexterity: effectiveAttributes.dexterity,
+        defenderDexterity: monsterAttributes.dexterity,
+        attackerLuck: effectiveAttributes.luck,
+      },
+      this.rng,
+    );
+
+    let playerDamage = 0;
+    let playerEffectApplied: string | null = null;
+
+    if (playerHit) {
+      const monsterStance = defaultMonsterAttack(moveset);
+      playerDamage = computeDamage({
+        attackMultiplier: attack.multiplier,
+        attackerScalingValue: effectiveAttributes.get(attack.scalingAttribute),
+        staminaCost: attack.staminaCost,
+        defenderLevel: monster.level,
+        defenderScalingValue: monsterAttributes.get(monsterStance.scalingAttribute),
+      });
+      monsterCurrentHp = Math.max(0, monsterCurrentHp - playerDamage);
+
+      if (attack.appliesEffect) {
+        const proced = rollEffectProc(
+          { attackerLuck: effectiveAttributes.luck, defenderLuck: monsterAttributes.luck },
+          this.rng,
+        );
+        if (proced) {
+          const counterItemId = await resolveCounterItemId(
+            attack.appliesEffect,
+            this.itemRepository,
+          );
+          monsterEffects = [
+            ...monsterEffects,
+            buildBattleEffect(attack.appliesEffect, {
+              inflictorLevel: player.level,
+              victimLevel: monster.level,
+              counterItemId,
+            }),
+          ];
+          playerEffectApplied = attack.appliesEffect;
+        }
+      }
+    }
+
+    // Step 4: the monster's reply, if it survived the player's strike.
+    let monsterAttackResult: TurnReportOutput["monsterAttack"] = null;
+    if (monsterCurrentHp > 0) {
+      const monsterTurn = await resolveMonsterTurn({
+        state: {
+          playerCurrentHp,
+          monsterCurrentStamina,
+          playerEffects,
+          monsterChargingAttackId,
+          chargeRoundsLeft,
+          monsterAttackWeights,
+          stunCooldownRoundsLeft,
+        },
+        monster,
+        moveset,
+        playerAttacks,
+        playerLevel: player.level,
+        effectiveAttributes,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+      playerCurrentHp = monsterTurn.playerCurrentHp;
+      monsterCurrentStamina = monsterTurn.monsterCurrentStamina;
+      playerEffects = monsterTurn.playerEffects;
+      monsterChargingAttackId = monsterTurn.monsterChargingAttackId;
+      chargeRoundsLeft = monsterTurn.chargeRoundsLeft;
+      monsterAttackWeights = monsterTurn.monsterAttackWeights;
+      stunCooldownRoundsLeft = monsterTurn.stunCooldownRoundsLeft;
+      monsterAttackResult = monsterTurn.monsterAttack;
+      messages.push(...monsterTurn.messages);
+    }
+
+    // Step 5: tick active effects (plan2 §6a) — DoT damage both sides, debuff/stun advance, round++.
+    const playerTick = tickEffects(playerEffects);
+    const monsterTick = tickEffects(monsterEffects);
+    playerCurrentHp = Math.max(0, playerCurrentHp - playerTick.totalDamage);
+    monsterCurrentHp = Math.max(0, monsterCurrentHp - monsterTick.totalDamage);
+    playerEffects = playerTick.remaining;
+    monsterEffects = monsterTick.remaining;
+
+    // The player always attacked this turn (never rested), so it always
+    // gets the passive +5 on top of whatever the attack spent (plan2 §5).
+    playerCurrentStamina = Math.min(
+      maxStamina(player.level),
+      playerCurrentStamina + BATTLE_CONFIG.passiveStaminaRegen,
+    );
+
+    return settleTurn({
+      battle,
+      player,
+      monster,
+      playerCurrentHp,
+      playerCurrentStamina,
+      monsterCurrentHp,
+      monsterCurrentStamina,
+      playerEffects,
+      monsterEffects,
+      monsterChargingAttackId,
+      chargeRoundsLeft,
+      monsterAttackWeights,
+      stunCooldownRoundsLeft,
+      playerAttack: {
+        attackName: attack.name,
+        hit: playerHit,
+        damage: playerDamage,
+        effectApplied: playerEffectApplied,
+      },
+      monsterAttack: monsterAttackResult,
+      messages,
+      playerMaxHp,
+      rng: this.rng,
+      playerRepository: this.playerRepository,
+      battleRepository: this.battleRepository,
+      levelRepository: this.levelRepository,
+      levelUpAttributePoints: this.levelUpAttributePoints,
+    });
+  }
+}
