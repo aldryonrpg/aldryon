@@ -36,6 +36,7 @@ export const EquipmentPositionSchema = z.enum([
   "boots",
   "gloves",
   "necklace",
+  "bracelet",
   "weapon_1",
   "weapon_2",
 ]);

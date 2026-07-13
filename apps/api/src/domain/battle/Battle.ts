@@ -22,6 +22,14 @@ export interface BattleProps {
    * means usable. Set to the configured cooldown on unleash, decrements by
    * 1 every round regardless of what the monster does (plan2 §6a). */
   stunCooldownRoundsLeft: number;
+  /** Set together at /dungeon/start; both null for every ordinary battle
+   * (plan3 §2d). Non-null dungeonBossMonsterId means the monster currently
+   * in the fight (monsterId) is the gatekeeper — the boss it points at gets
+   * swapped in on the gatekeeper's death. Tier is locked in at battle-start,
+   * not re-derived from the player's level later, so a mid-fight level-up
+   * doesn't change which boss the player faces partway through the run. */
+  dungeonBossMonsterId: string | null;
+  dungeonTier: 1 | 2 | 3 | null;
 }
 
 /**
@@ -41,6 +49,9 @@ export class Battle {
     }
     if (props.stunCooldownRoundsLeft < 0) {
       throw new Error("Battle stunCooldownRoundsLeft must be >= 0");
+    }
+    if (props.dungeonTier !== null && ![1, 2, 3].includes(props.dungeonTier)) {
+      throw new Error("Battle dungeonTier must be 1, 2, or 3 when set");
     }
     return new Battle(props);
   }
@@ -89,6 +100,12 @@ export class Battle {
   }
   get stunCooldownRoundsLeft(): number {
     return this.props.stunCooldownRoundsLeft;
+  }
+  get dungeonBossMonsterId(): string | null {
+    return this.props.dungeonBossMonsterId;
+  }
+  get dungeonTier(): 1 | 2 | 3 | null {
+    return this.props.dungeonTier;
   }
 
   toProps(): BattleProps {

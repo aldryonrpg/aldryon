@@ -75,6 +75,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     return { playerId, monsterId, battle, playerMaxHp };

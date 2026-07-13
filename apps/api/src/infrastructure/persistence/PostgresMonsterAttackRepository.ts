@@ -49,4 +49,14 @@ export class PostgresMonsterAttackRepository implements MonsterAttackRepository 
     `;
     return rows.map(toDomain);
   }
+
+  async copyDungeonBossMoveset(dungeonBossId: string, monsterId: string): Promise<void> {
+    await this.sql`
+      insert into monster_movesets (monster_id, monster_attack_id)
+      select ${monsterId}, dbm.monster_attack_id
+      from dungeon_boss_movesets dbm
+      where dbm.dungeon_boss_id = ${dungeonBossId}
+      on conflict do nothing
+    `;
+  }
 }

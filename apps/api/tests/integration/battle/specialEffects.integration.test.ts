@@ -56,6 +56,8 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     // turn1: pick Fear (only option, idx0), charge-warning flavor pick (idx0)
@@ -116,6 +118,8 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     // Attack selection is deterministic (no rng), so every queued value
@@ -180,6 +184,8 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0, 50]));
@@ -233,6 +239,8 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0, 50]));

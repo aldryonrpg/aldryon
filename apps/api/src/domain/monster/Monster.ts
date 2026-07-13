@@ -28,6 +28,9 @@ export interface MonsterProps {
   monsterType: MonsterType;
   drops: DropTuple[];
   exclusiveDrops: DropTuple[];
+  /** Third drop pool — always empty outside a materialized dungeon boss row
+   * (plan3 §2c). */
+  legendaryDrops: DropTuple[];
   ambushChance: number;
 }
 
@@ -68,6 +71,7 @@ export class Monster {
     }
     validateDropPool(props.drops, "drops");
     validateDropPool(props.exclusiveDrops, "exclusiveDrops");
+    validateDropPool(props.legendaryDrops, "legendaryDrops");
 
     const { attributes, ...rest } = props;
     return new Monster(rest, Attributes.create(attributes));
@@ -108,6 +112,9 @@ export class Monster {
   }
   get exclusiveDrops(): DropTuple[] {
     return [...this.props.exclusiveDrops];
+  }
+  get legendaryDrops(): DropTuple[] {
+    return [...this.props.legendaryDrops];
   }
   get ambushChance(): number {
     return this.props.ambushChance;

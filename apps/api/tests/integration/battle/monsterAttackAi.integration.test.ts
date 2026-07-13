@@ -61,6 +61,8 @@ describe("Monster attack-selection AI (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     // Both attacks are affordable and selection is deterministic (a single
@@ -113,6 +115,8 @@ describe("Monster attack-selection AI (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     // Hits are guaranteed both ways and selection itself needs no rng, so

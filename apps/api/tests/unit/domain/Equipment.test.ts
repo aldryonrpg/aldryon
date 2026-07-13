@@ -40,6 +40,21 @@ describe("resolveEquip", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("equips a bracelet/ring into the bracelet position when empty", () => {
+    const result = resolveEquip([], "bracelet");
+    expect(result).toEqual({ ok: true, positionsToVacate: [], targetPosition: "bracelet" });
+  });
+
+  it("vacates the existing item when re-equipping the bracelet slot", () => {
+    const current: EquippedItemSnapshot[] = [{ position: "bracelet", isTwoHanded: false }];
+    const result = resolveEquip(current, "bracelet");
+    expect(result).toEqual({
+      ok: true,
+      positionsToVacate: ["bracelet"],
+      targetPosition: "bracelet",
+    });
+  });
+
   it("respects an explicit preferred weapon position", () => {
     const current: EquippedItemSnapshot[] = [
       { position: "weapon_1", isTwoHanded: false },

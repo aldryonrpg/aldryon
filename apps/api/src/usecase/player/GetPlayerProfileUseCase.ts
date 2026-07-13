@@ -1,0 +1,114 @@
+import type { EquipmentSlot } from "@/domain/item/Item";
+import type { EquipmentPosition } from "@/domain/player/PlayerItem";
+import type { AttributeValues } from "@/domain/shared/Attributes";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
+import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
+import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
+
+export interface GetPlayerProfileInput {
+  playerId: string;
+}
+
+export interface EquippedItemOutput {
+  playerItemId: string;
+  itemId: string;
+  name: string;
+}
+
+export type EquippedItemsOutput = Record<EquipmentPosition, EquippedItemOutput | null>;
+
+export interface BagItemOutput {
+  id: string;
+  itemId: string;
+  name: string;
+  quantity: number;
+  slot: EquipmentSlot | null;
+}
+
+export interface GetPlayerProfileOutput {
+  playerName: string | null;
+  gold: number;
+  level: number;
+  xp: number;
+  attributePoints: number;
+  attributes: AttributeValues;
+  dungeonSlayerKills: number;
+  dungeonSlayerLastKillAt: string | null;
+  equipped: EquippedItemsOutput;
+  bag: BagItemOutput[];
+}
+
+/**
+ * GET /player — the authenticated player's full profile: attributes,
+ * equipped items (incl. the Bracelet/Ring slot), bag contents, and Dungeon
+ * Slayer standing (plan3 §4b). Closest existing template:
+ * usecase/player/effectiveAttributes.ts's multi-repo read composition.
+ */
+export class GetPlayerProfileUseCase {
+  constructor(
+    private readonly playerRepository: PlayerRepository,
+    private readonly playerItemRepository: PlayerItemRepository,
+    private readonly itemRepository: ItemRepository,
+    private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+  ) {}
+
+  async execute(input: GetPlayerProfileInput): Promise<GetPlayerProfileOutput> {
+    const player = await this.playerRepository.findById(input.playerId);
+    if (!player) throw new Error("Player not found");
+
+    const playerItems = await this.playerItemRepository.findByPlayerId(player.id);
+    const items = await this.itemRepository.findByIds(playerItems.map((pi) => pi.itemId));
+    const itemById = new Map(items.map((item) => [item.id, item]));
+
+    const equipped: EquippedItemsOutput = {
+      helmet: null,
+      body: null,
+      boots: null,
+      gloves: null,
+      necklace: null,
+      bracelet: null,
+      weapon_1: null,
+      weapon_2: null,
+    };
+    const bag: BagItemOutput[] = [];
+
+    for (const playerItem of playerItems) {
+      const item = itemById.get(playerItem.itemId);
+      // A dangling itemId logs + skips, never crashes the profile read (same
+      // defensive convention as drop rolls, plan2 §3c).
+      if (!item) continue;
+
+      if (playerItem.equippedSlot) {
+        equipped[playerItem.equippedSlot] = {
+          playerItemId: playerItem.id,
+          itemId: item.id,
+          name: item.name,
+        };
+      } else {
+        bag.push({
+          id: playerItem.id,
+          itemId: item.id,
+          name: item.name,
+          quantity: playerItem.quantity,
+          slot: item.slot,
+        });
+      }
+    }
+
+    const ranking = await this.dungeonSlayerRankingRepository.findByPlayerId(player.id);
+
+    return {
+      playerName: player.playerName,
+      gold: player.gold,
+      level: player.level,
+      xp: player.xp,
+      attributePoints: player.attributePoints,
+      attributes: player.getAttributes().toValues(),
+      dungeonSlayerKills: ranking?.kills ?? 0,
+      dungeonSlayerLastKillAt: ranking?.lastKillAt?.toISOString() ?? null,
+      equipped,
+      bag,
+    };
+  }
+}

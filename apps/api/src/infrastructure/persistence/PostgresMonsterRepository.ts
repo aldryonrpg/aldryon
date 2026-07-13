@@ -23,6 +23,7 @@ interface MonsterRow {
   monster_type: MonsterType;
   drops: unknown;
   exclusive_drops: unknown;
+  legendary_drops: unknown;
   ambush_chance: number;
 }
 
@@ -48,6 +49,7 @@ function toDomain(row: MonsterRow): Monster {
     monsterType: row.monster_type,
     drops: parseJsonbColumn<DropTuple[]>(row.drops, []),
     exclusiveDrops: parseJsonbColumn<DropTuple[]>(row.exclusive_drops, []),
+    legendaryDrops: parseJsonbColumn<DropTuple[]>(row.legendary_drops, []),
     ambushChance: row.ambush_chance,
   });
 }
@@ -60,10 +62,41 @@ export class PostgresMonsterRepository implements MonsterRepository {
     return rows[0] ? toDomain(rows[0]) : null;
   }
 
+  async findByName(name: string): Promise<Monster | null> {
+    const rows = await this.sql<MonsterRow[]>`select * from monsters where name = ${name} limit 1`;
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
   async findAllByRegion(region: MonsterRegion): Promise<Monster[]> {
     const rows = await this.sql<
       MonsterRow[]
     >`select * from monsters where region = ${region} order by name asc`;
     return rows.map(toDomain);
+  }
+
+  /** The one write path a dungeon boss's materialization needs (plan3 §2c) —
+   * every other monsters row is seed data. */
+  async create(monster: Monster): Promise<Monster> {
+    const props = monster.toProps();
+    const attrs = monster.getAttributes();
+
+    const rows = await this.sql<MonsterRow[]>`
+      insert into monsters (
+        id, name, description, region, monster_image, hp, xp_gain, level, max_stamina,
+        force, dexterity, agility, intelligence, vitality, luck, monster_type,
+        drops, exclusive_drops, legendary_drops, ambush_chance
+      ) values (
+        ${props.id}, ${props.name}, ${props.description}, ${props.region}, ${props.monsterImage},
+        ${props.hp}, ${props.xpGain}, ${props.level}, ${props.maxStamina},
+        ${attrs.force}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
+        ${props.monsterType},
+        ${JSON.stringify(props.drops)}::jsonb, ${JSON.stringify(props.exclusiveDrops)}::jsonb,
+        ${JSON.stringify(props.legendaryDrops)}::jsonb, ${props.ambushChance}
+      )
+      returning *
+    `;
+    const saved = rows[0];
+    if (!saved) throw new Error("Failed to create monster: no row returned");
+    return toDomain(saved);
   }
 }

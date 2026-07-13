@@ -2,6 +2,9 @@ import { SupabaseAuthGateway } from "@/infrastructure/auth/SupabaseAuthGateway";
 import { loadEnv } from "@/infrastructure/config/env";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
+import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
+import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
+import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
 import { PostgresLevelRepository } from "@/infrastructure/persistence/PostgresLevelRepository";
 import { PostgresMonsterAttackRepository } from "@/infrastructure/persistence/PostgresMonsterAttackRepository";
@@ -16,13 +19,18 @@ import { createApp } from "@/interface/http/createApp";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
+import { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
 import { RestUseCase } from "@/usecase/battle/RestUseCase";
 import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
+import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
+import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
+import { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 
@@ -41,6 +49,9 @@ const monsterAttackRepository = new PostgresMonsterAttackRepository(sql);
 const attackRepository = new PostgresAttackRepository(sql);
 const levelRepository = new PostgresLevelRepository(sql);
 const battleRepository = new PostgresBattleRepository(sql);
+const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
+const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
+const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
 
 const authenticateUserUseCase = new AuthenticateUserUseCase(authGateway, userRepository);
 const getOrCreatePlayerUseCase = new GetOrCreatePlayerUseCase(playerRepository);
@@ -68,6 +79,7 @@ const attackUseCase = new AttackUseCase(
   rng,
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
+  dungeonSlayerRankingRepository,
 );
 const runFromBattleUseCase = new RunFromBattleUseCase(
   playerRepository,
@@ -81,6 +93,7 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   rng,
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
+  dungeonSlayerRankingRepository,
 );
 const useBagItemUseCase = new UseBagItemUseCase(
   playerRepository,
@@ -94,6 +107,7 @@ const useBagItemUseCase = new UseBagItemUseCase(
   rng,
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
+  dungeonSlayerRankingRepository,
 );
 const restUseCase = new RestUseCase(
   playerRepository,
@@ -107,6 +121,7 @@ const restUseCase = new RestUseCase(
   rng,
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
+  dungeonSlayerRankingRepository,
 );
 const claimLootUseCase = new ClaimLootUseCase(
   playerRepository,
@@ -117,6 +132,38 @@ const equipItemUseCase = new EquipItemUseCase(playerItemRepository, itemReposito
 const unequipItemUseCase = new UnequipItemUseCase(playerItemRepository);
 const allocateAttributePointsUseCase = new AllocateAttributePointsUseCase(playerRepository);
 const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository);
+const getActiveBattleUseCase = new GetActiveBattleUseCase(
+  battleRepository,
+  monsterRepository,
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
+  attackRepository,
+);
+const getPlayerProfileUseCase = new GetPlayerProfileUseCase(
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
+  dungeonSlayerRankingRepository,
+);
+const listItemsUseCase = new ListItemsUseCase(itemRepository);
+const startDungeonUseCase = new StartDungeonUseCase(
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
+  battleRepository,
+  monsterRepository,
+  monsterAttackRepository,
+  attackRepository,
+  levelRepository,
+  dungeonEncounterRepository,
+  dungeonBossRepository,
+  rng,
+);
+const getDungeonSlayerLeaderboardUseCase = new GetDungeonSlayerLeaderboardUseCase(
+  dungeonSlayerRankingRepository,
+  playerRepository,
+);
 
 const app = createApp({
   authenticateUserUseCase,
@@ -129,10 +176,15 @@ const app = createApp({
   useBagItemUseCase,
   restUseCase,
   claimLootUseCase,
+  getActiveBattleUseCase,
   equipItemUseCase,
   unequipItemUseCase,
   allocateAttributePointsUseCase,
   updatePlayerNameUseCase,
+  getPlayerProfileUseCase,
+  listItemsUseCase,
+  startDungeonUseCase,
+  getDungeonSlayerLeaderboardUseCase,
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
 });
 

@@ -20,6 +20,8 @@ interface PlayerRow {
   last_death_at: string | Date | null;
   last_run_at: string | Date | null;
   pending_loot: unknown;
+  dungeon_attempt_1: string | Date | null;
+  dungeon_attempt_2: string | Date | null;
 }
 
 function toDate(value: string | Date | null): Date | null {
@@ -47,6 +49,8 @@ function toDomain(row: PlayerRow): Player {
     lastDeathAt: toDate(row.last_death_at),
     lastRunAt: toDate(row.last_run_at),
     pendingLoot: parseJsonbColumn<string[]>(row.pending_loot, []),
+    dungeonAttempt1: toDate(row.dungeon_attempt_1),
+    dungeonAttempt2: toDate(row.dungeon_attempt_2),
   });
 }
 
@@ -73,11 +77,12 @@ export class PostgresPlayerRepository implements PlayerRepository {
       insert into players (
         id, user_id, player_name, gold, level, xp, attribute_points,
         force, dexterity, agility, intelligence, vitality, luck,
-        last_death_at, last_run_at, pending_loot, updated_at
+        last_death_at, last_run_at, pending_loot, dungeon_attempt_1, dungeon_attempt_2, updated_at
       ) values (
         ${props.id}, ${props.userId}, ${props.playerName}, ${props.gold}, ${props.level}, ${props.xp}, ${props.attributePoints},
         ${attrs.force}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
-        ${props.lastDeathAt}, ${props.lastRunAt}, ${JSON.stringify(props.pendingLoot)}::jsonb, now()
+        ${props.lastDeathAt}, ${props.lastRunAt}, ${JSON.stringify(props.pendingLoot)}::jsonb,
+        ${props.dungeonAttempt1}, ${props.dungeonAttempt2}, now()
       )
       returning *
     `;
@@ -107,6 +112,8 @@ export class PostgresPlayerRepository implements PlayerRepository {
         last_death_at = ${props.lastDeathAt},
         last_run_at = ${props.lastRunAt},
         pending_loot = ${JSON.stringify(props.pendingLoot)}::jsonb,
+        dungeon_attempt_1 = ${props.dungeonAttempt1},
+        dungeon_attempt_2 = ${props.dungeonAttempt2},
         updated_at = now()
       where id = ${props.id}
       returning *

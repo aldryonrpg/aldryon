@@ -8,6 +8,7 @@ export type EquipmentSlot =
   | "boots"
   | "gloves"
   | "necklace"
+  | "bracelet"
   | "weapon"
   | "two_handed_weapon";
 

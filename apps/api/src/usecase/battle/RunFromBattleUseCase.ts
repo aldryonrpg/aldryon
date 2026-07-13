@@ -11,6 +11,7 @@ import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
@@ -41,6 +42,7 @@ export class RunFromBattleUseCase {
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
     private readonly stunCooldownRounds: number,
+    private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
   ) {}
 
   async execute(input: RunFromBattleInput): Promise<TurnReportOutput> {
@@ -84,6 +86,9 @@ export class RunFromBattleUseCase {
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
         stunCooldownRounds: this.stunCooldownRounds,
+        monsterRepository: this.monsterRepository,
+        playerItemRepository: this.playerItemRepository,
+        dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
       });
     }
 

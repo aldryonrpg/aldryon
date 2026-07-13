@@ -57,4 +57,9 @@ export class PostgresItemRepository implements ItemRepository {
     const rows = await this.sql<ItemRow[]>`select * from items where id in ${this.sql(ids)}`;
     return rows.map(toDomain);
   }
+
+  async findAll(): Promise<Item[]> {
+    const rows = await this.sql<ItemRow[]>`select * from items order by name asc`;
+    return rows.map(toDomain);
+  }
 }

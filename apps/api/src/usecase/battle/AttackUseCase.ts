@@ -17,6 +17,7 @@ import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
@@ -50,6 +51,7 @@ export class AttackUseCase {
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
     private readonly stunCooldownRounds: number,
+    private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
   ) {}
 
   async execute(input: AttackInput): Promise<TurnReportOutput> {
@@ -91,6 +93,9 @@ export class AttackUseCase {
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
         stunCooldownRounds: this.stunCooldownRounds,
+        monsterRepository: this.monsterRepository,
+        playerItemRepository: this.playerItemRepository,
+        dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
       });
     }
 
@@ -240,6 +245,10 @@ export class AttackUseCase {
       battleRepository: this.battleRepository,
       levelRepository: this.levelRepository,
       levelUpAttributePoints: this.levelUpAttributePoints,
+      monsterRepository: this.monsterRepository,
+      playerItemRepository: this.playerItemRepository,
+      itemRepository: this.itemRepository,
+      dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
     });
   }
 }

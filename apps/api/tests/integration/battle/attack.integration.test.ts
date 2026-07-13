@@ -77,6 +77,8 @@ describe("AttackUseCase (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     return { userId, playerId, monsterId, monsterAttackId, playerMaxHp, battle };
@@ -238,6 +240,8 @@ describe("AttackUseCase (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0]));

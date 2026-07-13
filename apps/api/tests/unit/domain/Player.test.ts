@@ -12,6 +12,8 @@ const BASE_PROPS = {
   lastDeathAt: null,
   lastRunAt: null,
   pendingLoot: [],
+  dungeonAttempt1: null,
+  dungeonAttempt2: null,
 };
 
 describe("Player playerName", () => {

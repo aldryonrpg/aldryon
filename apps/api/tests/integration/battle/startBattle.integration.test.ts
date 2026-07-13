@@ -138,6 +138,8 @@ describe("StartBattleUseCase (integration)", () => {
         chargeRoundsLeft: 0,
         monsterAttackWeights: {},
         stunCooldownRoundsLeft: 0,
+        dungeonBossMonsterId: null,
+        dungeonTier: null,
       }),
     );
 

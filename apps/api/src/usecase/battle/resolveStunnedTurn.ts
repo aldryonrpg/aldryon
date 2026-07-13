@@ -11,8 +11,11 @@ import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
+import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
+import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 /**
@@ -37,6 +40,9 @@ export async function resolveStunnedTurn(params: {
   levelRepository: LevelRepository;
   levelUpAttributePoints: number;
   stunCooldownRounds: number;
+  monsterRepository: MonsterRepository;
+  playerItemRepository: PlayerItemRepository;
+  dungeonSlayerRankingRepository: DungeonSlayerRankingRepository;
 }): Promise<TurnReportOutput> {
   const { battle, player, monster, moveset, playerAttacks, effectiveAttributes } = params;
 
@@ -94,5 +100,9 @@ export async function resolveStunnedTurn(params: {
     battleRepository: params.battleRepository,
     levelRepository: params.levelRepository,
     levelUpAttributePoints: params.levelUpAttributePoints,
+    monsterRepository: params.monsterRepository,
+    playerItemRepository: params.playerItemRepository,
+    itemRepository: params.itemRepository,
+    dungeonSlayerRankingRepository: params.dungeonSlayerRankingRepository,
   });
 }

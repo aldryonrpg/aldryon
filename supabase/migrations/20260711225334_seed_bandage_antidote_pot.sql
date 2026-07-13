@@ -18,3 +18,15 @@ values (
   gen_random_uuid(), 'small pot', 'A small clay pot of restorative salve.', 25, 'common', 50
 )
 on conflict (name) do nothing;
+
+insert into items (id, name, description, value, rarity, hp_restore)
+values (
+           gen_random_uuid(), 'medium pot', 'A medium glass pot of restorative salve.', 60, 'common', 100
+       )
+on conflict (name) do nothing;
+
+insert into items (id, name, description, value, rarity, hp_restore)
+values (
+           gen_random_uuid(), 'big pot', 'A big pot of restorative salve.', 100, 'rare', 150
+       )
+on conflict (name) do nothing;

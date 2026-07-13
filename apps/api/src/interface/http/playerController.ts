@@ -13,6 +13,7 @@ import {
   ItemNotEquippableError,
   PlayerItemNotFoundError,
 } from "@/usecase/player/errors";
+import type { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import type { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 
@@ -21,6 +22,7 @@ export interface PlayerControllerDeps {
   unequipItemUseCase: UnequipItemUseCase;
   allocateAttributePointsUseCase: AllocateAttributePointsUseCase;
   updatePlayerNameUseCase: UpdatePlayerNameUseCase;
+  getPlayerProfileUseCase: GetPlayerProfileUseCase;
 }
 
 function toPlayerItemSummary(playerItem: {
@@ -41,6 +43,11 @@ export function createPlayerController(
   deps: PlayerControllerDeps,
 ): Hono<{ Variables: AuthedVariables }> {
   const app = new Hono<{ Variables: AuthedVariables }>();
+
+  app.get("/player", async (c) => {
+    const result = await deps.getPlayerProfileUseCase.execute({ playerId: c.get("playerId") });
+    return c.json(result, 200);
+  });
 
   app.patch("/player", async (c) => {
     const body = await c.req.json().catch(() => null);

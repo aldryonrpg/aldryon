@@ -16,6 +16,9 @@ const DIRECT_SLOT_TO_POSITION: Partial<Record<EquipmentSlot, EquipmentPosition>>
   boots: "boots",
   gloves: "gloves",
   necklace: "necklace",
+  // Bracelet and Ring share the same physical position (plan3 §3) — a single
+  // fixed slot, no left/right choice like weapons.
+  bracelet: "bracelet",
 };
 
 /**

@@ -12,7 +12,7 @@ import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
 import type { MonsterRegion } from "@/domain/monster/Monster";
-import type { BattleEffectKind } from "@/domain/monster/MonsterAttack";
+import type { AttackScaling, BattleEffectKind } from "@/domain/monster/MonsterAttack";
 import { Player } from "@/domain/player/Player";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
@@ -46,6 +46,7 @@ export interface BattleStatusOutput {
 export interface AvailableAttackOutput {
   name: string;
   staminaCost: number;
+  scalingAttribute: AttackScaling;
   meetsRequirements: boolean;
 }
 
@@ -120,6 +121,7 @@ export class StartBattleUseCase {
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
+      scalingAttribute: attack.scalingAttribute,
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
     }));
 
@@ -247,6 +249,8 @@ export class StartBattleUseCase {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
+      dungeonBossMonsterId: null,
+      dungeonTier: null,
     });
     await this.battleRepository.create(battle);
 

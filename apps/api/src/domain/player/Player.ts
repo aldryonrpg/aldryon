@@ -20,6 +20,10 @@ export interface PlayerProps {
   lastRunAt: Date | null;
   /** Item ids awaiting the player's pick from the last kill (plan2 §5e). */
   pendingLoot: string[];
+  /** Daily dungeon attempt slots (plan3 §2f) — a slot from a previous UTC day
+   * simply doesn't count today; see domain/dungeon/dungeonAttempts.ts. */
+  dungeonAttempt1: Date | null;
+  dungeonAttempt2: Date | null;
 }
 
 /**
@@ -79,6 +83,12 @@ export class Player {
   }
   get pendingLoot(): string[] {
     return [...this.props.pendingLoot];
+  }
+  get dungeonAttempt1(): Date | null {
+    return this.props.dungeonAttempt1;
+  }
+  get dungeonAttempt2(): Date | null {
+    return this.props.dungeonAttempt2;
   }
 
   getAttributes(): Attributes {

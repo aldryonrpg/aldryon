@@ -19,6 +19,8 @@ interface BattleRow {
   charge_rounds_left: number;
   monster_attack_weights: unknown;
   stun_cooldown_rounds_left: number;
+  dungeon_boss_monster_id: string | null;
+  dungeon_tier: 1 | 2 | 3 | null;
 }
 
 function toDomain(row: BattleRow): Battle {
@@ -37,6 +39,8 @@ function toDomain(row: BattleRow): Battle {
     chargeRoundsLeft: row.charge_rounds_left,
     monsterAttackWeights: parseJsonbColumn<Record<string, number>>(row.monster_attack_weights, {}),
     stunCooldownRoundsLeft: row.stun_cooldown_rounds_left,
+    dungeonBossMonsterId: row.dungeon_boss_monster_id,
+    dungeonTier: row.dungeon_tier,
   });
 }
 
@@ -57,13 +61,15 @@ export class PostgresBattleRepository implements BattleRepository {
         id, player_id, monster_id, player_current_hp, player_current_stamina,
         monster_current_hp, monster_current_stamina, round,
         player_effects, monster_effects, monster_charging_attack_id, charge_rounds_left,
-        monster_attack_weights, stun_cooldown_rounds_left
+        monster_attack_weights, stun_cooldown_rounds_left,
+        dungeon_boss_monster_id, dungeon_tier
       ) values (
         ${props.id}, ${props.playerId}, ${props.monsterId}, ${props.playerCurrentHp}, ${props.playerCurrentStamina},
         ${props.monsterCurrentHp}, ${props.monsterCurrentStamina}, ${props.round},
         ${JSON.stringify(props.playerEffects)}::jsonb, ${JSON.stringify(props.monsterEffects)}::jsonb,
         ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft},
-        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.stunCooldownRoundsLeft}
+        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.stunCooldownRoundsLeft},
+        ${props.dungeonBossMonsterId}, ${props.dungeonTier}
       )
       returning *
     `;
@@ -76,6 +82,7 @@ export class PostgresBattleRepository implements BattleRepository {
     const props = battle.toProps();
     const rows = await this.sql<BattleRow[]>`
       update battles set
+        monster_id = ${props.monsterId},
         player_current_hp = ${props.playerCurrentHp},
         player_current_stamina = ${props.playerCurrentStamina},
         monster_current_hp = ${props.monsterCurrentHp},
@@ -86,7 +93,9 @@ export class PostgresBattleRepository implements BattleRepository {
         monster_charging_attack_id = ${props.monsterChargingAttackId},
         charge_rounds_left = ${props.chargeRoundsLeft},
         monster_attack_weights = ${JSON.stringify(props.monsterAttackWeights)}::jsonb,
-        stun_cooldown_rounds_left = ${props.stunCooldownRoundsLeft}
+        stun_cooldown_rounds_left = ${props.stunCooldownRoundsLeft},
+        dungeon_boss_monster_id = ${props.dungeonBossMonsterId},
+        dungeon_tier = ${props.dungeonTier}
       where id = ${props.id}
       returning *
     `;

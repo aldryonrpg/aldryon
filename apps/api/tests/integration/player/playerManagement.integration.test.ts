@@ -152,6 +152,18 @@ describe("Player management use cases (integration)", () => {
       );
     });
 
+    it("equips a bracelet/ring into its own dedicated slot (plan3 §3)", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      const ringId = await createTestItem(sql, { name: "Ruby Ring", slot: "bracelet" });
+      const playerItemId = await createTestPlayerItem(sql, playerId, ringId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const result = await uc.equipItemUseCase.execute({ playerId, playerItemId });
+
+      expect(result.playerItem.equippedSlot).toBe("bracelet");
+    });
+
     it("unequips an item back to the bag", async () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);

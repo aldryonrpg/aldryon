@@ -34,6 +34,8 @@ export class GetOrCreatePlayerUseCase {
       lastDeathAt: null,
       lastRunAt: null,
       pendingLoot: [],
+      dungeonAttempt1: null,
+      dungeonAttempt2: null,
     });
 
     const saved = await this.playerRepository.create(player);

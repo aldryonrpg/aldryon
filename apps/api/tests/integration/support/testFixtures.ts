@@ -71,6 +71,7 @@ export interface TestMonsterOverrides {
   ambushChance?: number;
   drops?: { itemId: string; dropRate: number }[];
   exclusiveDrops?: { itemId: string; dropRate: number }[];
+  legendaryDrops?: { itemId: string; dropRate: number }[];
 }
 
 export async function createTestMonster(
@@ -82,7 +83,7 @@ export async function createTestMonster(
     insert into monsters (
       id, name, description, region, monster_image, hp, xp_gain, level, max_stamina,
       force, dexterity, agility, intelligence, vitality, luck, monster_type,
-      drops, exclusive_drops, ambush_chance
+      drops, exclusive_drops, legendary_drops, ambush_chance
     ) values (
       ${id}, ${`Test Monster ${id}`}, 'test monster', ${overrides.region ?? "forest"},
       ${`data:image/svg+xml,test-${id}`},
@@ -91,10 +92,30 @@ export async function createTestMonster(
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
       ${overrides.monsterType ?? "normal"},
       ${JSON.stringify(overrides.drops ?? [])}::jsonb, ${JSON.stringify(overrides.exclusiveDrops ?? [])}::jsonb,
+      ${JSON.stringify(overrides.legendaryDrops ?? [])}::jsonb,
       ${overrides.ambushChance ?? 0}
     )
   `;
   return id;
+}
+
+// No createTestDungeonBoss/createTestDungeonEncounter fixtures: unlike every
+// other fixture here, dungeon_encounters is a true production singleton
+// (plan3 §2c — exactly one gatekeeper/boss pairing row, ever), and
+// DungeonEncounterRepository.findOne() has no ordering to make a second row
+// deterministic. Tests that need a dungeon encounter use the real
+// migration-seeded Snake/Dragon pairing instead of inserting their own.
+
+export async function setPlayerDungeonAttempts(
+  sql: SQL,
+  playerId: string,
+  attempt1: Date | null,
+  attempt2: Date | null,
+): Promise<void> {
+  await sql`
+    update players set dungeon_attempt_1 = ${attempt1}, dungeon_attempt_2 = ${attempt2}
+    where id = ${playerId}
+  `;
 }
 
 export interface TestMonsterAttackOverrides {

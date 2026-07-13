@@ -15,9 +15,13 @@ export type BattleStatusDto = z.infer<typeof BattleStatusSchema>;
 export const BattleOutcomeSchema = z.enum(["ongoing", "won", "lost", "fled"]);
 export type BattleOutcomeDto = z.infer<typeof BattleOutcomeSchema>;
 
+export const AttackScalingSchema = z.enum(["force", "intelligence"]);
+export type AttackScalingDto = z.infer<typeof AttackScalingSchema>;
+
 export const AvailableAttackSchema = z.object({
   name: z.string(),
   staminaCost: z.number(),
+  scalingAttribute: AttackScalingSchema,
   meetsRequirements: z.boolean(),
 });
 export type AvailableAttackDto = z.infer<typeof AvailableAttackSchema>;
@@ -89,3 +93,15 @@ export const ClaimLootResponseSchema = z.object({
   rejected: z.array(z.object({ itemId: z.string(), reason: z.string() })),
 });
 export type ClaimLootResponse = z.infer<typeof ClaimLootResponseSchema>;
+
+// --- GET /battle ---
+
+export const ActiveBattleResponseSchema = z
+  .object({
+    monster: BattleMonsterSchema,
+    playerStatus: BattleStatusSchema,
+    monsterStatus: BattleStatusSchema,
+    availableAttacks: z.array(AvailableAttackSchema),
+  })
+  .nullable();
+export type ActiveBattleResponse = z.infer<typeof ActiveBattleResponseSchema>;
