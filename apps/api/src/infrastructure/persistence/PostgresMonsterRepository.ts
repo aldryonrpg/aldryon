@@ -13,6 +13,7 @@ interface MonsterRow {
   hp: number;
   xp_gain: number;
   level: number;
+  max_stamina: number;
   force: number;
   dexterity: number;
   agility: number;
@@ -35,6 +36,7 @@ function toDomain(row: MonsterRow): Monster {
     hp: row.hp,
     xpGain: row.xp_gain,
     level: row.level,
+    maxStamina: row.max_stamina,
     attributes: {
       force: row.force,
       dexterity: row.dexterity,

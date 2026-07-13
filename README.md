@@ -34,9 +34,12 @@ items) in the database.
   negative, but a fighter's *effective* attribute (base + bonuses) never
   drops below 1.
 - **Max HP** = `100 + 10 × Vitality + 1 × Force` (effective attributes).
-- **Max Stamina** = `min(100, 20 + 5 × level)` — 25 at level 1, +5 per
-  level, capped at 100 from level 16 onward. Monsters use their own fixed
-  catalog level for this too.
+- **Max Stamina** = `min(100, 20 + 5 × level)` for **players**, 25 at level 1,
+  +5 per level, capped at 100 from level 16 onward. **Monsters use their own
+  `max_stamina` catalog column instead** — a plain tunable number per
+  monster, not derived from level — since the attack-selection AI (below)
+  needs headroom well above what the player formula would give a low-level
+  monster.
 - Both sides passively recover **5 Stamina** at the end of every round;
   choosing **Rest** (or a monster resting/charging) grants **15 instead of
   5** — not additive.
@@ -54,18 +57,21 @@ HitChance = (AttackerDexterity / DefenderDexterity) × 100 + AttackerLuck
 ### Damage
 
 ```
-attack_value  = attack.multiplier × effective(attacker's scaling attribute)
-defense_value = defender_level × effective(defender's scaling attribute)
+attack_value  = ceil(attack.multiplier × effective(attacker's scaling attribute))
+defense_value = ceil(defender_level × effective(defender's scaling attribute))
 Damage        = max(0, attack_value + attack.stamina_cost − defense_value)
 ```
 
 - Every attack has a `scaling_attribute` — **Force** for physical attacks,
   **Intelligence** for magical ones — used both offensively (the attacker's
   multiplier) and defensively (the defender's level × attribute).
+- **Both `attack_value` and `defense_value` always round UP** (never down)
+  before being combined — a fractional multiplier or bonus never quietly
+  favors the defender.
 - The attacker's own level never factors into their own damage output —
   only into their *defense* against the other side.
-- `stamina_cost` is **added**, not multiplied, so **`HIT`** — the free
-  fallback attack every player and monster always has, 0 Stamina cost,
+- `stamina_cost` is **added**, not multiplied, so **`HIT`** — the nearly-free
+  fallback attack every player and monster always has, 1 Stamina cost,
   ×0.4 multiplier, Force-scaling — needs no special-casing.
 - A side's defensive scaling attribute is fixed to its own `HIT` attack's
   scaling attribute for the whole battle (there's no "last attack used"
@@ -86,13 +92,27 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [20, 10
 - DoT magnitude is computed once when applied and never changes afterward:
   `max(1, inflictor_level + 2 − victim_level)`. It ticks every round
   (starting the round it's applied) until cured or the battle ends.
-- Curing: consuming the matching item via the Bag action removes the
-  effect — `bandage` cures bleed, `antidote` cures poison. The player's
+- **Bleed and poison stack unlimited.** Re-procing the same kind doesn't
+  replace or refresh an existing instance — it adds a separate one, so a
+  target can be carrying any number of stacked bleeds/poisons at once,
+  each ticking its own damage every round.
+- Curing: consuming the matching item via the Bag action removes **every**
+  stacked instance of that kind in one use — one bandage cures all
+  stacked bleeds, one antidote cures all stacked poisons. `bandage` and
+  `antidote` still only carry up to **5** in their own dedicated bag slot
+  (plan2 §3d) — that's a cap on how many cure items you can hold, unrelated
+  to how many times the effect itself can stack on you. The player's
   `burn` on a monster has no cure (monsters carry no bag).
 
 ### Special attacks (monsters only)
 
 - Flagged `is_special` with `charge_turns >= 1`.
+- **A monster's moveset holds at most 2 special attacks** — enforced by a
+  Postgres trigger on `monster_movesets` (a plain `CHECK` can't count
+  related rows), not app-level validation, since movesets are only ever
+  assigned via seed data/migrations today. With "an affordable special
+  always wins" (below) unlimited specials would otherwise let a monster
+  almost never throw a normal attack.
 - The monster must rest that many turns to charge — no strike, Stamina
   regenerates at the Rest rate, and the turn report carries a warning
   message.
@@ -100,6 +120,53 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [20, 10
   no Luck roll) — the monster's innate type DoT, plus any explicit effect
   the special itself carries, layered on top. The multiplier can be far
   above a normal attack, or ≈0 for a pure-debuff special.
+
+Three special attacks are pure status effects (multiplier ≈0 — their value
+is the effect, not direct damage):
+
+- **Fear** (-50% Force) and **Magic Aura Blast** (-50% Intelligence): a
+  percentage stat-decay debuff on the player. Held at -50% for 2 rounds,
+  then recovers 10 points a round — `50, 50, 40, 30, 20, 10`, then back to
+  normal. The percent applies to the player's already-computed effective
+  stat (base + item bonuses), floored, and the fighter's usual ≥1 floor
+  still holds. Re-applying either while one is already active **refreshes**
+  it back to -50% instead of stacking.
+- **Stun**: the player loses their **next 2 turns** entirely — Attack, Bag,
+  Rest, and Run all become no-ops for those turns (only the passive +5
+  Stamina regen happens) — while the monster keeps attacking normally.
+  "2 turns" means 2 actual voided actions, not 2 rounds of calendar time,
+  so nothing is lost if the player is slow to act. Re-applying Stun while
+  already stunned refreshes it back to 2 full turns. **Stun can never
+  chain**, though: the instant it unleashes, the attack that caused it is
+  excluded from the monster's attack selection for `STUN_COOLDOWN_ROUNDS`
+  rounds (env-configurable, default 5) regardless of Stamina — it isn't
+  just de-prioritized, it's off the table entirely until the cooldown hits
+  0. The cooldown ticks down every round regardless of what the monster
+  does that round.
+
+### Monster attack selection (AI)
+
+On its turn, a monster picks from its moveset (excluding anything it can't
+afford, and excluding any Stun-applying attack still on cooldown) as follows:
+
+1. **A special always wins if one is affordable.** Any charge-ready special
+   guarantees a hit and a 100% effect proc on unleash, so it's always the
+   stronger play — the monster starts charging it unconditionally, without
+   comparing it to any normal attack's damage. Ties among several
+   simultaneously-affordable specials are broken randomly.
+2. **Otherwise, normal attacks are scored `damage + weight`.** `damage` is
+   what that attack would deal if it hits (the same formula as "Damage"
+   above); `weight` is how many consecutive turns that attack has gone
+   unpicked, starting at 0 and resetting to 0 the turn it's picked. The
+   highest score wins, ties broken by moveset order. A long-unused weaker
+   attack can eventually outscore a frequently-picked stronger one, so the
+   monster rotates through its moveset instead of always repeating the
+   single highest-damage hit.
+3. **If nothing is affordable, the monster rests** (Stamina regenerates at
+   the Rest rate instead of the passive rate).
+
+Weight only tracks normal attacks — specials are never scored this way,
+since rule 1 already decides them unconditionally.
 
 ### XP, leveling and death
 
@@ -150,6 +217,9 @@ SUPABASE_URL=https://<your-project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 # Attribute points granted per level-up (see "Combat math" above). Optional, default 4.
 LEVEL_UP_ATTRIBUTE_POINTS=4
+# Rounds a Stun-applying special is excluded from selection after it unleashes
+# (see "Monster attack selection" above). Optional, default 5.
+STUN_COOLDOWN_ROUNDS=5
 # Optional: PORT (default 3001), WEB_ORIGIN (default http://localhost:3000)
 ```
 

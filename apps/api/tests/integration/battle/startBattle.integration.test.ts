@@ -51,6 +51,50 @@ describe("StartBattleUseCase (integration)", () => {
     expect(battle?.monsterId).toBe(monsterId);
   });
 
+  it("lands a free ambush strike before the player acts, including its effect proc", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { dexterity: 1, luck: 1 });
+    const monsterId = await createTestMonster(sql, {
+      region: "ruins",
+      hp: 50,
+      ambushChance: 100,
+      dexterity: 10,
+      luck: 25,
+      force: 5,
+      monsterType: "poisonous",
+    });
+    const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
+    await linkMonsterMoveset(sql, monsterId, attackId);
+
+    // roll1=50 (not empty), roll2=0 (pick the only monster), roll3=1 (ambush
+    // rolls <=100 -> lands), roll4=0 (pick the only non-special attack) —
+    // the hit itself needs no roll (10/1*100+25 >= 100 -> guaranteed hit),
+    // roll5=20 (effect proc: 20 <= monster luck 25 - player luck 1 ->
+    // lands), roll6=0 (pick the ambush flavor message).
+    const uc = buildUseCases(sql, new FakeRng([50, 0, 1, 0, 20, 0]));
+
+    const result = await uc.startBattleUseCase.execute({
+      playerId,
+      isVip: false,
+      region: "ruins",
+    });
+
+    expect(result.outcome).toBe("ongoing");
+    expect(result.ambushOccurred).toBe(true);
+    expect(result.playerStatus?.currentHp).toBeLessThan(result.playerStatus?.maxHp ?? 0);
+    expect(result.message).toBeTruthy();
+
+    const battle = await uc.battleRepository.findByPlayerId(playerId);
+    expect(battle?.playerEffects).toEqual([
+      {
+        type: "dot",
+        kind: "poison",
+        damagePerRound: expect.any(Number),
+        counterItemId: expect.any(String),
+      },
+    ]);
+  });
+
   it("returns an empty encounter 20% of the time (seeded Rng)", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId);
@@ -61,7 +105,7 @@ describe("StartBattleUseCase (integration)", () => {
     const result = await uc.startBattleUseCase.execute({
       playerId,
       isVip: false,
-      region: "dungeon",
+      region: "ruins",
     });
 
     expect(result.outcome).toBeNull();
@@ -92,6 +136,8 @@ describe("StartBattleUseCase (integration)", () => {
         monsterEffects: [],
         monsterChargingAttackId: null,
         chargeRoundsLeft: 0,
+        monsterAttackWeights: {},
+        stunCooldownRoundsLeft: 0,
       }),
     );
 
@@ -123,5 +169,24 @@ describe("StartBattleUseCase (integration)", () => {
     // Past the 15s VIP window (but would still be inside the 30s normal one).
     const result = await uc.startBattleUseCase.execute({ playerId, isVip: true, region: "bandit" });
     expect(result).toBeTruthy();
+  });
+
+  it("allows an immediate restart right after death — dying has no cooldown", async () => {
+    const userId = await createTestUser(sql);
+    // lastDeathAt set to just now; lastRunAt stays null — only the latter
+    // gates the cooldown (plan2 §4 step 1a).
+    const playerId = await createTestPlayer(sql, userId, { lastDeathAt: new Date() });
+    const monsterId = await createTestMonster(sql, { region: "sewage", hp: 50, ambushChance: 0 });
+    const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0.4 });
+    await linkMonsterMoveset(sql, monsterId, attackId);
+
+    const uc = buildUseCases(sql, new FakeRng([50, 0, 1]));
+
+    const result = await uc.startBattleUseCase.execute({
+      playerId,
+      isVip: false,
+      region: "sewage",
+    });
+    expect(result.outcome).toBe("ongoing");
   });
 });

@@ -60,6 +60,7 @@ export interface TestMonsterOverrides {
   hp?: number;
   level?: number;
   xpGain?: number;
+  maxStamina?: number;
   force?: number;
   dexterity?: number;
   agility?: number;
@@ -79,13 +80,13 @@ export async function createTestMonster(
   const id = Bun.randomUUIDv7();
   await sql`
     insert into monsters (
-      id, name, description, region, monster_image, hp, xp_gain, level,
+      id, name, description, region, monster_image, hp, xp_gain, level, max_stamina,
       force, dexterity, agility, intelligence, vitality, luck, monster_type,
       drops, exclusive_drops, ambush_chance
     ) values (
       ${id}, ${`Test Monster ${id}`}, 'test monster', ${overrides.region ?? "forest"},
       ${`data:image/svg+xml,test-${id}`},
-      ${overrides.hp ?? 100}, ${overrides.xpGain ?? 50}, ${overrides.level ?? 1},
+      ${overrides.hp ?? 100}, ${overrides.xpGain ?? 50}, ${overrides.level ?? 1}, ${overrides.maxStamina ?? 100},
       ${overrides.force ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
       ${overrides.monsterType ?? "normal"},
@@ -101,7 +102,7 @@ export interface TestMonsterAttackOverrides {
   staminaCost?: number;
   multiplier?: number;
   scalingAttribute?: "force" | "intelligence";
-  appliesEffect?: "bleed" | "poison" | "burn" | null;
+  appliesEffect?: "bleed" | "poison" | "burn" | "fear" | "magic_aura_blast" | "stun" | null;
   counterItemId?: string | null;
   isSpecial?: boolean;
   chargeTurns?: number;

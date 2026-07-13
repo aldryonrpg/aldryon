@@ -25,7 +25,7 @@ describe("DamageCalculator", () => {
     expect(damage).toBe(0);
   });
 
-  it("HIT's 0 stamina cost adds nothing to the attack value", () => {
+  it("a 0 stamina cost adds nothing to the attack value", () => {
     const withZeroCost = computeDamage({
       attackMultiplier: 0.4,
       attackerScalingValue: 10,
@@ -33,7 +33,7 @@ describe("DamageCalculator", () => {
       defenderLevel: 1,
       defenderScalingValue: 0,
     });
-    expect(withZeroCost).toBe(0.4 * 10);
+    expect(withZeroCost).toBe(Math.ceil(0.4 * 10));
   });
 
   it("stamina cost is added, not multiplied", () => {
@@ -45,5 +45,29 @@ describe("DamageCalculator", () => {
       defenderScalingValue: 0,
     });
     expect(damage).toBe(2 * 10 + 50);
+  });
+
+  it("rounds a fractional attack value up, never down", () => {
+    // attackValue = 0.4 * 7 = 2.8 -> ceil to 3
+    const damage = computeDamage({
+      attackMultiplier: 0.4,
+      attackerScalingValue: 7,
+      staminaCost: 0,
+      defenderLevel: 1,
+      defenderScalingValue: 0,
+    });
+    expect(damage).toBe(3);
+  });
+
+  it("rounds a fractional defense value up, never down (favors the defender less)", () => {
+    // attackValue = 1 * 10 = 10; defenseValue = 1 * 2.5 = 2.5 -> ceil to 3 -> damage 7
+    const damage = computeDamage({
+      attackMultiplier: 1,
+      attackerScalingValue: 10,
+      staminaCost: 0,
+      defenderLevel: 1,
+      defenderScalingValue: 2.5,
+    });
+    expect(damage).toBe(7);
   });
 });

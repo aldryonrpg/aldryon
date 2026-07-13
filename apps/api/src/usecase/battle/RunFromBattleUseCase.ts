@@ -1,11 +1,15 @@
+import { effectAppliedMessage, isStunned } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
+import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { Player } from "@/domain/player/Player";
+import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
+import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
@@ -34,6 +38,9 @@ export class RunFromBattleUseCase {
     private readonly monsterAttackRepository: MonsterAttackRepository,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
+    private readonly rng: Rng,
+    private readonly levelUpAttributePoints: number,
+    private readonly stunCooldownRounds: number,
   ) {}
 
   async execute(input: RunFromBattleInput): Promise<TurnReportOutput> {
@@ -49,14 +56,42 @@ export class RunFromBattleUseCase {
     const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(player, this.playerItemRepository, this.itemRepository),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        battle.playerEffects,
+      ),
     ]);
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+
+    // Stunned: the flee attempt itself is voided too — the monster gets a
+    // full normal turn instead of just a parting-hit chance.
+    if (isStunned(battle.playerEffects)) {
+      return resolveStunnedTurn({
+        battle,
+        player,
+        monster,
+        moveset,
+        playerAttacks,
+        effectiveAttributes,
+        playerMaxHp,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        playerRepository: this.playerRepository,
+        battleRepository: this.battleRepository,
+        levelRepository: this.levelRepository,
+        levelUpAttributePoints: this.levelUpAttributePoints,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+    }
+
     const monsterAttributes = monster.getAttributes();
 
     let playerCurrentHp = battle.playerCurrentHp;
     let monsterAttack: TurnReportOutput["monsterAttack"] = null;
+    let partingHitMessage: string | null = null;
 
     if (monsterAttributes.agility > effectiveAttributes.agility) {
       const attack = defaultMonsterAttack(moveset);
@@ -69,7 +104,23 @@ export class RunFromBattleUseCase {
         defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
       });
       playerCurrentHp = Math.max(0, playerCurrentHp - damage);
-      monsterAttack = { attackName: attack.name, hit: true, damage, effectApplied: null };
+
+      // Normal combat math includes the effect proc roll (plan2 §5b step 1),
+      // same as any other monster hit — the battle row is deleted right
+      // after this either way, so there's nothing to persist the resulting
+      // BattleEffect onto, but the turn report should still reflect whether
+      // one landed.
+      let effectApplied: string | null = null;
+      const proced = rollEffectProc(
+        { attackerLuck: monsterAttributes.luck, defenderLuck: effectiveAttributes.luck },
+        this.rng,
+      );
+      if (proced) {
+        const kind = attack.appliesEffect ?? monster.innateEffectKind;
+        effectApplied = kind;
+        partingHitMessage = effectAppliedMessage(kind);
+      }
+      monsterAttack = { attackName: attack.name, hit: true, damage, effectApplied };
     }
 
     await this.battleRepository.deleteByPlayerId(player.id);
@@ -79,7 +130,7 @@ export class RunFromBattleUseCase {
       return {
         playerAttack: null,
         monsterAttack,
-        messages: [],
+        messages: partingHitMessage ? [partingHitMessage] : [],
         playerStatus: {
           currentHp: 0,
           maxHp: playerMaxHp,
@@ -90,7 +141,7 @@ export class RunFromBattleUseCase {
           currentHp: battle.monsterCurrentHp,
           maxHp: monster.hp,
           currentStamina: battle.monsterCurrentStamina,
-          maxStamina: maxStamina(monster.level),
+          maxStamina: monster.maxStamina,
         },
         outcome: "lost",
         lootOffer: null,
@@ -103,7 +154,7 @@ export class RunFromBattleUseCase {
     return {
       playerAttack: null,
       monsterAttack,
-      messages: [],
+      messages: partingHitMessage ? [partingHitMessage] : [],
       playerStatus: {
         currentHp: playerCurrentHp,
         maxHp: playerMaxHp,
@@ -114,7 +165,7 @@ export class RunFromBattleUseCase {
         currentHp: battle.monsterCurrentHp,
         maxHp: monster.hp,
         currentStamina: battle.monsterCurrentStamina,
-        maxStamina: maxStamina(monster.level),
+        maxStamina: monster.maxStamina,
       },
       outcome: "fled",
       lootOffer: null,

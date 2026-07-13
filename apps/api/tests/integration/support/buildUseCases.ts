@@ -21,6 +21,7 @@ import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 
 const LEVEL_UP_ATTRIBUTE_POINTS = 4;
+const STUN_COOLDOWN_ROUNDS = 5;
 
 /** Wires every repo + usecase against a live testcontainers Postgres, given an (often fake) Rng. */
 export function buildUseCases(sql: SQL, rng: Rng) {
@@ -65,6 +66,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
+      STUN_COOLDOWN_ROUNDS,
     ),
     runFromBattleUseCase: new RunFromBattleUseCase(
       playerRepository,
@@ -75,6 +77,9 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       monsterAttackRepository,
       attackRepository,
       levelRepository,
+      rng,
+      LEVEL_UP_ATTRIBUTE_POINTS,
+      STUN_COOLDOWN_ROUNDS,
     ),
     useBagItemUseCase: new UseBagItemUseCase(
       playerRepository,
@@ -87,6 +92,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
+      STUN_COOLDOWN_ROUNDS,
     ),
     restUseCase: new RestUseCase(
       playerRepository,
@@ -99,6 +105,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
+      STUN_COOLDOWN_ROUNDS,
     ),
     claimLootUseCase: new ClaimLootUseCase(playerRepository, playerItemRepository, itemRepository),
     equipItemUseCase: new EquipItemUseCase(playerItemRepository, itemRepository),

@@ -75,6 +75,8 @@ describe("AttackUseCase (integration)", () => {
       monsterEffects: [],
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      stunCooldownRoundsLeft: 0,
     });
 
     return { userId, playerId, monsterId, monsterAttackId, playerMaxHp, battle };
@@ -90,7 +92,7 @@ describe("AttackUseCase (integration)", () => {
     const expectedPlayerDamage = computeDamage({
       attackMultiplier: 0.4,
       attackerScalingValue: 10,
-      staminaCost: 0,
+      staminaCost: 1, // HIT costs 1 stamina
       defenderLevel: 1,
       defenderScalingValue: 1,
     });
@@ -102,7 +104,7 @@ describe("AttackUseCase (integration)", () => {
       effectApplied: null,
     });
     expect(result.outcome).toBe("ongoing");
-    expect(result.playerStatus.currentStamina).toBe(15); // 10 - 0 (HIT) + 5 passive
+    expect(result.playerStatus.currentStamina).toBe(14); // 10 - 1 (HIT) + 5 passive
     expect(result.monsterStatus.currentHp).toBe(100 - expectedPlayerDamage);
   });
 
@@ -234,6 +236,8 @@ describe("AttackUseCase (integration)", () => {
       monsterEffects: [],
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      stunCooldownRoundsLeft: 0,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0]));

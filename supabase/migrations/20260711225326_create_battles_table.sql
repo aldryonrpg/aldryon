@@ -18,5 +18,20 @@ create table if not exists battles (
   -- not charging.
   monster_charging_attack_id uuid references monster_attacks (id),
   charge_rounds_left integer not null default 0,
+  -- Monster AI state: how many consecutive turns each non-special moveset
+  -- attack (keyed by monster_attacks.id) has gone unpicked. Resets to 0 the
+  -- turn it's picked, +1 every other turn — biases the AI's damage+weight
+  -- score toward rotating through the moveset instead of always repeating
+  -- the single highest-damage attack. Specials don't participate (they're
+  -- chosen unconditionally over any normal attack whenever affordable).
+  monster_attack_weights jsonb not null default '{}'::jsonb,
+  -- Stun must never chain (plan2 §6a extension): once a Stun-applying
+  -- special unleashes, this is set to STUN_COOLDOWN_ROUNDS (env-configurable,
+  -- default 5) and ticks down by 1 every round regardless of what the
+  -- monster does. While > 0, any moveset attack with applies_effect='stun'
+  -- is excluded from the AI's selection pool entirely, not just
+  -- de-prioritized — the same "always prefer a special" rule that could
+  -- otherwise re-trigger it the instant it's affordable again.
+  stun_cooldown_rounds_left integer not null default 0 check (stun_cooldown_rounds_left >= 0),
   created_at timestamptz not null default now()
 );

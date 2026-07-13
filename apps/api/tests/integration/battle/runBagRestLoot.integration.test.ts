@@ -40,15 +40,21 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     playerHp?: number;
     playerForce?: number;
     monsterForce?: number;
+    playerLuck?: number;
+    monsterLuck?: number;
+    monsterType?: "normal" | "poisonous";
   }) {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
       agility: overrides.playerAgility ?? 1,
       force: overrides.playerForce ?? 10,
+      luck: overrides.playerLuck ?? 1,
     });
     const monsterId = await createTestMonster(sql, {
       agility: overrides.monsterAgility ?? 1,
       force: overrides.monsterForce ?? 1,
+      luck: overrides.monsterLuck ?? 1,
+      monsterType: overrides.monsterType ?? "normal",
     });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
     await linkMonsterMoveset(sql, monsterId, attackId);
@@ -67,6 +73,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       monsterEffects: [],
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      stunCooldownRoundsLeft: 0,
     });
 
     return { playerId, monsterId, battle, playerMaxHp };
@@ -105,6 +113,31 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       expect(result.playerStatus.currentHp).toBeLessThan(500);
     });
 
+    it("can inflict the monster's innate effect on a parting hit (normal combat math applies)", async () => {
+      const { playerId, battle } = await setupBattle({
+        playerAgility: 1,
+        monsterAgility: 10,
+        monsterForce: 20,
+        playerHp: 500,
+        monsterLuck: 25,
+        playerLuck: 1,
+        monsterType: "poisonous",
+      });
+      // Only the effect-proc roll is consumed (the parting hit itself never
+      // rolls to-hit) — roll=20 lands against a 24-point Luck lead.
+      const uc = buildUseCases(sql, new FakeRng([20]));
+      await uc.battleRepository.create(battle);
+
+      const result = await uc.runFromBattleUseCase.execute({ playerId });
+
+      expect(result.outcome).toBe("fled");
+      expect(result.monsterAttack?.hit).toBe(true);
+      // DoT procs carry no narrative message in this codebase's convention
+      // (only Fear/Magic Aura Blast/Stun do — see effectAppliedMessage) —
+      // effectApplied is the actual assertion this test exists to cover.
+      expect(result.monsterAttack?.effectApplied).toBe("poison");
+    });
+
     it("triggers the death settlement when a fatal parting hit lands", async () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
@@ -140,7 +173,11 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const potId = await createTestItem(sql, { name: "Test Pot", hpRestore: 9999 });
       const playerItemId = await createTestPlayerItem(sql, playerId, potId, { quantity: 1 });
 
-      const uc = buildUseCases(sql, new FakeRng([0, 50]));
+      // Attack selection is deterministic (only one moveset entry), so the
+      // single rng value below is the monster's effect-proc roll; 50 fails
+      // it (diff 0) so no fresh bleed lands and same-turn-ticks the HP back
+      // down below the just-healed max.
+      const uc = buildUseCases(sql, new FakeRng([50]));
       await uc.battleRepository.create(battle);
 
       const result = await uc.useBagItemUseCase.execute({ playerId, playerItemId });
@@ -164,7 +201,9 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
         ],
       });
 
-      const uc = buildUseCases(sql, new FakeRng([0, 50]));
+      // 50 fails the monster's effect-proc roll (diff 0), so a fresh bleed
+      // doesn't land right after the bandage clears the old one.
+      const uc = buildUseCases(sql, new FakeRng([50]));
       await uc.battleRepository.create(battleWithBleed);
 
       await uc.useBagItemUseCase.execute({ playerId, playerItemId });
@@ -173,6 +212,35 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       expect(battleAfter?.playerEffects.some((e) => e.type === "dot" && e.kind === "bleed")).toBe(
         false,
       );
+    });
+
+    it("stacks unlimited repeated bleed procs, then clears all of them with a single bandage", async () => {
+      const { playerId, battle } = await setupBattle({ playerHp: 500 });
+      const [bandage] = await sql<
+        { id: string }[]
+      >`select id from items where name = 'bandage' limit 1`;
+      const playerItemId = await createTestPlayerItem(sql, playerId, bandage.id, { quantity: 1 });
+
+      const battleWithStackedBleed = Battle.create({
+        ...battle.toProps(),
+        playerEffects: [
+          { type: "dot", kind: "bleed", damagePerRound: 3, counterItemId: bandage.id },
+          { type: "dot", kind: "bleed", damagePerRound: 3, counterItemId: bandage.id },
+          { type: "dot", kind: "bleed", damagePerRound: 3, counterItemId: bandage.id },
+        ],
+      });
+
+      // 50 fails the monster's effect-proc roll (diff 0), so no new bleed
+      // lands right after the bandage clears all three stacked ones.
+      const uc = buildUseCases(sql, new FakeRng([50]));
+      await uc.battleRepository.create(battleWithStackedBleed);
+
+      await uc.useBagItemUseCase.execute({ playerId, playerItemId });
+
+      const battleAfter = await uc.battleRepository.findByPlayerId(playerId);
+      expect(
+        battleAfter?.playerEffects.filter((e) => e.type === "dot" && e.kind === "bleed"),
+      ).toEqual([]);
     });
 
     it("rejects an item with no consumable use", async () => {
@@ -235,6 +303,48 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [itemId] });
+
+      expect(result.claimed).toEqual([]);
+      expect(result.rejected).toHaveLength(1);
+
+      const player = await uc.playerRepository.findById(playerId);
+      expect(player?.pendingLoot).toEqual([itemId]);
+    });
+
+    it("accepts a VIP's 21st stack, where the same bag would reject a normal player", async () => {
+      const userId = await createTestUser(sql, { isVip: true });
+      const playerId = await createTestPlayer(sql, userId);
+      const itemId = await createTestItem(sql, { name: "VIP Overflow Item" });
+      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+
+      for (let i = 0; i < 20; i++) {
+        const fillerId = await createTestItem(sql, { name: `VIP Filler ${i}-${playerId}` });
+        await createTestPlayerItem(sql, playerId, fillerId, { quantity: 1 });
+      }
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: true, picks: [itemId] });
+
+      expect(result.claimed).toEqual([itemId]);
+      expect(result.rejected).toEqual([]);
+
+      const player = await uc.playerRepository.findById(playerId);
+      expect(player?.pendingLoot).toEqual([]);
+    });
+
+    it("still rejects a VIP's 26th stack — the 25-slot cap is a hard ceiling", async () => {
+      const userId = await createTestUser(sql, { isVip: true });
+      const playerId = await createTestPlayer(sql, userId);
+      const itemId = await createTestItem(sql, { name: "VIP Full Bag Item" });
+      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+
+      for (let i = 0; i < 25; i++) {
+        const fillerId = await createTestItem(sql, { name: `VIP Full Filler ${i}-${playerId}` });
+        await createTestPlayerItem(sql, playerId, fillerId, { quantity: 1 });
+      }
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: true, picks: [itemId] });
 
       expect(result.claimed).toEqual([]);
       expect(result.rejected).toHaveLength(1);

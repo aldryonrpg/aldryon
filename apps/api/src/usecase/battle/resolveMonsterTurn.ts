@@ -1,10 +1,14 @@
 import type { Attack } from "@/domain/attack/Attack";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
-import { computeDotMagnitude } from "@/domain/battle/BattleEffect";
-import { BATTLE_CONFIG, CHARGE_WARNING_FLAVOR, maxStamina } from "@/domain/battle/battleConfig";
+import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
+import { BATTLE_CONFIG, CHARGE_WARNING_FLAVOR } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
+import {
+  bumpAttackWeights,
+  selectByWeightedDamage,
+} from "@/domain/battle/services/MonsterAttackAi";
 import type { Monster } from "@/domain/monster/Monster";
 import type { BattleEffectKind, MonsterAttack } from "@/domain/monster/MonsterAttack";
 import type { Attributes } from "@/domain/shared/Attributes";
@@ -20,6 +24,8 @@ export interface MonsterTurnState {
   playerEffects: BattleEffect[];
   monsterChargingAttackId: string | null;
   chargeRoundsLeft: number;
+  monsterAttackWeights: Record<string, number>;
+  stunCooldownRoundsLeft: number;
 }
 
 export interface MonsterTurnResult extends MonsterTurnState {
@@ -48,9 +54,21 @@ export async function resolveMonsterTurn(params: {
   effectiveAttributes: Attributes;
   rng: Rng;
   itemRepository: ItemRepository;
+  /** Rounds a Stun-applying special stays excluded from selection after it
+   * unleashes (env-configurable, plan2 §6a extension — "Stun must never
+   * chain"). */
+  stunCooldownRounds: number;
 }): Promise<MonsterTurnResult> {
-  const { monster, moveset, playerAttacks, playerLevel, effectiveAttributes, rng, itemRepository } =
-    params;
+  const {
+    monster,
+    moveset,
+    playerAttacks,
+    playerLevel,
+    effectiveAttributes,
+    rng,
+    itemRepository,
+    stunCooldownRounds,
+  } = params;
   const monsterAttributes = monster.getAttributes();
   const messages: string[] = [];
   let {
@@ -59,9 +77,12 @@ export async function resolveMonsterTurn(params: {
     playerEffects,
     monsterChargingAttackId,
     chargeRoundsLeft,
+    monsterAttackWeights,
+    stunCooldownRoundsLeft,
   } = params.state;
   let monsterAttack: AttackResultOutput | null = null;
   let monsterStaminaRegen: number = BATTLE_CONFIG.passiveStaminaRegen;
+  let pickedNormalAttackId: string | null = null;
 
   if (chargeRoundsLeft > 0 && monsterChargingAttackId) {
     chargeRoundsLeft -= 1;
@@ -87,24 +108,30 @@ export async function resolveMonsterTurn(params: {
       const innateCounter = await resolveCounterItemId(innateKind, itemRepository);
       playerEffects = [
         ...playerEffects,
-        {
-          type: "dot",
-          kind: innateKind,
-          damagePerRound: computeDotMagnitude(monster.level, playerLevel),
+        buildBattleEffect(innateKind, {
+          inflictorLevel: monster.level,
+          victimLevel: playerLevel,
           counterItemId: innateCounter,
-        },
+        }),
       ];
 
       if (special.appliesEffect && special.appliesEffect !== innateKind) {
         playerEffects = [
           ...playerEffects,
-          {
-            type: "dot",
-            kind: special.appliesEffect,
-            damagePerRound: computeDotMagnitude(monster.level, playerLevel),
+          buildBattleEffect(special.appliesEffect, {
+            inflictorLevel: monster.level,
+            victimLevel: playerLevel,
             counterItemId: special.counterItemId,
-          },
+          }),
         ];
+        const message = effectAppliedMessage(special.appliesEffect);
+        if (message) messages.push(message);
+
+        // Stun must never chain: this special can't be selected again until
+        // the cooldown expires (plan2 §6a extension).
+        if (special.appliesEffect === "stun") {
+          stunCooldownRoundsLeft = stunCooldownRounds;
+        }
       }
 
       monsterAttack = { attackName: special.name, hit: true, damage, effectApplied: innateKind };
@@ -112,73 +139,100 @@ export async function resolveMonsterTurn(params: {
       chargeRoundsLeft = 0;
     }
   } else {
-    const affordable = moveset.filter((a) => a.staminaCost <= monsterCurrentStamina);
-    if (affordable.length === 0) {
+    const affordable = moveset.filter(
+      (a) =>
+        a.staminaCost <= monsterCurrentStamina &&
+        // Stun must never chain — excluded from selection entirely while on
+        // cooldown, not just de-prioritized (plan2 §6a extension).
+        !(a.appliesEffect === "stun" && stunCooldownRoundsLeft > 0),
+    );
+    const affordableSpecials = affordable.filter((a) => a.isSpecial);
+    const affordableNormals = affordable.filter((a) => !a.isSpecial);
+
+    if (affordableSpecials.length > 0) {
+      // The AI always prefers starting a special over any normal attack
+      // whenever one is affordable — a charged special guarantees a hit and
+      // a 100% effect proc on unleash, so it's always the stronger play
+      // (plan2 §6a). Ties among several simultaneously-affordable specials
+      // are broken randomly (rare with today's seed data, at most one
+      // special per moveset).
+      const picked =
+        affordableSpecials.length === 1
+          ? (affordableSpecials[0] as MonsterAttack)
+          : pick(affordableSpecials, rng);
+      monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
+      monsterChargingAttackId = picked.id;
+      chargeRoundsLeft = picked.chargeTurns;
+      messages.push(pick(CHARGE_WARNING_FLAVOR, rng));
+    } else if (affordableNormals.length === 0) {
       monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
     } else {
-      const picked = pick(affordable, rng);
-      if (picked.isSpecial) {
-        monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
-        monsterChargingAttackId = picked.id;
-        chargeRoundsLeft = picked.chargeTurns;
-        messages.push(pick(CHARGE_WARNING_FLAVOR, rng));
-      } else {
-        const hit = rollHit(
-          {
-            attackerDexterity: monsterAttributes.dexterity,
-            defenderDexterity: effectiveAttributes.dexterity,
-            attackerLuck: monsterAttributes.luck,
-          },
+      const playerStance = defaultPlayerAttack(playerAttacks);
+      const candidates = affordableNormals.map((a) => ({
+        attack: a,
+        // Damage this attack would deal if it hits — used only to score and
+        // pick among candidates. The hit roll itself doesn't depend on which
+        // attack is chosen (dexterity/luck are the monster's, not the
+        // attack's), so this doubles as the real damage once picked.
+        damage: computeDamage({
+          attackMultiplier: a.multiplier,
+          attackerScalingValue: monsterAttributes.get(a.scalingAttribute),
+          staminaCost: a.staminaCost,
+          defenderLevel: playerLevel,
+          defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
+        }),
+      }));
+      const picked = selectByWeightedDamage(candidates, monsterAttackWeights);
+      pickedNormalAttackId = picked.id;
+
+      const hit = rollHit(
+        {
+          attackerDexterity: monsterAttributes.dexterity,
+          defenderDexterity: effectiveAttributes.dexterity,
+          attackerLuck: monsterAttributes.luck,
+        },
+        rng,
+      );
+      let damage = 0;
+      let effectApplied: string | null = null;
+
+      if (hit) {
+        damage = candidates.find((c) => c.attack.id === picked.id)?.damage ?? 0;
+        playerCurrentHp = Math.max(0, playerCurrentHp - damage);
+        monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
+
+        const proced = rollEffectProc(
+          { attackerLuck: monsterAttributes.luck, defenderLuck: effectiveAttributes.luck },
           rng,
         );
-        let damage = 0;
-        let effectApplied: string | null = null;
-
-        if (hit) {
-          const playerStance = defaultPlayerAttack(playerAttacks);
-          damage = computeDamage({
-            attackMultiplier: picked.multiplier,
-            attackerScalingValue: monsterAttributes.get(picked.scalingAttribute),
-            staminaCost: picked.staminaCost,
-            defenderLevel: playerLevel,
-            defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
-          });
-          playerCurrentHp = Math.max(0, playerCurrentHp - damage);
-          monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
-
-          const proced = rollEffectProc(
-            { attackerLuck: monsterAttributes.luck, defenderLuck: effectiveAttributes.luck },
-            rng,
-          );
-          if (proced) {
-            const kind: BattleEffectKind = picked.appliesEffect ?? monster.innateEffectKind;
-            const counterItemId = picked.appliesEffect
-              ? picked.counterItemId
-              : await resolveCounterItemId(kind, itemRepository);
-            playerEffects = [
-              ...playerEffects,
-              {
-                type: "dot",
-                kind,
-                damagePerRound: computeDotMagnitude(monster.level, playerLevel),
-                counterItemId,
-              },
-            ];
-            effectApplied = kind;
-          }
-        } else {
-          monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
+        if (proced) {
+          const kind: BattleEffectKind = picked.appliesEffect ?? monster.innateEffectKind;
+          const counterItemId = picked.appliesEffect
+            ? picked.counterItemId
+            : await resolveCounterItemId(kind, itemRepository);
+          playerEffects = [
+            ...playerEffects,
+            buildBattleEffect(kind, {
+              inflictorLevel: monster.level,
+              victimLevel: playerLevel,
+              counterItemId,
+            }),
+          ];
+          effectApplied = kind;
+          const message = effectAppliedMessage(kind);
+          if (message) messages.push(message);
         }
-
-        monsterAttack = { attackName: picked.name, hit, damage, effectApplied };
+      } else {
+        monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
       }
+
+      monsterAttack = { attackName: picked.name, hit, damage, effectApplied };
     }
   }
 
-  monsterCurrentStamina = Math.min(
-    maxStamina(monster.level),
-    monsterCurrentStamina + monsterStaminaRegen,
-  );
+  monsterCurrentStamina = Math.min(monster.maxStamina, monsterCurrentStamina + monsterStaminaRegen);
+  monsterAttackWeights = bumpAttackWeights(monsterAttackWeights, moveset, pickedNormalAttackId);
+  stunCooldownRoundsLeft = Math.max(0, stunCooldownRoundsLeft - 1);
 
   return {
     playerCurrentHp,
@@ -186,6 +240,8 @@ export async function resolveMonsterTurn(params: {
     playerEffects,
     monsterChargingAttackId,
     chargeRoundsLeft,
+    monsterAttackWeights,
+    stunCooldownRoundsLeft,
     monsterAttack,
     messages,
   };

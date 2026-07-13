@@ -1,6 +1,6 @@
 import { Attributes, type AttributeValues } from "@/domain/shared/Attributes";
 
-export type MonsterRegion = "mountain" | "forest" | "dungeon" | "bandit" | "sewage" | "ruins";
+export type MonsterRegion = "mountain" | "forest" | "bandit" | "sewage" | "ruins";
 export type MonsterType = "normal" | "poisonous";
 
 export interface DropTuple {
@@ -20,6 +20,10 @@ export interface MonsterProps {
   /** Fixed catalog data — monsters don't level up, but the shared damage
    * formula (plan2 §6) needs a defender_level "the same way" for both sides. */
   level: number;
+  /** Monster-only catalog Stamina pool — not the shared player maxStamina(level)
+   * formula. Tunable per monster so the attack-selection AI (§6a) has room to
+   * work with. */
+  maxStamina: number;
   attributes: AttributeValues;
   monsterType: MonsterType;
   drops: DropTuple[];
@@ -59,6 +63,9 @@ export class Monster {
     if (props.ambushChance < 0 || props.ambushChance > 100) {
       throw new Error("Monster ambushChance must be between 0 and 100");
     }
+    if (props.maxStamina < 1) {
+      throw new Error("Monster maxStamina must be >= 1");
+    }
     validateDropPool(props.drops, "drops");
     validateDropPool(props.exclusiveDrops, "exclusiveDrops");
 
@@ -89,6 +96,9 @@ export class Monster {
   }
   get level(): number {
     return this.props.level;
+  }
+  get maxStamina(): number {
+    return this.props.maxStamina;
   }
   get monsterType(): MonsterType {
     return this.props.monsterType;

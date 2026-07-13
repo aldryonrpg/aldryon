@@ -1,4 +1,6 @@
 import { Battle } from "@/domain/battle/Battle";
+import type { BattleEffect } from "@/domain/battle/BattleEffect";
+import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
 import {
   AMBUSH_FLAVOR,
   BATTLE_CONFIG,
@@ -7,8 +9,10 @@ import {
   maxStamina,
 } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
+import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
 import type { MonsterRegion } from "@/domain/monster/Monster";
+import type { BattleEffectKind } from "@/domain/monster/MonsterAttack";
 import { Player } from "@/domain/player/Player";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
@@ -17,6 +21,7 @@ import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
+import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
@@ -149,10 +154,12 @@ export class StartBattleUseCase {
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
     const playerMaxStamina = maxStamina(player.level);
-    const monsterMaxStamina = maxStamina(monster.level);
+    const monsterMaxStamina = monster.maxStamina;
 
     let playerCurrentHp = playerMaxHp;
     let ambushOccurred = false;
+    let playerEffects: BattleEffect[] = [];
+    let ambushEffectMessage: string | null = null;
 
     // Ambush roll (plan2 §4 step 4): one free monster strike before the
     // player ever acts. Can't use a special.
@@ -183,6 +190,32 @@ export class StartBattleUseCase {
           defenderScalingValue: effectiveAttributes.get(defenderStance.scalingAttribute),
         });
         playerCurrentHp = Math.max(0, playerCurrentHp - damage);
+
+        // Effect procs apply on an ambush exactly like any other monster hit
+        // (plan2 §4 step 4 — "normal combat math", which includes §6a's proc
+        // roll), so the innate/attack-specific DoT can land here too.
+        const proced = rollEffectProc(
+          {
+            attackerLuck: monster.getAttributes().luck,
+            defenderLuck: effectiveAttributes.luck,
+          },
+          this.rng,
+        );
+        if (proced) {
+          const kind: BattleEffectKind = ambushAttack.appliesEffect ?? monster.innateEffectKind;
+          const counterItemId = ambushAttack.appliesEffect
+            ? ambushAttack.counterItemId
+            : await resolveCounterItemId(kind, this.itemRepository);
+          playerEffects = [
+            ...playerEffects,
+            buildBattleEffect(kind, {
+              inflictorLevel: monster.level,
+              victimLevel: player.level,
+              counterItemId,
+            }),
+          ];
+          ambushEffectMessage = effectAppliedMessage(kind);
+        }
       }
     }
 
@@ -208,10 +241,12 @@ export class StartBattleUseCase {
       monsterCurrentHp: monster.hp,
       monsterCurrentStamina: monsterMaxStamina,
       round: 1,
-      playerEffects: [],
+      playerEffects,
       monsterEffects: [],
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      stunCooldownRoundsLeft: 0,
     });
     await this.battleRepository.create(battle);
 
@@ -224,7 +259,9 @@ export class StartBattleUseCase {
         hp: monster.hp,
         attributes: monster.getAttributes().toValues(),
       },
-      message: ambushOccurred ? pick([...AMBUSH_FLAVOR], this.rng) : null,
+      message: ambushOccurred
+        ? [pick([...AMBUSH_FLAVOR], this.rng), ambushEffectMessage].filter(Boolean).join(" ")
+        : null,
       playerStatus: {
         currentHp: playerCurrentHp,
         maxHp: playerMaxHp,

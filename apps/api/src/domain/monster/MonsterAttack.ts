@@ -1,5 +1,11 @@
 export type AttackScaling = "force" | "intelligence";
-export type BattleEffectKind = "bleed" | "poison" | "burn";
+/**
+ * bleed/poison/burn are damage-over-time. fear/magic_aura_blast are
+ * percentage stat-decay debuffs (Force/Intelligence); stun voids the
+ * player's next turns. The latter three are delivered exclusively via
+ * special attacks and have no counter item — they just run their course.
+ */
+export type BattleEffectKind = "bleed" | "poison" | "burn" | "fear" | "magic_aura_blast" | "stun";
 
 export interface MonsterAttackProps {
   id: string;
@@ -27,10 +33,8 @@ export class MonsterAttack {
     if (props.isSpecial && props.chargeTurns < 1) {
       throw new Error("Special MonsterAttack requires chargeTurns >= 1");
     }
-    if ((props.appliesEffect === null) !== (props.counterItemId === null)) {
-      throw new Error(
-        "MonsterAttack appliesEffect and counterItemId must both be set or both null",
-      );
+    if (props.counterItemId !== null && props.appliesEffect === null) {
+      throw new Error("MonsterAttack counterItemId requires appliesEffect to be set");
     }
     return new MonsterAttack(props);
   }

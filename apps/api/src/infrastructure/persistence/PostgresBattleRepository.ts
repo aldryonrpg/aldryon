@@ -17,6 +17,8 @@ interface BattleRow {
   monster_effects: unknown;
   monster_charging_attack_id: string | null;
   charge_rounds_left: number;
+  monster_attack_weights: unknown;
+  stun_cooldown_rounds_left: number;
 }
 
 function toDomain(row: BattleRow): Battle {
@@ -33,6 +35,8 @@ function toDomain(row: BattleRow): Battle {
     monsterEffects: parseJsonbColumn<BattleEffect[]>(row.monster_effects, []),
     monsterChargingAttackId: row.monster_charging_attack_id,
     chargeRoundsLeft: row.charge_rounds_left,
+    monsterAttackWeights: parseJsonbColumn<Record<string, number>>(row.monster_attack_weights, {}),
+    stunCooldownRoundsLeft: row.stun_cooldown_rounds_left,
   });
 }
 
@@ -52,12 +56,14 @@ export class PostgresBattleRepository implements BattleRepository {
       insert into battles (
         id, player_id, monster_id, player_current_hp, player_current_stamina,
         monster_current_hp, monster_current_stamina, round,
-        player_effects, monster_effects, monster_charging_attack_id, charge_rounds_left
+        player_effects, monster_effects, monster_charging_attack_id, charge_rounds_left,
+        monster_attack_weights, stun_cooldown_rounds_left
       ) values (
         ${props.id}, ${props.playerId}, ${props.monsterId}, ${props.playerCurrentHp}, ${props.playerCurrentStamina},
         ${props.monsterCurrentHp}, ${props.monsterCurrentStamina}, ${props.round},
         ${JSON.stringify(props.playerEffects)}::jsonb, ${JSON.stringify(props.monsterEffects)}::jsonb,
-        ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft}
+        ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft},
+        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.stunCooldownRoundsLeft}
       )
       returning *
     `;
@@ -78,7 +84,9 @@ export class PostgresBattleRepository implements BattleRepository {
         player_effects = ${JSON.stringify(props.playerEffects)}::jsonb,
         monster_effects = ${JSON.stringify(props.monsterEffects)}::jsonb,
         monster_charging_attack_id = ${props.monsterChargingAttackId},
-        charge_rounds_left = ${props.chargeRoundsLeft}
+        charge_rounds_left = ${props.chargeRoundsLeft},
+        monster_attack_weights = ${JSON.stringify(props.monsterAttackWeights)}::jsonb,
+        stun_cooldown_rounds_left = ${props.stunCooldownRoundsLeft}
       where id = ${props.id}
       returning *
     `;

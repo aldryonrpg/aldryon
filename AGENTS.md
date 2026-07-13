@@ -16,7 +16,7 @@ Summary of the non-negotiable rules (see `CLAUDE.md` for detail):
 - Assume a **Docker or Podman** runtime is always available locally, so
   **testcontainers** integration tests run in pre-commit and CI.
 - Back-end **pre-commit + CI gates**: Biome, unit tests, integration tests
-  (**testcontainers**, happy path + edge cases), and **≥ 75% coverage on the
+  (**testcontainers**, happy path + edge cases), and **≥ 85% coverage on the
   `usecase/` folder measured from the integration run only**. Never bypass with
   `--no-verify`.
 - **Back-end CI stages (in order):** Biome linter → **Trivy** vuln check →

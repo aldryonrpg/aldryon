@@ -13,7 +13,15 @@ create type equipment_position as enum (
 );
 
 create type attack_scaling as enum ('force', 'intelligence');
-create type battle_effect_kind as enum ('bleed', 'poison', 'burn');
-create type monster_region as enum ('mountain', 'forest', 'dungeon', 'bandit', 'sewage', 'ruins');
+-- bleed/poison/burn are damage-over-time; fear/magic_aura_blast are
+-- percentage stat-decay debuffs (Force/Intelligence) and stun skips the
+-- player's next turns — all delivered via a monster's special attack
+-- (monster_attacks.applies_effect), never cured by an item.
+create type battle_effect_kind as enum (
+  'bleed', 'poison', 'burn', 'fear', 'magic_aura_blast', 'stun'
+);
+-- Dungeon is not a region — it's an entirely separate concept (plan3 §2),
+-- accessed only via its own dedicated endpoint, never via /battle/start.
+create type monster_region as enum ('mountain', 'forest', 'bandit', 'sewage', 'ruins');
 -- A monster's innate on-hit ability (plan2 §3c/§6a): normal -> bleed, poisonous -> poison.
 create type monster_type as enum ('normal', 'poisonous');

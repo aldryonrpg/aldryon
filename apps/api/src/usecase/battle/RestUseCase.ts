@@ -1,10 +1,11 @@
-import { tickEffects } from "@/domain/battle/BattleEffect";
+import { isStunned, tickEffects } from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
+import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
@@ -32,6 +33,7 @@ export class RestUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
+    private readonly stunCooldownRounds: number,
   ) {}
 
   async execute(input: RestInput): Promise<TurnReportOutput> {
@@ -47,8 +49,34 @@ export class RestUseCase {
     const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(player, this.playerItemRepository, this.itemRepository),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        battle.playerEffects,
+      ),
     ]);
+
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+
+    if (isStunned(battle.playerEffects)) {
+      return resolveStunnedTurn({
+        battle,
+        player,
+        monster,
+        moveset,
+        playerAttacks,
+        effectiveAttributes,
+        playerMaxHp,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        playerRepository: this.playerRepository,
+        battleRepository: this.battleRepository,
+        levelRepository: this.levelRepository,
+        levelUpAttributePoints: this.levelUpAttributePoints,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+    }
 
     const playerCurrentStamina = Math.min(
       maxStamina(player.level),
@@ -62,6 +90,8 @@ export class RestUseCase {
         playerEffects: battle.playerEffects,
         monsterChargingAttackId: battle.monsterChargingAttackId,
         chargeRoundsLeft: battle.chargeRoundsLeft,
+        monsterAttackWeights: battle.monsterAttackWeights,
+        stunCooldownRoundsLeft: battle.stunCooldownRoundsLeft,
       },
       monster,
       moveset,
@@ -70,6 +100,7 @@ export class RestUseCase {
       effectiveAttributes,
       rng: this.rng,
       itemRepository: this.itemRepository,
+      stunCooldownRounds: this.stunCooldownRounds,
     });
 
     const playerTick = tickEffects(monsterTurn.playerEffects);
@@ -89,10 +120,12 @@ export class RestUseCase {
       monsterEffects: monsterTick.remaining,
       monsterChargingAttackId: monsterTurn.monsterChargingAttackId,
       chargeRoundsLeft: monsterTurn.chargeRoundsLeft,
+      monsterAttackWeights: monsterTurn.monsterAttackWeights,
+      stunCooldownRoundsLeft: monsterTurn.stunCooldownRoundsLeft,
       playerAttack: null,
       monsterAttack: monsterTurn.monsterAttack,
       messages: monsterTurn.messages,
-      playerMaxHp: maxHp(effectiveAttributes.vitality, effectiveAttributes.force),
+      playerMaxHp,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

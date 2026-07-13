@@ -4,7 +4,7 @@
 create table if not exists attacks (
   id uuid primary key,
   name text not null unique,
-  -- 0 only for HIT-style free attacks.
+  -- 0 is allowed for genuinely free attacks; HIT itself costs 1 (plan2 §10).
   stamina_cost integer not null check (stamina_cost >= 0),
   -- One multiplier, used both offensively and defensively (plan2 §6).
   multiplier numeric not null,

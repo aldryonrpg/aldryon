@@ -82,17 +82,20 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
 1. **Biome** passes (lint + format).
 2. **Unit tests** pass (`bun test`).
 3. **Integration tests** pass (using **testcontainers**).
-4. **`usecase/` folder coverage ≥ 75%** — measured from the **integration**
+4. **`usecase/` folder coverage ≥ 85%** — measured from the **integration**
    run only, scoped to `src/usecase/**`. Unit-test coverage does NOT count.
+   (Raised from 75% once the suite had enough integration tests in place to
+   hold a higher bar comfortably — see `apps/api/scripts/check-usecase-
+   coverage.ts`.)
 
 - These gates run in **pre-commit** and are mirrored in **CI** (do not bypass
   with `--no-verify`). Concretely, `.husky/pre-commit` runs `bun run
   test:api:unit` **and** `bun run test:api:integration:coverage` (the latter
-  both runs the integration suite and enforces the ≥75% gate) whenever staged
+  both runs the integration suite and enforces the ≥85% gate) whenever staged
   files touch `apps/api/`.
 - Use **testcontainers** for integration tests — cover the **happy path** and
   key **edge cases**.
-- The **75% coverage requirement applies specifically to the `usecase/` folder**
+- The **85% coverage requirement applies specifically to the `usecase/` folder**
   (Clean Architecture use cases) and is derived from the integration suite.
 - **Integration test files share ONE testcontainers Postgres** via
   `tests/integration/support/sharedPostgresEnvironment.ts` (`
@@ -127,7 +130,7 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
 Every step in that job blocks the next on failure. **Integration tests are a
 separate, optional job** in the same workflow file — no `needs:` link to the
 pipeline job, `continue-on-error: true`, so it never blocks lint/vuln/unit/
-build/deploy. It still produces the `usecase/` ≥ 75% coverage report; that
+build/deploy. It still produces the `usecase/` ≥ 85% coverage report; that
 gate is hard-enforced in **pre-commit** (integration tests always run there —
 see above) but only advisory in CI, matching its optional status.
 

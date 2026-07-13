@@ -1,14 +1,7 @@
 import { z } from "zod";
 import { AttributeValuesSchema } from "./attributes";
 
-export const MonsterRegionSchema = z.enum([
-  "mountain",
-  "forest",
-  "dungeon",
-  "bandit",
-  "sewage",
-  "ruins",
-]);
+export const MonsterRegionSchema = z.enum(["mountain", "forest", "bandit", "sewage", "ruins"]);
 export type MonsterRegionDto = z.infer<typeof MonsterRegionSchema>;
 
 export const BattleStatusSchema = z.object({

@@ -1,29 +1,21 @@
-import { Battle } from "@/domain/battle/Battle";
-import { computeDotMagnitude, tickEffects } from "@/domain/battle/BattleEffect";
-import {
-  BATTLE_CONFIG,
-  CHARGE_WARNING_FLAVOR,
-  maxHp,
-  maxStamina,
-} from "@/domain/battle/battleConfig";
+import { buildBattleEffect, isStunned, tickEffects } from "@/domain/battle/BattleEffect";
+import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
-import { applyXpGain } from "@/domain/level/LevelCurve";
-import { rollDropPool } from "@/domain/monster/dropRoll";
-import type { BattleEffectKind } from "@/domain/monster/MonsterAttack";
-import { Player } from "@/domain/player/Player";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
-import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import {
   AttackNotUsableError,
   NoActiveBattleError,
   UnknownAttackError,
 } from "@/usecase/battle/errors";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
+import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
+import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
+import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
@@ -38,17 +30,12 @@ export interface AttackInput {
   attackName: string;
 }
 
-function pick<T>(items: readonly T[], rng: Rng): T {
-  const item = items[rng.int(0, items.length - 1)];
-  if (item === undefined) throw new Error("Cannot pick from an empty list");
-  return item;
-}
-
 /**
- * A full battle turn (plan2 §5a): player's strike, monster's reply (incl.
- * the charge/unleash state machine), effect ticks, and kill/death
- * settlement. The largest single use case in plan2 — most of §6/§6a lives
- * here.
+ * A full battle turn (plan2 §5a): player's strike, monster's reply (via the
+ * shared `resolveMonsterTurn`, incl. the charge/unleash state machine),
+ * effect ticks, and kill/death settlement (via the shared `settleTurn`). If
+ * the player is stunned, the whole turn is delegated to
+ * `resolveStunnedTurn` instead — no attack is validated or resolved.
  */
 export class AttackUseCase {
   constructor(
@@ -62,6 +49,7 @@ export class AttackUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
+    private readonly stunCooldownRounds: number,
   ) {}
 
   async execute(input: AttackInput): Promise<TurnReportOutput> {
@@ -77,8 +65,34 @@ export class AttackUseCase {
     const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(player, this.playerItemRepository, this.itemRepository),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        battle.playerEffects,
+      ),
     ]);
+
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+
+    if (isStunned(battle.playerEffects)) {
+      return resolveStunnedTurn({
+        battle,
+        player,
+        monster,
+        moveset,
+        playerAttacks,
+        effectiveAttributes,
+        playerMaxHp,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        playerRepository: this.playerRepository,
+        battleRepository: this.battleRepository,
+        levelRepository: this.levelRepository,
+        levelUpAttributePoints: this.levelUpAttributePoints,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+    }
 
     const attack = playerAttacks.find((a) => a.name === input.attackName);
     if (!attack) throw new UnknownAttackError(input.attackName);
@@ -90,7 +104,6 @@ export class AttackUseCase {
     }
 
     const monsterAttributes = monster.getAttributes();
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
     const messages: string[] = [];
 
     let monsterCurrentHp = battle.monsterCurrentHp;
@@ -101,6 +114,8 @@ export class AttackUseCase {
     let monsterEffects = battle.monsterEffects;
     let monsterChargingAttackId = battle.monsterChargingAttackId;
     let chargeRoundsLeft = battle.chargeRoundsLeft;
+    let monsterAttackWeights = battle.monsterAttackWeights;
+    let stunCooldownRoundsLeft = battle.stunCooldownRoundsLeft;
 
     // Step 1-3: resolve the player's strike (plan2 §6).
     const playerHit = rollHit(
@@ -138,12 +153,11 @@ export class AttackUseCase {
           );
           monsterEffects = [
             ...monsterEffects,
-            {
-              type: "dot",
-              kind: attack.appliesEffect,
-              damagePerRound: computeDotMagnitude(player.level, monster.level),
+            buildBattleEffect(attack.appliesEffect, {
+              inflictorLevel: player.level,
+              victimLevel: monster.level,
               counterItemId,
-            },
+            }),
           ];
           playerEffectApplied = attack.appliesEffect;
         }
@@ -151,135 +165,39 @@ export class AttackUseCase {
     }
 
     // Step 4: the monster's reply, if it survived the player's strike.
-    let monsterAttackName: string | null = null;
-    let monsterHit = false;
-    let monsterDamage = 0;
-    let monsterEffectApplied: string | null = null;
-
-    // Both sides passively recover 5 Stamina at the end of every round;
-    // resting/charging recovers 15 INSTEAD of the 5 (not additive, plan2
-    // §5). Default to the passive rate and override per branch below.
-    let monsterStaminaRegen: number = BATTLE_CONFIG.passiveStaminaRegen;
-
+    let monsterAttackResult: TurnReportOutput["monsterAttack"] = null;
     if (monsterCurrentHp > 0) {
-      if (battle.isMonsterCharging) {
-        chargeRoundsLeft -= 1;
-        if (chargeRoundsLeft > 0) {
-          monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
-          messages.push(pick(CHARGE_WARNING_FLAVOR, this.rng));
-        } else {
-          const special = moveset.find((a) => a.id === monsterChargingAttackId);
-          if (!special) throw new Error("Charging monster attack no longer exists in its moveset");
-
-          monsterAttackName = special.name;
-          monsterHit = true;
-          const playerStance = defaultPlayerAttack(playerAttacks);
-          monsterDamage = computeDamage({
-            attackMultiplier: special.multiplier,
-            attackerScalingValue: monsterAttributes.get(special.scalingAttribute),
-            staminaCost: special.staminaCost,
-            defenderLevel: player.level,
-            defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
-          });
-          playerCurrentHp = Math.max(0, playerCurrentHp - monsterDamage);
-          monsterCurrentStamina = Math.max(0, monsterCurrentStamina - special.staminaCost);
-
-          const innateKind = monster.innateEffectKind;
-          const innateCounter = await resolveCounterItemId(innateKind, this.itemRepository);
-          playerEffects = [
-            ...playerEffects,
-            {
-              type: "dot",
-              kind: innateKind,
-              damagePerRound: computeDotMagnitude(monster.level, player.level),
-              counterItemId: innateCounter,
-            },
-          ];
-          monsterEffectApplied = innateKind;
-
-          if (special.appliesEffect && special.appliesEffect !== innateKind) {
-            playerEffects = [
-              ...playerEffects,
-              {
-                type: "dot",
-                kind: special.appliesEffect,
-                damagePerRound: computeDotMagnitude(monster.level, player.level),
-                counterItemId: special.counterItemId,
-              },
-            ];
-          }
-
-          monsterChargingAttackId = null;
-          chargeRoundsLeft = 0;
-        }
-      } else {
-        const affordable = moveset.filter((a) => a.staminaCost <= monsterCurrentStamina);
-        if (affordable.length === 0) {
-          monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
-        } else {
-          const picked = pick(affordable, this.rng);
-          if (picked.isSpecial) {
-            monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
-            monsterChargingAttackId = picked.id;
-            chargeRoundsLeft = picked.chargeTurns;
-            messages.push(pick(CHARGE_WARNING_FLAVOR, this.rng));
-          } else {
-            monsterAttackName = picked.name;
-            monsterHit = rollHit(
-              {
-                attackerDexterity: monsterAttributes.dexterity,
-                defenderDexterity: effectiveAttributes.dexterity,
-                attackerLuck: monsterAttributes.luck,
-              },
-              this.rng,
-            );
-
-            if (monsterHit) {
-              const playerStance = defaultPlayerAttack(playerAttacks);
-              monsterDamage = computeDamage({
-                attackMultiplier: picked.multiplier,
-                attackerScalingValue: monsterAttributes.get(picked.scalingAttribute),
-                staminaCost: picked.staminaCost,
-                defenderLevel: player.level,
-                defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
-              });
-              playerCurrentHp = Math.max(0, playerCurrentHp - monsterDamage);
-              monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
-
-              const proced = rollEffectProc(
-                { attackerLuck: monsterAttributes.luck, defenderLuck: effectiveAttributes.luck },
-                this.rng,
-              );
-              if (proced) {
-                const kind: BattleEffectKind = picked.appliesEffect ?? monster.innateEffectKind;
-                const counterItemId = picked.appliesEffect
-                  ? picked.counterItemId
-                  : await resolveCounterItemId(kind, this.itemRepository);
-                playerEffects = [
-                  ...playerEffects,
-                  {
-                    type: "dot",
-                    kind,
-                    damagePerRound: computeDotMagnitude(monster.level, player.level),
-                    counterItemId,
-                  },
-                ];
-                monsterEffectApplied = kind;
-              }
-            } else {
-              monsterCurrentStamina = Math.max(0, monsterCurrentStamina - picked.staminaCost);
-            }
-          }
-        }
-      }
-
-      monsterCurrentStamina = Math.min(
-        maxStamina(monster.level),
-        monsterCurrentStamina + monsterStaminaRegen,
-      );
+      const monsterTurn = await resolveMonsterTurn({
+        state: {
+          playerCurrentHp,
+          monsterCurrentStamina,
+          playerEffects,
+          monsterChargingAttackId,
+          chargeRoundsLeft,
+          monsterAttackWeights,
+          stunCooldownRoundsLeft,
+        },
+        monster,
+        moveset,
+        playerAttacks,
+        playerLevel: player.level,
+        effectiveAttributes,
+        rng: this.rng,
+        itemRepository: this.itemRepository,
+        stunCooldownRounds: this.stunCooldownRounds,
+      });
+      playerCurrentHp = monsterTurn.playerCurrentHp;
+      monsterCurrentStamina = monsterTurn.monsterCurrentStamina;
+      playerEffects = monsterTurn.playerEffects;
+      monsterChargingAttackId = monsterTurn.monsterChargingAttackId;
+      chargeRoundsLeft = monsterTurn.chargeRoundsLeft;
+      monsterAttackWeights = monsterTurn.monsterAttackWeights;
+      stunCooldownRoundsLeft = monsterTurn.stunCooldownRoundsLeft;
+      monsterAttackResult = monsterTurn.monsterAttack;
+      messages.push(...monsterTurn.messages);
     }
 
-    // Step 5: tick active effects (plan2 §6a) — DoT damage both sides, debuff expiry, round++.
+    // Step 5: tick active effects (plan2 §6a) — DoT damage both sides, debuff/stun advance, round++.
     const playerTick = tickEffects(playerEffects);
     const monsterTick = tickEffects(monsterEffects);
     playerCurrentHp = Math.max(0, playerCurrentHp - playerTick.totalDamage);
@@ -294,170 +212,34 @@ export class AttackUseCase {
       playerCurrentStamina + BATTLE_CONFIG.passiveStaminaRegen,
     );
 
-    // Step 6-7: settlement.
-    if (monsterCurrentHp <= 0) {
-      const levels = await this.levelRepository.findAll();
-      const xpResult = applyXpGain({
-        levels,
-        currentXp: player.xp,
-        currentLevel: player.level,
-        xpGain: monster.xpGain,
-        maxXp: BATTLE_CONFIG.maxXp,
-        attributePointsPerLevel: this.levelUpAttributePoints,
-      });
-
-      const dropItemId = rollDropPool(monster.drops, this.rng);
-      const exclusiveDropItemId = rollDropPool(monster.exclusiveDrops, this.rng);
-      const lootOffer = [dropItemId, exclusiveDropItemId].filter((id): id is string => id !== null);
-
-      const updatedPlayer = Player.create({
-        ...player.toProps(),
-        xp: xpResult.xp,
-        level: xpResult.level,
-        attributePoints: player.attributePoints + xpResult.attributePointsGained,
-        pendingLoot: lootOffer,
-      });
-      await this.playerRepository.update(updatedPlayer);
-      await this.battleRepository.deleteByPlayerId(player.id);
-
-      return this.buildReport({
-        playerAttackName: attack.name,
-        playerHit,
-        playerDamage,
-        playerEffectApplied,
-        monsterAttackName,
-        monsterHit,
-        monsterDamage,
-        monsterEffectApplied,
-        messages,
-        playerCurrentHp,
-        playerCurrentStamina,
-        monsterCurrentHp: 0,
-        monsterCurrentStamina,
-        playerMaxHp,
-        playerLevel: player.level,
-        monsterMaxHp: monster.hp,
-        monsterLevel: monster.level,
-        outcome: "won",
-        lootOffer,
-      });
-    }
-
-    if (playerCurrentHp <= 0) {
-      await settlePlayerDeath(player, this.levelRepository, this.playerRepository);
-      await this.battleRepository.deleteByPlayerId(player.id);
-
-      return this.buildReport({
-        playerAttackName: attack.name,
-        playerHit,
-        playerDamage,
-        playerEffectApplied,
-        monsterAttackName,
-        monsterHit,
-        monsterDamage,
-        monsterEffectApplied,
-        messages,
-        playerCurrentHp: 0,
-        playerCurrentStamina,
-        monsterCurrentHp,
-        monsterCurrentStamina,
-        playerMaxHp,
-        playerLevel: player.level,
-        monsterMaxHp: monster.hp,
-        monsterLevel: monster.level,
-        outcome: "lost",
-        lootOffer: null,
-      });
-    }
-
-    const updatedBattle = Battle.create({
-      ...battle.toProps(),
+    return settleTurn({
+      battle,
+      player,
+      monster,
       playerCurrentHp,
       playerCurrentStamina,
       monsterCurrentHp,
       monsterCurrentStamina,
-      round: battle.round + 1,
       playerEffects,
       monsterEffects,
       monsterChargingAttackId,
       chargeRoundsLeft,
-    });
-    await this.battleRepository.update(updatedBattle);
-
-    return this.buildReport({
-      playerAttackName: attack.name,
-      playerHit,
-      playerDamage,
-      playerEffectApplied,
-      monsterAttackName,
-      monsterHit,
-      monsterDamage,
-      monsterEffectApplied,
-      messages,
-      playerCurrentHp,
-      playerCurrentStamina,
-      monsterCurrentHp,
-      monsterCurrentStamina,
-      playerMaxHp,
-      playerLevel: player.level,
-      monsterMaxHp: monster.hp,
-      monsterLevel: monster.level,
-      outcome: "ongoing",
-      lootOffer: null,
-    });
-  }
-
-  private buildReport(params: {
-    playerAttackName: string;
-    playerHit: boolean;
-    playerDamage: number;
-    playerEffectApplied: string | null;
-    monsterAttackName: string | null;
-    monsterHit: boolean;
-    monsterDamage: number;
-    monsterEffectApplied: string | null;
-    messages: string[];
-    playerCurrentHp: number;
-    playerCurrentStamina: number;
-    monsterCurrentHp: number;
-    monsterCurrentStamina: number;
-    playerMaxHp: number;
-    playerLevel: number;
-    monsterMaxHp: number;
-    monsterLevel: number;
-    outcome: "ongoing" | "won" | "lost";
-    lootOffer: string[] | null;
-  }): TurnReportOutput {
-    return {
+      monsterAttackWeights,
+      stunCooldownRoundsLeft,
       playerAttack: {
-        attackName: params.playerAttackName,
-        hit: params.playerHit,
-        damage: params.playerDamage,
-        effectApplied: params.playerEffectApplied,
+        attackName: attack.name,
+        hit: playerHit,
+        damage: playerDamage,
+        effectApplied: playerEffectApplied,
       },
-      monsterAttack: params.monsterAttackName
-        ? {
-            attackName: params.monsterAttackName,
-            hit: params.monsterHit,
-            damage: params.monsterDamage,
-            effectApplied: params.monsterEffectApplied,
-          }
-        : null,
-      messages: params.messages,
-      playerStatus: {
-        currentHp: params.playerCurrentHp,
-        maxHp: params.playerMaxHp,
-        currentStamina: params.playerCurrentStamina,
-        maxStamina: maxStamina(params.playerLevel),
-      },
-      monsterStatus: {
-        currentHp: params.monsterCurrentHp,
-        maxHp: params.monsterMaxHp,
-        currentStamina: params.monsterCurrentStamina,
-        maxStamina: maxStamina(params.monsterLevel),
-      },
-      outcome: params.outcome,
-      lootOffer: params.lootOffer,
-    };
+      monsterAttack: monsterAttackResult,
+      messages,
+      playerMaxHp,
+      rng: this.rng,
+      playerRepository: this.playerRepository,
+      battleRepository: this.battleRepository,
+      levelRepository: this.levelRepository,
+      levelUpAttributePoints: this.levelUpAttributePoints,
+    });
   }
 }

@@ -14,6 +14,12 @@ create table if not exists monsters (
   -- a `defender_level` for monsters "the same way" as players, and monsters
   -- don't level up — so it's fixed catalog data, tunable per monster.
   level integer not null default 1 check (level >= 1),
+  -- Monsters use their own catalog Stamina pool, not the shared player
+  -- maxStamina(level) formula — the AI's special-priority + weighted-damage
+  -- attack selection needs headroom well above what that formula gives a
+  -- low-level monster, so it's tunable per monster instead (100/150/200 are
+  -- illustrative seed values, not a level-derived progression).
+  max_stamina integer not null default 100 check (max_stamina >= 1),
   force integer not null default 1 check (force >= 1),
   dexterity integer not null default 1 check (dexterity >= 1),
   agility integer not null default 1 check (agility >= 1),

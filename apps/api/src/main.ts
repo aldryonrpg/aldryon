@@ -67,6 +67,7 @@ const attackUseCase = new AttackUseCase(
   levelRepository,
   rng,
   env.levelUpAttributePoints,
+  env.stunCooldownRounds,
 );
 const runFromBattleUseCase = new RunFromBattleUseCase(
   playerRepository,
@@ -77,6 +78,9 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   monsterAttackRepository,
   attackRepository,
   levelRepository,
+  rng,
+  env.levelUpAttributePoints,
+  env.stunCooldownRounds,
 );
 const useBagItemUseCase = new UseBagItemUseCase(
   playerRepository,
@@ -89,6 +93,7 @@ const useBagItemUseCase = new UseBagItemUseCase(
   levelRepository,
   rng,
   env.levelUpAttributePoints,
+  env.stunCooldownRounds,
 );
 const restUseCase = new RestUseCase(
   playerRepository,
@@ -101,6 +106,7 @@ const restUseCase = new RestUseCase(
   levelRepository,
   rng,
   env.levelUpAttributePoints,
+  env.stunCooldownRounds,
 );
 const claimLootUseCase = new ClaimLootUseCase(
   playerRepository,

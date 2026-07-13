@@ -24,6 +24,8 @@ export interface SettleTurnParams {
   monsterEffects: BattleEffect[];
   monsterChargingAttackId: string | null;
   chargeRoundsLeft: number;
+  monsterAttackWeights: Record<string, number>;
+  stunCooldownRoundsLeft: number;
   playerAttack: AttackResultOutput | null;
   monsterAttack: AttackResultOutput | null;
   messages: string[];
@@ -53,6 +55,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterEffects,
     monsterChargingAttackId,
     chargeRoundsLeft,
+    monsterAttackWeights,
+    stunCooldownRoundsLeft,
     playerAttack,
     monsterAttack,
     messages,
@@ -103,7 +107,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
         currentHp: 0,
         maxHp: monster.hp,
         currentStamina: monsterCurrentStamina,
-        maxStamina: maxStamina(monster.level),
+        maxStamina: monster.maxStamina,
       },
       outcome: "won",
       lootOffer,
@@ -128,7 +132,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
         currentHp: monsterCurrentHp,
         maxHp: monster.hp,
         currentStamina: monsterCurrentStamina,
-        maxStamina: maxStamina(monster.level),
+        maxStamina: monster.maxStamina,
       },
       outcome: "lost",
       lootOffer: null,
@@ -146,6 +150,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterEffects,
     monsterChargingAttackId,
     chargeRoundsLeft,
+    monsterAttackWeights,
+    stunCooldownRoundsLeft,
   });
   await battleRepository.update(updatedBattle);
 
@@ -163,7 +169,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       currentHp: monsterCurrentHp,
       maxHp: monster.hp,
       currentStamina: monsterCurrentStamina,
-      maxStamina: maxStamina(monster.level),
+      maxStamina: monster.maxStamina,
     },
     outcome: "ongoing",
     lootOffer: null,
