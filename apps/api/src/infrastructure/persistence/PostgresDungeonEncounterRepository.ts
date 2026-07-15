@@ -4,14 +4,12 @@ import type { DungeonEncounterRepository } from "@/usecase/dungeon/DungeonEncoun
 
 interface DungeonEncounterRow {
   id: string;
-  gatekeeper_monster_id: string;
   dungeon_boss_id: string;
 }
 
 function toDomain(row: DungeonEncounterRow): DungeonEncounter {
   return DungeonEncounter.create({
     id: row.id,
-    gatekeeperMonsterId: row.gatekeeper_monster_id,
     dungeonBossId: row.dungeon_boss_id,
   });
 }

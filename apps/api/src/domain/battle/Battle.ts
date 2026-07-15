@@ -22,14 +22,17 @@ export interface BattleProps {
    * means usable. Set to the configured cooldown on unleash, decrements by
    * 1 every round regardless of what the monster does (plan2 §6a). */
   stunCooldownRoundsLeft: number;
-  /** Set together at /dungeon/start; both null for every ordinary battle
-   * (plan3 §2d). Non-null dungeonBossMonsterId means the monster currently
-   * in the fight (monsterId) is the gatekeeper — the boss it points at gets
-   * swapped in on the gatekeeper's death. Tier is locked in at battle-start,
-   * not re-derived from the player's level later, so a mid-fight level-up
-   * doesn't change which boss the player faces partway through the run. */
-  dungeonBossMonsterId: string | null;
+  /** Null for every ordinary (non-dungeon) battle. Set at /dungeon/start or
+   * /dungeon/continue — locked in per-battle rather than re-derived from the
+   * player's level later, so a mid-fight level-up doesn't change which tier
+   * the player is fighting partway through a step. */
   dungeonTier: 1 | 2 | 3 | null;
+  /** True only when the monster in THIS battle is the tier's materialized
+   * boss (loot-system follow-up) — the single discriminator settleTurn
+   * needs to gate the Dungeon Slayer ranking upsert on, since every kill
+   * (step or boss) now fully settles its own battle. False for every
+   * regular dungeon step and every ordinary battle. */
+  dungeonIsBossFight: boolean;
 }
 
 /**
@@ -101,11 +104,11 @@ export class Battle {
   get stunCooldownRoundsLeft(): number {
     return this.props.stunCooldownRoundsLeft;
   }
-  get dungeonBossMonsterId(): string | null {
-    return this.props.dungeonBossMonsterId;
-  }
   get dungeonTier(): 1 | 2 | 3 | null {
     return this.props.dungeonTier;
+  }
+  get dungeonIsBossFight(): boolean {
+    return this.props.dungeonIsBossFight;
   }
 
   toProps(): BattleProps {

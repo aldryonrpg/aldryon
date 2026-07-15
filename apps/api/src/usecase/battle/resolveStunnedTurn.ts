@@ -8,14 +8,14 @@ import type { Player } from "@/domain/player/Player";
 import type { Attributes } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 /**
@@ -34,15 +34,15 @@ export async function resolveStunnedTurn(params: {
   effectiveAttributes: Attributes;
   playerMaxHp: number;
   rng: Rng;
-  itemRepository: ItemRepository;
+  effectCounterRepository: EffectCounterRepository;
   playerRepository: PlayerRepository;
   battleRepository: BattleRepository;
   levelRepository: LevelRepository;
   levelUpAttributePoints: number;
   stunCooldownRounds: number;
-  monsterRepository: MonsterRepository;
-  playerItemRepository: PlayerItemRepository;
   dungeonSlayerRankingRepository: DungeonSlayerRankingRepository;
+  itemRepository: ItemRepository;
+  uniqueItemOwnershipRepository: UniqueItemOwnershipRepository;
 }): Promise<TurnReportOutput> {
   const { battle, player, monster, moveset, playerAttacks, effectiveAttributes } = params;
 
@@ -67,7 +67,7 @@ export async function resolveStunnedTurn(params: {
     playerLevel: player.level,
     effectiveAttributes,
     rng: params.rng,
-    itemRepository: params.itemRepository,
+    effectCounterRepository: params.effectCounterRepository,
     stunCooldownRounds: params.stunCooldownRounds,
   });
 
@@ -100,9 +100,8 @@ export async function resolveStunnedTurn(params: {
     battleRepository: params.battleRepository,
     levelRepository: params.levelRepository,
     levelUpAttributePoints: params.levelUpAttributePoints,
-    monsterRepository: params.monsterRepository,
-    playerItemRepository: params.playerItemRepository,
-    itemRepository: params.itemRepository,
     dungeonSlayerRankingRepository: params.dungeonSlayerRankingRepository,
+    itemRepository: params.itemRepository,
+    uniqueItemOwnershipRepository: params.uniqueItemOwnershipRepository,
   });
 }

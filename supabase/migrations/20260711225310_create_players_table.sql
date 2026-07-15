@@ -29,6 +29,11 @@ create table if not exists players (
   -- The kill's drop offer awaiting the player's pick (plan2 §5e); forfeited
   -- on the next /battle/start.
   pending_loot jsonb not null default '[]'::jsonb,
+  -- Daily dungeon attempt slots (plan3 §2f) — two, not one, because VIP gets
+  -- 2 attempts/day vs normal's 1. A slot from a previous UTC day simply
+  -- doesn't count today; there's no explicit "reset" step.
+  dungeon_attempt_1 timestamptz,
+  dungeon_attempt_2 timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint player_name_alphanumeric check (player_name is null or player_name ~ '^[A-Za-z0-9]{5,40}$')

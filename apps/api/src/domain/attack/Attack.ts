@@ -8,7 +8,6 @@ export interface AttackProps {
   multiplier: number;
   scalingAttribute: AttackScaling;
   appliesEffect: BattleEffectKind | null;
-  counterItemId: string | null;
   minLevel: number;
   attributeRequirements: AttributeValues;
 }
@@ -49,9 +48,6 @@ export class Attack {
   }
   get appliesEffect(): BattleEffectKind | null {
     return this.props.appliesEffect;
-  }
-  get counterItemId(): string | null {
-    return this.props.counterItemId;
   }
   get minLevel(): number {
     return this.props.minLevel;

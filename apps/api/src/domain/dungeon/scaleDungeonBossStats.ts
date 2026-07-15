@@ -1,5 +1,6 @@
 import { DUNGEON_CONFIG } from "@/domain/dungeon/dungeonConfig";
 import type { DungeonTier } from "@/domain/dungeon/dungeonTierForPlayerLevel";
+import { scaleAttributesByTier, scaleByTier } from "@/domain/dungeon/tierScaling";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 
 export interface DungeonBossBaseStats {
@@ -27,15 +28,8 @@ export function scaleDungeonBossStats(
 ): ScaledDungeonBossStats {
   const multiplier = DUNGEON_CONFIG.tierMultiplier[tier];
   return {
-    hp: Math.ceil(base.hp * multiplier),
-    xpGain: Math.ceil(base.xpGain * multiplier),
-    attributes: {
-      force: Math.ceil(base.attributes.force * multiplier),
-      dexterity: Math.ceil(base.attributes.dexterity * multiplier),
-      agility: Math.ceil(base.attributes.agility * multiplier),
-      intelligence: Math.ceil(base.attributes.intelligence * multiplier),
-      vitality: Math.ceil(base.attributes.vitality * multiplier),
-      luck: Math.ceil(base.attributes.luck * multiplier),
-    },
+    hp: scaleByTier(base.hp, multiplier),
+    xpGain: scaleByTier(base.xpGain, multiplier),
+    attributes: scaleAttributesByTier(base.attributes, multiplier),
   };
 }

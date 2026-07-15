@@ -3,6 +3,7 @@ import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
@@ -10,6 +11,7 @@ import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
@@ -36,6 +38,8 @@ export class RestUseCase {
     private readonly levelUpAttributePoints: number,
     private readonly stunCooldownRounds: number,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+    private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
   ) {}
 
   async execute(input: RestInput): Promise<TurnReportOutput> {
@@ -71,15 +75,15 @@ export class RestUseCase {
         effectiveAttributes,
         playerMaxHp,
         rng: this.rng,
-        itemRepository: this.itemRepository,
+        effectCounterRepository: this.effectCounterRepository,
         playerRepository: this.playerRepository,
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
         stunCooldownRounds: this.stunCooldownRounds,
-        monsterRepository: this.monsterRepository,
-        playerItemRepository: this.playerItemRepository,
         dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+        itemRepository: this.itemRepository,
+        uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
       });
     }
 
@@ -104,7 +108,7 @@ export class RestUseCase {
       playerLevel: player.level,
       effectiveAttributes,
       rng: this.rng,
-      itemRepository: this.itemRepository,
+      effectCounterRepository: this.effectCounterRepository,
       stunCooldownRounds: this.stunCooldownRounds,
     });
 
@@ -136,10 +140,9 @@ export class RestUseCase {
       battleRepository: this.battleRepository,
       levelRepository: this.levelRepository,
       levelUpAttributePoints: this.levelUpAttributePoints,
-      monsterRepository: this.monsterRepository,
-      playerItemRepository: this.playerItemRepository,
-      itemRepository: this.itemRepository,
       dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+      itemRepository: this.itemRepository,
+      uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
     });
   }
 }

@@ -10,7 +10,6 @@ interface AttackRow {
   multiplier: string | number;
   scaling_attribute: AttackScaling;
   applies_effect: BattleEffectKind | null;
-  counter_item_id: string | null;
   min_level: number;
   req_force: number;
   req_dexterity: number;
@@ -28,7 +27,6 @@ function toDomain(row: AttackRow): Attack {
     multiplier: Number(row.multiplier),
     scalingAttribute: row.scaling_attribute,
     appliesEffect: row.applies_effect,
-    counterItemId: row.counter_item_id,
     minLevel: row.min_level,
     attributeRequirements: {
       force: row.req_force,

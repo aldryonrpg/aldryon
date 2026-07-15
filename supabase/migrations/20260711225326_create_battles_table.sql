@@ -33,5 +33,13 @@ create table if not exists battles (
   -- de-prioritized — the same "always prefer a special" rule that could
   -- otherwise re-trigger it the instant it's affordable again.
   stun_cooldown_rounds_left integer not null default 0 check (stun_cooldown_rounds_left >= 0),
+  -- The two-phase dungeon fight (plan3 §2d): both null for every ordinary
+  -- battle. Set together at /dungeon/start, where the boss is also
+  -- materialized so dungeon_boss_monster_id always points at a fully-formed
+  -- monsters row. Tier is locked in here rather than re-derived from the
+  -- player's level later, so a mid-fight level-up (from the gatekeeper's own
+  -- XP) doesn't change which boss the player faces partway through the run.
+  dungeon_boss_monster_id uuid references monsters (id),
+  dungeon_tier smallint check (dungeon_tier in (1, 2, 3)),
   created_at timestamptz not null default now()
 );

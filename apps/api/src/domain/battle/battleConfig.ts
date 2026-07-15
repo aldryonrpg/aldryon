@@ -8,7 +8,7 @@ export const BATTLE_CONFIG = {
   /** 20% of /battle/start calls find nothing (plan2 §4 step 2). */
   emptyEncounterChance: 0.2,
   /** Roll bounds shared by hit checks and effect procs (plan2 §6/§6a). */
-  rollMin: 20,
+  rollMin: 10,
   rollMax: 100,
   /** Both sides recover this passively at the end of every round. */
   passiveStaminaRegen: 5,

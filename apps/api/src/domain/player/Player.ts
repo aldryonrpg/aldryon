@@ -24,6 +24,13 @@ export interface PlayerProps {
    * simply doesn't count today; see domain/dungeon/dungeonAttempts.ts. */
   dungeonAttempt1: Date | null;
   dungeonAttempt2: Date | null;
+  /** Dungeon run progress (loot-system follow-up) — null means no run is
+   * currently awaiting a Continue/Exit decision. The battle row itself gets
+   * deleted after every kill, so this is what survives the gap between one
+   * step's kill and the next fight starting. */
+  dungeonRunTier: 1 | 2 | 3 | null;
+  dungeonRunStep: number | null;
+  dungeonRunTotalSteps: number | null;
 }
 
 /**
@@ -89,6 +96,15 @@ export class Player {
   }
   get dungeonAttempt2(): Date | null {
     return this.props.dungeonAttempt2;
+  }
+  get dungeonRunTier(): 1 | 2 | 3 | null {
+    return this.props.dungeonRunTier;
+  }
+  get dungeonRunStep(): number | null {
+    return this.props.dungeonRunStep;
+  }
+  get dungeonRunTotalSteps(): number | null {
+    return this.props.dungeonRunTotalSteps;
   }
 
   getAttributes(): Attributes {

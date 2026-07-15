@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { rollDropPool } from "@/domain/monster/dropRoll";
+import { rollDropPool, rollLegendaryDropPool } from "@/domain/monster/dropRoll";
 import { FakeRng } from "../support/FakeRng";
 
 describe("rollDropPool", () => {
@@ -36,5 +36,28 @@ describe("rollDropPool", () => {
 
   it("returns null for an empty pool", () => {
     expect(rollDropPool([], new FakeRng([1]))).toBeNull();
+  });
+});
+
+describe("rollLegendaryDropPool", () => {
+  it("succeeds at exactly the per-mille boundary (dropRate=1 -> 1-in-1000)", () => {
+    const pool = [{ itemId: "dragon-blade", dropRate: 1 }];
+    expect(rollLegendaryDropPool(pool, new FakeRng([100, 0]))).toBe("dragon-blade");
+    expect(rollLegendaryDropPool(pool, new FakeRng([101]))).toBeNull();
+  });
+
+  it("resolves down to 1-in-100000 for a fractional dropRate", () => {
+    const pool = [{ itemId: "dragon-blade", dropRate: 0.01 }];
+    expect(rollLegendaryDropPool(pool, new FakeRng([1, 0]))).toBe("dragon-blade");
+    expect(rollLegendaryDropPool(pool, new FakeRng([2]))).toBeNull();
+  });
+
+  it("guarantees a drop at dropRate=1000 (100%)", () => {
+    const pool = [{ itemId: "dragon-blade", dropRate: 1000 }];
+    expect(rollLegendaryDropPool(pool, new FakeRng([100_000, 0]))).toBe("dragon-blade");
+  });
+
+  it("returns null for an empty pool", () => {
+    expect(rollLegendaryDropPool([], new FakeRng([1]))).toBeNull();
   });
 });

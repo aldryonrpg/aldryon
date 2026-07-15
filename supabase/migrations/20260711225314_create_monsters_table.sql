@@ -6,8 +6,10 @@ create table if not exists monsters (
   name text not null unique,
   description text not null,
   region monster_region not null,
-  -- CDN URL of the monster's PNG, one per monster.
-  monster_image text not null unique,
+  -- CDN URL of the monster's PNG. Not unique — a materialized dungeon boss
+  -- (plan3 §2c) inserts up to 3 rows (one per tier) that legitimately share
+  -- the same art, only the name/stats differ per tier.
+  monster_image text not null,
   hp integer not null check (hp >= 1),
   xp_gain integer not null check (xp_gain >= 0),
   -- Not in plan2 §3c's field table, but the shared damage formula (§6) needs
@@ -31,6 +33,10 @@ create table if not exists monsters (
   -- Array of { itemId, dropRate } tuples.
   drops jsonb not null default '[]'::jsonb,
   exclusive_drops jsonb not null default '[]'::jsonb,
+  -- Third drop pool — always empty outside a materialized dungeon boss row
+  -- (plan3 §2c); the kill-settlement drop roll just rolls a pool that
+  -- happens to always be empty for every ordinary monster.
+  legendary_drops jsonb not null default '[]'::jsonb,
   -- % chance the monster attacks instantly on encounter (plan2 §4 step 4).
   ambush_chance integer not null default 0 check (ambush_chance between 0 and 100),
   created_at timestamptz not null default now(),

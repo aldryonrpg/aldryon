@@ -19,6 +19,17 @@ export const StartDungeonResponseSchema = z.object({
 });
 export type StartDungeonResponse = z.infer<typeof StartDungeonResponseSchema>;
 
+// --- POST /dungeon/continue (loot-system follow-up) ---
+// Same shape as starting a run — advances to the next step or reveals the
+// boss, as a fresh fight each time.
+export const ContinueDungeonResponseSchema = StartDungeonResponseSchema;
+export type ContinueDungeonResponse = z.infer<typeof ContinueDungeonResponseSchema>;
+
+// --- POST /dungeon/exit (loot-system follow-up) ---
+
+export const ExitDungeonRunResponseSchema = z.object({});
+export type ExitDungeonRunResponse = z.infer<typeof ExitDungeonRunResponseSchema>;
+
 // --- GET /dungeon/leaderboard ---
 
 export const DungeonLeaderboardEntrySchema = z.object({

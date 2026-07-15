@@ -8,11 +8,13 @@ import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
@@ -43,6 +45,8 @@ export class RunFromBattleUseCase {
     private readonly levelUpAttributePoints: number,
     private readonly stunCooldownRounds: number,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+    private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
   ) {}
 
   async execute(input: RunFromBattleInput): Promise<TurnReportOutput> {
@@ -80,15 +84,15 @@ export class RunFromBattleUseCase {
         effectiveAttributes,
         playerMaxHp,
         rng: this.rng,
-        itemRepository: this.itemRepository,
+        effectCounterRepository: this.effectCounterRepository,
         playerRepository: this.playerRepository,
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
         stunCooldownRounds: this.stunCooldownRounds,
-        monsterRepository: this.monsterRepository,
-        playerItemRepository: this.playerItemRepository,
         dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+        itemRepository: this.itemRepository,
+        uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
       });
     }
 

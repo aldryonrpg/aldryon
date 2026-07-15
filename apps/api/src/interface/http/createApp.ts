@@ -7,6 +7,7 @@ import { createBattleController } from "@/interface/http/battleController";
 import { createDungeonController } from "@/interface/http/dungeonController";
 import { createItemController } from "@/interface/http/itemController";
 import { createPlayerController } from "@/interface/http/playerController";
+import { createStoreController } from "@/interface/http/storeController";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import type { AttackUseCase } from "@/usecase/battle/AttackUseCase";
@@ -16,15 +17,20 @@ import type { RestUseCase } from "@/usecase/battle/RestUseCase";
 import type { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import type { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import type { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
+import type { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import type { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
+import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import type { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import type { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import type { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import type { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
+import type { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
+import type { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
 import type { UserRepository } from "@/usecase/user/UserRepository";
 
 export interface AppDependencies {
@@ -41,12 +47,17 @@ export interface AppDependencies {
   getActiveBattleUseCase: GetActiveBattleUseCase;
   equipItemUseCase: EquipItemUseCase;
   unequipItemUseCase: UnequipItemUseCase;
+  destroyBagItemUseCase: DestroyBagItemUseCase;
   allocateAttributePointsUseCase: AllocateAttributePointsUseCase;
   updatePlayerNameUseCase: UpdatePlayerNameUseCase;
   getPlayerProfileUseCase: GetPlayerProfileUseCase;
   listItemsUseCase: ListItemsUseCase;
   startDungeonUseCase: StartDungeonUseCase;
+  continueDungeonUseCase: ContinueDungeonUseCase;
+  exitDungeonRunUseCase: ExitDungeonRunUseCase;
   getDungeonSlayerLeaderboardUseCase: GetDungeonSlayerLeaderboardUseCase;
+  listStoreItemsUseCase: ListStoreItemsUseCase;
+  purchaseItemUseCase: PurchaseItemUseCase;
   webOrigin: string;
 }
 
@@ -83,6 +94,7 @@ export function createApp(deps: AppDependencies): Hono {
     createPlayerController({
       equipItemUseCase: deps.equipItemUseCase,
       unequipItemUseCase: deps.unequipItemUseCase,
+      destroyBagItemUseCase: deps.destroyBagItemUseCase,
       allocateAttributePointsUseCase: deps.allocateAttributePointsUseCase,
       updatePlayerNameUseCase: deps.updatePlayerNameUseCase,
       getPlayerProfileUseCase: deps.getPlayerProfileUseCase,
@@ -93,7 +105,16 @@ export function createApp(deps: AppDependencies): Hono {
     "/",
     createDungeonController({
       startDungeonUseCase: deps.startDungeonUseCase,
+      continueDungeonUseCase: deps.continueDungeonUseCase,
+      exitDungeonRunUseCase: deps.exitDungeonRunUseCase,
       getDungeonSlayerLeaderboardUseCase: deps.getDungeonSlayerLeaderboardUseCase,
+    }),
+  );
+  gameplay.route(
+    "/",
+    createStoreController({
+      listStoreItemsUseCase: deps.listStoreItemsUseCase,
+      purchaseItemUseCase: deps.purchaseItemUseCase,
     }),
   );
   app.route("/", gameplay);

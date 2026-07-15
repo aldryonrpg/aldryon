@@ -6,3 +6,4 @@ export * from "./errors";
 export * from "./item";
 export * from "./player";
 export * from "./playerProfile";
+export * from "./store";

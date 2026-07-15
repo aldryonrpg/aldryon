@@ -13,7 +13,6 @@ function attack(id: string, overrides: { isSpecial?: boolean } = {}): MonsterAtt
     multiplier: 1,
     scalingAttribute: "force",
     appliesEffect: null,
-    counterItemId: null,
     isSpecial: overrides.isSpecial ?? false,
     chargeTurns: overrides.isSpecial ? 1 : 0,
   });

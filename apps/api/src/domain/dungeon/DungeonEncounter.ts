@@ -1,11 +1,13 @@
 export interface DungeonEncounterProps {
   id: string;
-  gatekeeperMonsterId: string;
   dungeonBossId: string;
 }
 
-/** Gatekeeper/boss pairing (plan3 §2c) — one row covers all 3 tiers, tier is
- * purely a scaling multiplier applied at materialization time. */
+/** The dungeon's current boss identity (plan3 §2c) — one row, all 3 tiers
+ * share it, tier is purely a scaling multiplier applied at materialization
+ * time. Each dungeon step now draws a random catalog monster rather than a
+ * fixed gatekeeper (loot-system follow-up), so this no longer pairs with
+ * any one monster. */
 export class DungeonEncounter {
   private constructor(private readonly props: DungeonEncounterProps) {}
 
@@ -15,9 +17,6 @@ export class DungeonEncounter {
 
   get id(): string {
     return this.props.id;
-  }
-  get gatekeeperMonsterId(): string {
-    return this.props.gatekeeperMonsterId;
   }
   get dungeonBossId(): string {
     return this.props.dungeonBossId;

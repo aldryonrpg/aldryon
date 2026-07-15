@@ -1,10 +1,3 @@
-import { Battle } from "@/domain/battle/Battle";
-import type { BattleEffect } from "@/domain/battle/BattleEffect";
-import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
-import { AMBUSH_FLAVOR, maxHp, maxStamina } from "@/domain/battle/battleConfig";
-import { computeDamage } from "@/domain/battle/services/DamageCalculator";
-import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
-import { rollHit } from "@/domain/battle/services/HitCheck";
 import {
   canAttemptDungeon,
   nextUtcMidnight,
@@ -12,27 +5,23 @@ import {
 } from "@/domain/dungeon/dungeonAttempts";
 import { DUNGEON_CONFIG, MINIMUM_DUNGEON_LEVEL } from "@/domain/dungeon/dungeonConfig";
 import { dungeonTierForPlayerLevel } from "@/domain/dungeon/dungeonTierForPlayerLevel";
-import { scaleDungeonBossStats } from "@/domain/dungeon/scaleDungeonBossStats";
-import { Monster } from "@/domain/monster/Monster";
-import type { BattleEffectKind } from "@/domain/monster/MonsterAttack";
+import { scaleMonsterForDungeonStep } from "@/domain/dungeon/scaleMonsterForDungeonStep";
 import { Player } from "@/domain/player/Player";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
-import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { BattleAlreadyInProgressError } from "@/usecase/battle/errors";
-import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type {
   AvailableAttackOutput,
   BattleStatusOutput,
 } from "@/usecase/battle/StartBattleUseCase";
-import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
-import type { DungeonEncounterRepository } from "@/usecase/dungeon/DungeonEncounterRepository";
+import { beginDungeonFight } from "@/usecase/dungeon/beginDungeonFight";
 import {
   BelowMinimumDungeonLevelError,
   DailyDungeonLimitReachedError,
+  DungeonRunAlreadyInProgressError,
 } from "@/usecase/dungeon/errors";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
@@ -64,13 +53,6 @@ export interface StartDungeonOutput {
   outcome: "ongoing" | "lost" | null;
 }
 
-// Materialized dungeon-boss monsters rows need a region to satisfy the
-// monsters table's NOT NULL constraint, even though they're never reached
-// via an ordinary /battle/start region roll — same acceptable minor overlap
-// already accepted for the gatekeeper (an existing wild monster reused
-// as-is). Picked once, arbitrarily; thematically fits a Dragon.
-const MATERIALIZED_BOSS_REGION = "mountain" as const;
-
 function pick<T>(items: T[], rng: Rng): T {
   const item = items[rng.int(0, items.length - 1)];
   if (item === undefined) throw new Error("Cannot pick from an empty list");
@@ -78,11 +60,12 @@ function pick<T>(items: T[], rng: Rng): T {
 }
 
 /**
- * POST /dungeon/start (plan3 §2b-§2d, §5). Level-gated, daily-limited,
- * always encounters the gatekeeper (no empty-encounter roll, unlike
- * /battle/start) — the boss is materialized eagerly here but only enters
- * the fight later, via settleTurn's phase transition on the gatekeeper's
- * death.
+ * POST /dungeon/start (plan3 §2b/§2f, loot-system follow-up). Level-gated,
+ * daily-limited, always finds a monster (no empty-encounter roll, unlike
+ * /battle/start). Step 1 of the run: picks a random catalog monster and
+ * Dungeon Enhances it live for this tier — no new `monsters` row. Rejects
+ * (409) if the player already has a dungeon run awaiting a Continue/Exit
+ * decision from a previous kill.
  */
 export class StartDungeonUseCase {
   constructor(
@@ -94,9 +77,8 @@ export class StartDungeonUseCase {
     private readonly monsterAttackRepository: MonsterAttackRepository,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
-    private readonly dungeonEncounterRepository: DungeonEncounterRepository,
-    private readonly dungeonBossRepository: DungeonBossRepository,
     private readonly rng: Rng,
+    private readonly effectCounterRepository: EffectCounterRepository,
   ) {}
 
   async execute(input: StartDungeonInput): Promise<StartDungeonOutput> {
@@ -105,6 +87,10 @@ export class StartDungeonUseCase {
 
     let player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
+
+    if (player.dungeonRunTier !== null) {
+      throw new DungeonRunAlreadyInProgressError();
+    }
 
     if (player.level < MINIMUM_DUNGEON_LEVEL) {
       throw new BelowMinimumDungeonLevelError(player.level, MINIMUM_DUNGEON_LEVEL);
@@ -118,11 +104,17 @@ export class StartDungeonUseCase {
     // Entering (writing the attempt column) happens before the encounter is
     // picked, so a crash mid-setup still counts against the day (plan3 §2f).
     const recorded = recordDungeonAttempt(player.dungeonAttempt1, player.dungeonAttempt2, now);
+    const tier = dungeonTierForPlayerLevel(player.level);
+    const totalSteps = DUNGEON_CONFIG.stepsPerTier[tier];
+
     player = await this.playerRepository.update(
       Player.create({
         ...player.toProps(),
         dungeonAttempt1: recorded.dungeonAttempt1,
         dungeonAttempt2: recorded.dungeonAttempt2,
+        dungeonRunTier: tier,
+        dungeonRunStep: 1,
+        dungeonRunTotalSteps: totalSteps,
       }),
     );
 
@@ -133,52 +125,10 @@ export class StartDungeonUseCase {
       );
     }
 
-    const tier = dungeonTierForPlayerLevel(player.level);
-
-    const encounter = await this.dungeonEncounterRepository.findOne();
-    if (!encounter) throw new Error("No dungeon encounter configured");
-
-    const dungeonBoss = await this.dungeonBossRepository.findById(encounter.dungeonBossId);
-    if (!dungeonBoss) throw new Error("Dungeon boss not found");
-
-    // Materialize-or-reuse: idempotent by name, one row ever per tier
-    // (plan3 §2c).
-    const materializedName = `${dungeonBoss.name} — Tier ${tier}`;
-    let bossMonster = await this.monsterRepository.findByName(materializedName);
-    if (!bossMonster) {
-      const scaled = scaleDungeonBossStats(
-        {
-          hp: dungeonBoss.baseHp,
-          xpGain: dungeonBoss.baseXpGain,
-          attributes: dungeonBoss.baseAttributes,
-        },
-        tier,
-      );
-      bossMonster = await this.monsterRepository.create(
-        Monster.create({
-          id: Bun.randomUUIDv7(),
-          name: materializedName,
-          description: dungeonBoss.description,
-          region: MATERIALIZED_BOSS_REGION,
-          monsterImage: dungeonBoss.monsterImage,
-          hp: scaled.hp,
-          xpGain: scaled.xpGain,
-          level: DUNGEON_CONFIG.tierBossLevel[tier],
-          maxStamina: dungeonBoss.baseMaxStamina,
-          attributes: scaled.attributes,
-          monsterType: dungeonBoss.monsterType,
-          drops: dungeonBoss.drops,
-          exclusiveDrops: dungeonBoss.exclusiveDrops,
-          legendaryDrops: dungeonBoss.legendaryDrops,
-          ambushChance: 0,
-        }),
-      );
-      await this.monsterAttackRepository.copyDungeonBossMoveset(dungeonBoss.id, bossMonster.id);
-    }
-
-    const gatekeeper = await this.monsterRepository.findById(encounter.gatekeeperMonsterId);
-    if (!gatekeeper) throw new Error("Gatekeeper monster not found");
-    const moveset = await this.monsterAttackRepository.findMovesetByMonsterId(gatekeeper.id);
+    const candidates = await this.monsterRepository.findAllExcludingMaterializedBosses();
+    if (candidates.length === 0) throw new Error("No monsters available for the dungeon");
+    const rawMonster = pick(candidates, this.rng);
+    const monster = scaleMonsterForDungeonStep(rawMonster, tier);
 
     const playerAttacks = await this.attackRepository.findAll();
     const effectiveAttributes = await computeEffectiveAttributes(
@@ -193,131 +143,33 @@ export class StartDungeonUseCase {
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
     }));
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
-    const playerMaxStamina = maxStamina(player.level);
-    const gatekeeperMaxStamina = gatekeeper.maxStamina;
-
-    let playerCurrentHp = playerMaxHp;
-    let ambushOccurred = false;
-    let playerEffects: BattleEffect[] = [];
-    let ambushEffectMessage: string | null = null;
-
-    // Ambush can still roll normally on top of the guaranteed encounter
-    // (only the "is there an encounter at all" roll is skipped for the
-    // dungeon, not the ambush roll).
-    if (this.rng.int(1, 100) <= gatekeeper.ambushChance) {
-      ambushOccurred = true;
-      const nonSpecialMoveset = moveset.filter((a) => !a.isSpecial);
-      const ambushAttack =
-        nonSpecialMoveset.length > 0
-          ? pick(nonSpecialMoveset, this.rng)
-          : defaultMonsterAttack(moveset);
-
-      const hit = rollHit(
-        {
-          attackerDexterity: gatekeeper.getAttributes().dexterity,
-          defenderDexterity: effectiveAttributes.dexterity,
-          attackerLuck: gatekeeper.getAttributes().luck,
-        },
-        this.rng,
-      );
-
-      if (hit) {
-        const defenderStance = defaultPlayerAttack(playerAttacks);
-        const damage = computeDamage({
-          attackMultiplier: ambushAttack.multiplier,
-          attackerScalingValue: gatekeeper.getAttributes().get(ambushAttack.scalingAttribute),
-          staminaCost: ambushAttack.staminaCost,
-          defenderLevel: player.level,
-          defenderScalingValue: effectiveAttributes.get(defenderStance.scalingAttribute),
-        });
-        playerCurrentHp = Math.max(0, playerCurrentHp - damage);
-
-        const proced = rollEffectProc(
-          {
-            attackerLuck: gatekeeper.getAttributes().luck,
-            defenderLuck: effectiveAttributes.luck,
-          },
-          this.rng,
-        );
-        if (proced) {
-          const kind: BattleEffectKind = ambushAttack.appliesEffect ?? gatekeeper.innateEffectKind;
-          const counterItemId = ambushAttack.appliesEffect
-            ? ambushAttack.counterItemId
-            : await resolveCounterItemId(kind, this.itemRepository);
-          playerEffects = [
-            ...playerEffects,
-            buildBattleEffect(kind, {
-              inflictorLevel: gatekeeper.level,
-              victimLevel: player.level,
-              counterItemId,
-            }),
-          ];
-          ambushEffectMessage = effectAppliedMessage(kind);
-        }
-      }
-    }
-
-    if (playerCurrentHp <= 0) {
-      await settlePlayerDeath(player, this.levelRepository, this.playerRepository);
-      return {
-        monster: null,
-        message: pick([...AMBUSH_FLAVOR], this.rng),
-        playerStatus: null,
-        monsterStatus: null,
-        availableAttacks,
-        ambushOccurred: true,
-        outcome: "lost",
-      };
-    }
-
-    const battle = Battle.create({
-      id: Bun.randomUUIDv7(),
-      playerId: player.id,
-      monsterId: gatekeeper.id,
-      playerCurrentHp,
-      playerCurrentStamina: playerMaxStamina,
-      monsterCurrentHp: gatekeeper.hp,
-      monsterCurrentStamina: gatekeeperMaxStamina,
-      round: 1,
-      playerEffects,
-      monsterEffects: [],
-      monsterChargingAttackId: null,
-      chargeRoundsLeft: 0,
-      monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: bossMonster.id,
+    const result = await beginDungeonFight({
+      player,
+      monster,
       dungeonTier: tier,
+      isBossFight: false,
+      playerAttacks,
+      effectiveAttributes,
+      monsterAttackRepository: this.monsterAttackRepository,
+      effectCounterRepository: this.effectCounterRepository,
+      levelRepository: this.levelRepository,
+      playerRepository: this.playerRepository,
+      battleRepository: this.battleRepository,
+      rng: this.rng,
     });
-    await this.battleRepository.create(battle);
 
-    return {
-      monster: {
-        id: gatekeeper.id,
-        name: gatekeeper.name,
-        description: gatekeeper.description,
-        monsterImage: gatekeeper.monsterImage,
-        hp: gatekeeper.hp,
-        attributes: gatekeeper.getAttributes().toValues(),
-      },
-      message: ambushOccurred
-        ? [pick([...AMBUSH_FLAVOR], this.rng), ambushEffectMessage].filter(Boolean).join(" ")
-        : null,
-      playerStatus: {
-        currentHp: playerCurrentHp,
-        maxHp: playerMaxHp,
-        currentStamina: playerMaxStamina,
-        maxStamina: playerMaxStamina,
-      },
-      monsterStatus: {
-        currentHp: gatekeeper.hp,
-        maxHp: gatekeeper.hp,
-        currentStamina: gatekeeperMaxStamina,
-        maxStamina: gatekeeperMaxStamina,
-      },
-      availableAttacks,
-      ambushOccurred,
-      outcome: "ongoing",
-    };
+    if (result.outcome === "lost") {
+      // Death ends the run — clear it rather than leaving it dangling.
+      await this.playerRepository.update(
+        Player.create({
+          ...player.toProps(),
+          dungeonRunTier: null,
+          dungeonRunStep: null,
+          dungeonRunTotalSteps: null,
+        }),
+      );
+    }
+
+    return { ...result, availableAttacks };
   }
 }

@@ -118,13 +118,30 @@ export async function setPlayerDungeonAttempts(
   `;
 }
 
+/** Sets a player's dungeon-run progress directly (loot-system follow-up) —
+ * lets ContinueDungeonUseCase tests start from "mid-run" without replaying
+ * every prior step through StartDungeonUseCase. Pass all nulls to simulate
+ * "no run in progress" (a finished/exited run). */
+export async function setPlayerDungeonRun(
+  sql: SQL,
+  playerId: string,
+  tier: 1 | 2 | 3 | null,
+  step: number | null,
+  totalSteps: number | null,
+): Promise<void> {
+  await sql`
+    update players set
+      dungeon_run_tier = ${tier}, dungeon_run_step = ${step}, dungeon_run_total_steps = ${totalSteps}
+    where id = ${playerId}
+  `;
+}
+
 export interface TestMonsterAttackOverrides {
   name?: string;
   staminaCost?: number;
   multiplier?: number;
   scalingAttribute?: "force" | "intelligence";
   appliesEffect?: "bleed" | "poison" | "burn" | "fear" | "magic_aura_blast" | "stun" | null;
-  counterItemId?: string | null;
   isSpecial?: boolean;
   chargeTurns?: number;
 }
@@ -136,11 +153,11 @@ export async function createTestMonsterAttack(
   const id = Bun.randomUUIDv7();
   await sql`
     insert into monster_attacks (
-      id, name, stamina_cost, multiplier, scaling_attribute, applies_effect, counter_item_id,
+      id, name, stamina_cost, multiplier, scaling_attribute, applies_effect,
       is_special, charge_turns
     ) values (
       ${id}, ${overrides.name ?? `Test Attack ${id}`}, ${overrides.staminaCost ?? 0}, ${overrides.multiplier ?? 1},
-      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null}, ${overrides.counterItemId ?? null},
+      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null},
       ${overrides.isSpecial ?? false}, ${overrides.chargeTurns ?? 0}
     )
   `;
@@ -160,7 +177,7 @@ export async function linkMonsterMoveset(
 export interface TestItemOverrides {
   name?: string;
   value?: number;
-  rarity?: "common" | "uncommon" | "rare" | "epic" | "legendary";
+  rarity?: "basic" | "common" | "uncommon" | "rare" | "very_rare" | "legendary" | "unique";
   slot?: string | null;
   hpRestore?: number | null;
   force?: number;
@@ -193,7 +210,6 @@ export interface TestPlayerAttackOverrides {
   multiplier?: number;
   scalingAttribute?: "force" | "intelligence";
   appliesEffect?: "bleed" | "poison" | "burn" | null;
-  counterItemId?: string | null;
   minLevel?: number;
   reqForce?: number;
   reqDexterity?: number;
@@ -210,11 +226,11 @@ export async function createTestPlayerAttack(
   const id = Bun.randomUUIDv7();
   await sql`
     insert into attacks (
-      id, name, stamina_cost, multiplier, scaling_attribute, applies_effect, counter_item_id, min_level,
+      id, name, stamina_cost, multiplier, scaling_attribute, applies_effect, min_level,
       req_force, req_dexterity, req_agility, req_intelligence, req_vitality, req_luck
     ) values (
       ${id}, ${overrides.name ?? `Test Player Attack ${id}`}, ${overrides.staminaCost ?? 0}, ${overrides.multiplier ?? 1},
-      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null}, ${overrides.counterItemId ?? null},
+      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null},
       ${overrides.minLevel ?? 1},
       ${overrides.reqForce ?? 1}, ${overrides.reqDexterity ?? 1}, ${overrides.reqAgility ?? 1},
       ${overrides.reqIntelligence ?? 1}, ${overrides.reqVitality ?? 1}, ${overrides.reqLuck ?? 1}

@@ -75,7 +75,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
 
@@ -379,6 +379,98 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
         uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [otherItemId] }),
         InvalidLootPickError,
       );
+    });
+  });
+
+  describe("ClaimLootUseCase — POT special slot (small/medium/big share one cap)", () => {
+    async function potIds(sql: SQL) {
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const [small, medium, big] = await Promise.all([
+        uc.itemRepository.findByName("small pot"),
+        uc.itemRepository.findByName("medium pot"),
+        uc.itemRepository.findByName("big pot"),
+      ]);
+      if (!small || !medium || !big)
+        throw new Error("Seeded POT items not found — did migrations run?");
+      return { smallId: small.id, mediumId: medium.id, bigId: big.id };
+    }
+
+    it("claims a mix of all 3 POT types up to the combined POT_LIMIT (5), each its own stack", async () => {
+      const { smallId, mediumId, bigId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      const picks = [smallId, smallId, mediumId, mediumId, bigId];
+      await sql`update players set pending_loot = ${JSON.stringify(picks)}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks });
+
+      expect(result.claimed).toEqual(picks);
+      expect(result.rejected).toEqual([]);
+
+      const playerItems = await uc.playerItemRepository.findByPlayerId(playerId);
+      const bySmall = playerItems.find((pi) => pi.itemId === smallId);
+      const byMedium = playerItems.find((pi) => pi.itemId === mediumId);
+      const byBig = playerItems.find((pi) => pi.itemId === bigId);
+      expect(bySmall?.quantity).toBe(2);
+      expect(byMedium?.quantity).toBe(2);
+      expect(byBig?.quantity).toBe(1);
+    });
+
+    it("rejects a different POT type once the combined total already sits at the cap", async () => {
+      const { smallId, mediumId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      await createTestPlayerItem(sql, playerId, smallId, { quantity: 5 });
+      await sql`update players set pending_loot = ${JSON.stringify([mediumId])}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({
+        playerId,
+        isVip: false,
+        picks: [mediumId],
+      });
+
+      expect(result.claimed).toEqual([]);
+      expect(result.rejected).toEqual([
+        { itemId: mediumId, reason: "POT slot is full (max 5 combined)" },
+      ]);
+    });
+
+    it("rejects once a mix across types already sums to the cap", async () => {
+      const { smallId, mediumId, bigId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      await createTestPlayerItem(sql, playerId, smallId, { quantity: 3 });
+      await createTestPlayerItem(sql, playerId, mediumId, { quantity: 2 });
+      await sql`update players set pending_loot = ${JSON.stringify([bigId])}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [bigId] });
+
+      expect(result.claimed).toEqual([]);
+      expect(result.rejected).toHaveLength(1);
+    });
+
+    it("POTs don't count against the ordinary 20-slot bag capacity", async () => {
+      const { smallId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      for (let i = 0; i < 20; i++) {
+        const fillerId = await createTestItem(sql, { name: `POT-test Filler ${i}-${playerId}` });
+        await createTestPlayerItem(sql, playerId, fillerId, { quantity: 1 });
+      }
+      await sql`update players set pending_loot = ${JSON.stringify([smallId])}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({
+        playerId,
+        isVip: false,
+        picks: [smallId],
+      });
+
+      expect(result.claimed).toEqual([smallId]);
+      expect(result.rejected).toEqual([]);
     });
   });
 });

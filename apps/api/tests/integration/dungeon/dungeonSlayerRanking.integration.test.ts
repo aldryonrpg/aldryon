@@ -28,7 +28,7 @@ describe("Dungeon Slayer ranking (integration)", () => {
   async function oneShotBattle(
     playerId: string,
     dungeonTier: 1 | 2 | 3 | null,
-    dungeonBossMonsterId: string | null,
+    dungeonIsBossFight: boolean,
   ) {
     const monsterId = await createTestMonster(sql, { hp: 1 });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0.4 });
@@ -50,17 +50,17 @@ describe("Dungeon Slayer ranking (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId,
+      dungeonIsBossFight,
       dungeonTier,
     });
   }
 
-  it("upserts a ranking row only when the win-settling battle has dungeonTier === 3", async () => {
+  it("upserts a ranking row only when the win-settling battle has dungeonTier === 3 && dungeonIsBossFight", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId);
     const uc = buildUseCases(sql, new FakeRng([1]));
 
-    const battle = await oneShotBattle(playerId, 3, null);
+    const battle = await oneShotBattle(playerId, 3, true);
     await uc.battleRepository.create(battle);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
@@ -69,16 +69,16 @@ describe("Dungeon Slayer ranking (integration)", () => {
     expect(ranking?.lastKillAt).not.toBeNull();
   });
 
-  it("a second tier-3 kill by the same player increments kills and refreshes last_kill_at", async () => {
+  it("a second tier-3 boss kill by the same player increments kills and refreshes last_kill_at", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId);
     const uc = buildUseCases(sql, new FakeRng([1]));
 
-    const battle1 = await oneShotBattle(playerId, 3, null);
+    const battle1 = await oneShotBattle(playerId, 3, true);
     await uc.battleRepository.create(battle1);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
-    const battle2 = await oneShotBattle(playerId, 3, null);
+    const battle2 = await oneShotBattle(playerId, 3, true);
     await uc.battleRepository.create(battle2);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
@@ -91,20 +91,19 @@ describe("Dungeon Slayer ranking (integration)", () => {
     const playerId = await createTestPlayer(sql, userId);
     const uc = buildUseCases(sql, new FakeRng([1]));
 
-    const battle = await oneShotBattle(playerId, 1, null);
+    const battle = await oneShotBattle(playerId, 1, true);
     await uc.battleRepository.create(battle);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
     expect(await uc.dungeonSlayerRankingRepository.findByPlayerId(playerId)).toBeNull();
   });
 
-  it("killing the gatekeeper alone (partial settlement) at tier 3 creates no ranking row", async () => {
+  it("a step kill at tier 3 (dungeonIsBossFight false) creates no ranking row", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId);
-    const bossId = await createTestMonster(sql, { hp: 500, maxStamina: 60 });
-    const uc = buildUseCases(sql, new FakeRng([100])); // growl fails, keep it simple
+    const uc = buildUseCases(sql, new FakeRng([1]));
 
-    const battle = await oneShotBattle(playerId, 3, bossId);
+    const battle = await oneShotBattle(playerId, 3, false);
     await uc.battleRepository.create(battle);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
@@ -117,10 +116,10 @@ describe("Dungeon Slayer ranking (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 20 });
     await uc.updatePlayerNameUseCase.execute({ playerId, playerName: "TopSlayer99" });
 
-    const battle1 = await oneShotBattle(playerId, 3, null);
+    const battle1 = await oneShotBattle(playerId, 3, true);
     await uc.battleRepository.create(battle1);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
-    const battle2 = await oneShotBattle(playerId, 3, null);
+    const battle2 = await oneShotBattle(playerId, 3, true);
     await uc.battleRepository.create(battle2);
     await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 

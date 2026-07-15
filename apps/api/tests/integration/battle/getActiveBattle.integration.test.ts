@@ -58,7 +58,7 @@ describe("GetActiveBattleUseCase (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
     const uc = buildUseCases(sql, new FakeRng([1]));

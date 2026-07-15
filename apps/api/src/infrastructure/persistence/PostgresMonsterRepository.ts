@@ -74,6 +74,13 @@ export class PostgresMonsterRepository implements MonsterRepository {
     return rows.map(toDomain);
   }
 
+  async findAllExcludingMaterializedBosses(): Promise<Monster[]> {
+    const rows = await this.sql<
+      MonsterRow[]
+    >`select * from monsters where name not like '%— Tier %' order by name asc`;
+    return rows.map(toDomain);
+  }
+
   /** The one write path a dungeon boss's materialization needs (plan3 §2c) —
    * every other monsters row is seed data. */
   async create(monster: Monster): Promise<Monster> {

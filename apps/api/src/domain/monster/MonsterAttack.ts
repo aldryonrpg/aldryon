@@ -14,7 +14,6 @@ export interface MonsterAttackProps {
   multiplier: number;
   scalingAttribute: AttackScaling;
   appliesEffect: BattleEffectKind | null;
-  counterItemId: string | null;
   isSpecial: boolean;
   chargeTurns: number;
 }
@@ -32,9 +31,6 @@ export class MonsterAttack {
     }
     if (props.isSpecial && props.chargeTurns < 1) {
       throw new Error("Special MonsterAttack requires chargeTurns >= 1");
-    }
-    if (props.counterItemId !== null && props.appliesEffect === null) {
-      throw new Error("MonsterAttack counterItemId requires appliesEffect to be set");
     }
     return new MonsterAttack(props);
   }
@@ -56,9 +52,6 @@ export class MonsterAttack {
   }
   get appliesEffect(): BattleEffectKind | null {
     return this.props.appliesEffect;
-  }
-  get counterItemId(): string | null {
-    return this.props.counterItemId;
   }
   get isSpecial(): boolean {
     return this.props.isSpecial;

@@ -14,9 +14,9 @@ import type { BattleEffectKind, MonsterAttack } from "@/domain/monster/MonsterAt
 import type { Attributes } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import { defaultPlayerAttack } from "@/usecase/battle/combatStance";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { AttackResultOutput } from "@/usecase/battle/TurnReportOutput";
-import type { ItemRepository } from "@/usecase/item/ItemRepository";
 
 export interface MonsterTurnState {
   playerCurrentHp: number;
@@ -53,7 +53,7 @@ export async function resolveMonsterTurn(params: {
   playerLevel: number;
   effectiveAttributes: Attributes;
   rng: Rng;
-  itemRepository: ItemRepository;
+  effectCounterRepository: EffectCounterRepository;
   /** Rounds a Stun-applying special stays excluded from selection after it
    * unleashes (env-configurable, plan2 §6a extension — "Stun must never
    * chain"). */
@@ -66,7 +66,7 @@ export async function resolveMonsterTurn(params: {
     playerLevel,
     effectiveAttributes,
     rng,
-    itemRepository,
+    effectCounterRepository,
     stunCooldownRounds,
   } = params;
   const monsterAttributes = monster.getAttributes();
@@ -105,7 +105,7 @@ export async function resolveMonsterTurn(params: {
       monsterCurrentStamina = Math.max(0, monsterCurrentStamina - special.staminaCost);
 
       const innateKind = monster.innateEffectKind;
-      const innateCounter = await resolveCounterItemId(innateKind, itemRepository);
+      const innateCounter = await resolveCounterItemId(innateKind, effectCounterRepository);
       playerEffects = [
         ...playerEffects,
         buildBattleEffect(innateKind, {
@@ -121,7 +121,10 @@ export async function resolveMonsterTurn(params: {
           buildBattleEffect(special.appliesEffect, {
             inflictorLevel: monster.level,
             victimLevel: playerLevel,
-            counterItemId: special.counterItemId,
+            counterItemId: await resolveCounterItemId(
+              special.appliesEffect,
+              effectCounterRepository,
+            ),
           }),
         ];
         const message = effectAppliedMessage(special.appliesEffect);
@@ -207,9 +210,7 @@ export async function resolveMonsterTurn(params: {
         );
         if (proced) {
           const kind: BattleEffectKind = picked.appliesEffect ?? monster.innateEffectKind;
-          const counterItemId = picked.appliesEffect
-            ? picked.counterItemId
-            : await resolveCounterItemId(kind, itemRepository);
+          const counterItemId = await resolveCounterItemId(kind, effectCounterRepository);
           playerEffects = [
             ...playerEffects,
             buildBattleEffect(kind, {

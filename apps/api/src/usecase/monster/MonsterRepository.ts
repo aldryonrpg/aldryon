@@ -7,5 +7,10 @@ export interface MonsterRepository {
   findById(id: string): Promise<Monster | null>;
   findByName(name: string): Promise<Monster | null>;
   findAllByRegion(region: MonsterRegion): Promise<Monster[]>;
+  /** Every catalog monster EXCEPT a materialized dungeon boss row (named
+   * "${bossName} — Tier ${tier}") — the pool a dungeon step draws from
+   * (loot-system follow-up), so a step never accidentally fights the boss
+   * identity itself. */
+  findAllExcludingMaterializedBosses(): Promise<Monster[]>;
   create(monster: Monster): Promise<Monster>;
 }

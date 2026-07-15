@@ -54,7 +54,7 @@ describe("legendary_drops pool (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
     return { playerId, battle };

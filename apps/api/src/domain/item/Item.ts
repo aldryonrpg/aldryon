@@ -1,6 +1,25 @@
 import type { AttributeValues } from "@/domain/shared/Attributes";
 
-export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+/**
+ * Full rarity ladder (plan3 Store follow-up). 'basic' is store-only stock,
+ * never a monster drop. The rest is the drop ladder in ascending rarity —
+ * common 60% / uncommon 30% / rare 6% / very_rare 3% / legendary ~1% or
+ * less is the intended content-authoring proportion for future drop-pool
+ * dropRate values (a design guideline, not runtime-enforced — the domain
+ * layer has no I/O to cross-check a drop pool's rarities against the item
+ * catalog at validation time). Only exclusive_drops pools are meant to
+ * ever reference 'rare' and above — regular drops pools stay basic/common/
+ * uncommon — again a content convention, not a runtime check. 'unique'
+ * means at most one such item ever exists on the server, hand-placed.
+ */
+export type ItemRarity =
+  | "basic"
+  | "common"
+  | "uncommon"
+  | "rare"
+  | "very_rare"
+  | "legendary"
+  | "unique";
 
 export type EquipmentSlot =
   | "helmet"

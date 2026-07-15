@@ -61,7 +61,7 @@ describe("Monster attack-selection AI (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
 
@@ -115,7 +115,7 @@ describe("Monster attack-selection AI (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
 

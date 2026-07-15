@@ -1,4 +1,5 @@
-import type { EquipmentSlot } from "@/domain/item/Item";
+import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
+import { ITEM_RARITY_COLORS } from "@/domain/item/itemRarityColors";
 import type { EquipmentPosition } from "@/domain/player/PlayerItem";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
@@ -14,6 +15,8 @@ export interface EquippedItemOutput {
   playerItemId: string;
   itemId: string;
   name: string;
+  rarity: ItemRarity;
+  rarityColor: string;
 }
 
 export type EquippedItemsOutput = Record<EquipmentPosition, EquippedItemOutput | null>;
@@ -24,6 +27,14 @@ export interface BagItemOutput {
   name: string;
   quantity: number;
   slot: EquipmentSlot | null;
+  rarity: ItemRarity;
+  rarityColor: string;
+}
+
+export interface DungeonRunStatusOutput {
+  tier: 1 | 2 | 3;
+  step: number;
+  totalSteps: number;
 }
 
 export interface GetPlayerProfileOutput {
@@ -31,10 +42,12 @@ export interface GetPlayerProfileOutput {
   gold: number;
   level: number;
   xp: number;
+  lastDeathAt: string | null;
   attributePoints: number;
   attributes: AttributeValues;
   dungeonSlayerKills: number;
   dungeonSlayerLastKillAt: string | null;
+  dungeonRun: DungeonRunStatusOutput | null;
   equipped: EquippedItemsOutput;
   bag: BagItemOutput[];
 }
@@ -84,6 +97,8 @@ export class GetPlayerProfileUseCase {
           playerItemId: playerItem.id,
           itemId: item.id,
           name: item.name,
+          rarity: item.rarity,
+          rarityColor: ITEM_RARITY_COLORS[item.rarity],
         };
       } else {
         bag.push({
@@ -92,21 +107,35 @@ export class GetPlayerProfileUseCase {
           name: item.name,
           quantity: playerItem.quantity,
           slot: item.slot,
+          rarity: item.rarity,
+          rarityColor: ITEM_RARITY_COLORS[item.rarity],
         });
       }
     }
 
     const ranking = await this.dungeonSlayerRankingRepository.findByPlayerId(player.id);
+    const dungeonRun: DungeonRunStatusOutput | null =
+      player.dungeonRunTier !== null &&
+      player.dungeonRunStep !== null &&
+      player.dungeonRunTotalSteps !== null
+        ? {
+            tier: player.dungeonRunTier,
+            step: player.dungeonRunStep,
+            totalSteps: player.dungeonRunTotalSteps,
+          }
+        : null;
 
     return {
       playerName: player.playerName,
       gold: player.gold,
       level: player.level,
       xp: player.xp,
+      lastDeathAt: player.lastDeathAt?.toISOString() ?? null,
       attributePoints: player.attributePoints,
       attributes: player.getAttributes().toValues(),
       dungeonSlayerKills: ranking?.kills ?? 0,
       dungeonSlayerLastKillAt: ranking?.lastKillAt?.toISOString() ?? null,
+      dungeonRun,
       equipped,
       bag,
     };

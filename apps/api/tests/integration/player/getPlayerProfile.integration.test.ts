@@ -43,15 +43,20 @@ describe("GetPlayerProfileUseCase (integration)", () => {
     expect(profile.gold).toBe(50);
     expect(profile.level).toBe(3);
     expect(profile.xp).toBe(120);
+    expect(profile.lastDeathAt).toBeNull();
     expect(profile.equipped.helmet).toEqual({
       playerItemId: helmetPlayerItemId,
       itemId: helmetId,
       name: "Profile Test Helm",
+      rarity: "common",
+      rarityColor: "gray",
     });
     expect(profile.equipped.bracelet).toEqual({
       playerItemId: ringPlayerItemId,
       itemId: ringId,
       name: "Profile Test Ring",
+      rarity: "common",
+      rarityColor: "gray",
     });
     expect(profile.equipped.boots).toBeNull();
     expect(profile.bag).toEqual([
@@ -61,8 +66,21 @@ describe("GetPlayerProfileUseCase (integration)", () => {
         name: "Profile Test Potion",
         quantity: 3,
         slot: null,
+        rarity: "common",
+        rarityColor: "gray",
       },
     ]);
+  });
+
+  it("surfaces the player's last death time when they have one", async () => {
+    const userId = await createTestUser(sql);
+    const lastDeathAt = new Date();
+    const playerId = await createTestPlayer(sql, userId, { lastDeathAt });
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const profile = await uc.getPlayerProfileUseCase.execute({ playerId });
+
+    expect(profile.lastDeathAt).toBe(lastDeathAt.toISOString());
   });
 
   it("reports 0/null Dungeon Slayer standing for a player who has never killed the tier-3 boss", async () => {

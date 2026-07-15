@@ -18,3 +18,10 @@ export class InsufficientAttributePointsError extends Error {
     this.name = "InsufficientAttributePointsError";
   }
 }
+
+export class CannotDestroyEquippedItemError extends Error {
+  constructor() {
+    super("Cannot destroy an equipped item — unequip it first");
+    this.name = "CannotDestroyEquippedItemError";
+  }
+}

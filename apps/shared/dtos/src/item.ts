@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-export const ItemRaritySchema = z.enum(["common", "uncommon", "rare", "epic", "legendary"]);
+export const ItemRaritySchema = z.enum([
+  "basic",
+  "common",
+  "uncommon",
+  "rare",
+  "very_rare",
+  "legendary",
+  "unique",
+]);
 export type ItemRarityDto = z.infer<typeof ItemRaritySchema>;
 
 export const ItemSlotSchema = z.enum([
@@ -22,6 +30,7 @@ export const ItemCatalogEntrySchema = z.object({
   name: z.string(),
   slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
+  rarityColor: z.string(),
 });
 export type ItemCatalogEntryDto = z.infer<typeof ItemCatalogEntrySchema>;
 

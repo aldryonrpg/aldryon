@@ -33,6 +33,7 @@ describe("ListItemsUseCase (integration)", () => {
       name: "Catalog Test Helm",
       slot: "helmet",
       rarity: "rare",
+      rarityColor: "blue",
     });
   });
 });

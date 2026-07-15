@@ -11,3 +11,17 @@ export class DailyDungeonLimitReachedError extends Error {
     this.name = "DailyDungeonLimitReachedError";
   }
 }
+
+export class DungeonRunAlreadyInProgressError extends Error {
+  constructor() {
+    super("A dungeon run is already awaiting a Continue/Exit decision — continue or exit it first");
+    this.name = "DungeonRunAlreadyInProgressError";
+  }
+}
+
+export class NoDungeonRunInProgressError extends Error {
+  constructor() {
+    super("No dungeon run is currently in progress");
+    this.name = "NoDungeonRunInProgressError";
+  }
+}

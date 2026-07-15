@@ -5,12 +5,14 @@ import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresB
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
 import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
 import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
+import { PostgresEffectCounterRepository } from "@/infrastructure/persistence/PostgresEffectCounterRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
 import { PostgresLevelRepository } from "@/infrastructure/persistence/PostgresLevelRepository";
 import { PostgresMonsterAttackRepository } from "@/infrastructure/persistence/PostgresMonsterAttackRepository";
 import { PostgresMonsterRepository } from "@/infrastructure/persistence/PostgresMonsterRepository";
 import { PostgresPlayerItemRepository } from "@/infrastructure/persistence/PostgresPlayerItemRepository";
 import { PostgresPlayerRepository } from "@/infrastructure/persistence/PostgresPlayerRepository";
+import { PostgresUniqueItemOwnershipRepository } from "@/infrastructure/persistence/PostgresUniqueItemOwnershipRepository";
 import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUserRepository";
 import { createPostgresClient } from "@/infrastructure/persistence/postgresClient";
 import { RandomRng } from "@/infrastructure/random/RandomRng";
@@ -24,15 +26,20 @@ import { RestUseCase } from "@/usecase/battle/RestUseCase";
 import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
+import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
+import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
+import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
+import { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
 
 const env = loadEnv();
 const supabase = createSupabaseClient(env);
@@ -52,6 +59,8 @@ const battleRepository = new PostgresBattleRepository(sql);
 const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
 const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
 const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
+const effectCounterRepository = new PostgresEffectCounterRepository(sql);
+const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
 
 const authenticateUserUseCase = new AuthenticateUserUseCase(authGateway, userRepository);
 const getOrCreatePlayerUseCase = new GetOrCreatePlayerUseCase(playerRepository);
@@ -66,6 +75,7 @@ const startBattleUseCase = new StartBattleUseCase(
   attackRepository,
   levelRepository,
   rng,
+  effectCounterRepository,
 );
 const attackUseCase = new AttackUseCase(
   playerRepository,
@@ -80,6 +90,8 @@ const attackUseCase = new AttackUseCase(
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
   dungeonSlayerRankingRepository,
+  effectCounterRepository,
+  uniqueItemOwnershipRepository,
 );
 const runFromBattleUseCase = new RunFromBattleUseCase(
   playerRepository,
@@ -94,6 +106,8 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
   dungeonSlayerRankingRepository,
+  effectCounterRepository,
+  uniqueItemOwnershipRepository,
 );
 const useBagItemUseCase = new UseBagItemUseCase(
   playerRepository,
@@ -108,6 +122,8 @@ const useBagItemUseCase = new UseBagItemUseCase(
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
   dungeonSlayerRankingRepository,
+  effectCounterRepository,
+  uniqueItemOwnershipRepository,
 );
 const restUseCase = new RestUseCase(
   playerRepository,
@@ -122,6 +138,8 @@ const restUseCase = new RestUseCase(
   env.levelUpAttributePoints,
   env.stunCooldownRounds,
   dungeonSlayerRankingRepository,
+  effectCounterRepository,
+  uniqueItemOwnershipRepository,
 );
 const claimLootUseCase = new ClaimLootUseCase(
   playerRepository,
@@ -130,6 +148,11 @@ const claimLootUseCase = new ClaimLootUseCase(
 );
 const equipItemUseCase = new EquipItemUseCase(playerItemRepository, itemRepository);
 const unequipItemUseCase = new UnequipItemUseCase(playerItemRepository);
+const destroyBagItemUseCase = new DestroyBagItemUseCase(
+  playerItemRepository,
+  itemRepository,
+  uniqueItemOwnershipRepository,
+);
 const allocateAttributePointsUseCase = new AllocateAttributePointsUseCase(playerRepository);
 const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository);
 const getActiveBattleUseCase = new GetActiveBattleUseCase(
@@ -156,13 +179,33 @@ const startDungeonUseCase = new StartDungeonUseCase(
   monsterAttackRepository,
   attackRepository,
   levelRepository,
+  rng,
+  effectCounterRepository,
+);
+const continueDungeonUseCase = new ContinueDungeonUseCase(
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
+  battleRepository,
+  monsterRepository,
+  monsterAttackRepository,
+  attackRepository,
+  levelRepository,
   dungeonEncounterRepository,
   dungeonBossRepository,
   rng,
+  effectCounterRepository,
 );
+const exitDungeonRunUseCase = new ExitDungeonRunUseCase(playerRepository);
 const getDungeonSlayerLeaderboardUseCase = new GetDungeonSlayerLeaderboardUseCase(
   dungeonSlayerRankingRepository,
   playerRepository,
+);
+const listStoreItemsUseCase = new ListStoreItemsUseCase(itemRepository);
+const purchaseItemUseCase = new PurchaseItemUseCase(
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
 );
 
 const app = createApp({
@@ -179,12 +222,17 @@ const app = createApp({
   getActiveBattleUseCase,
   equipItemUseCase,
   unequipItemUseCase,
+  destroyBagItemUseCase,
   allocateAttributePointsUseCase,
   updatePlayerNameUseCase,
   getPlayerProfileUseCase,
   listItemsUseCase,
   startDungeonUseCase,
+  continueDungeonUseCase,
+  exitDungeonRunUseCase,
   getDungeonSlayerLeaderboardUseCase,
+  listStoreItemsUseCase,
+  purchaseItemUseCase,
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
 });
 

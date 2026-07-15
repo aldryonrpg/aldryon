@@ -20,6 +20,7 @@ import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
@@ -85,6 +86,7 @@ export class StartBattleUseCase {
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
+    private readonly effectCounterRepository: EffectCounterRepository,
   ) {}
 
   async execute(input: StartBattleInput): Promise<StartBattleOutput> {
@@ -205,9 +207,7 @@ export class StartBattleUseCase {
         );
         if (proced) {
           const kind: BattleEffectKind = ambushAttack.appliesEffect ?? monster.innateEffectKind;
-          const counterItemId = ambushAttack.appliesEffect
-            ? ambushAttack.counterItemId
-            : await resolveCounterItemId(kind, this.itemRepository);
+          const counterItemId = await resolveCounterItemId(kind, this.effectCounterRepository);
           playerEffects = [
             ...playerEffects,
             buildBattleEffect(kind, {
@@ -249,8 +249,8 @@ export class StartBattleUseCase {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
       dungeonTier: null,
+      dungeonIsBossFight: false,
     });
     await this.battleRepository.create(battle);
 

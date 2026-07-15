@@ -1,15 +1,26 @@
 -- Plan 2 gameplay domain — shared enums used by players/items/monsters/
 -- attacks/battles. See plans/plan2.md §3 for the field-by-field rationale.
-create type item_rarity as enum ('common', 'uncommon', 'rare', 'epic', 'legendary');
+-- Full ladder (plan3 Store follow-up): 'basic' is store-only stock, never a
+-- monster drop; the rest is the drop ladder in ascending rarity —
+-- common 60% / uncommon 30% / rare 6% / very_rare 3% / legendary ~1% or
+-- less (a content-authoring guideline for future drop-pool dropRate values,
+-- not runtime-enforced — see domain/item/itemRarityColors.ts). 'unique'
+-- means at most one such item ever exists on the server, hand-placed, not
+-- rolled at all.
+create type item_rarity as enum (
+  'basic', 'common', 'uncommon', 'rare', 'very_rare', 'legendary', 'unique'
+);
 
 -- What an item can occupy (items.slot) vs where it physically sits on a
 -- player (player_items.equipped_slot) differ for weapons — a `weapon` item
 -- fits either hand, so it needs two distinct enums (plan2 §3d).
+-- 'bracelet' is a single physical position for both Bracelet- and Ring-type
+-- items (plan3 §3) — no left/right choice like weapons.
 create type equipment_slot as enum (
-  'helmet', 'body', 'boots', 'gloves', 'necklace', 'weapon', 'two_handed_weapon'
+  'helmet', 'body', 'boots', 'gloves', 'necklace', 'bracelet', 'weapon', 'two_handed_weapon'
 );
 create type equipment_position as enum (
-  'helmet', 'body', 'boots', 'gloves', 'necklace', 'weapon_1', 'weapon_2'
+  'helmet', 'body', 'boots', 'gloves', 'necklace', 'bracelet', 'weapon_1', 'weapon_2'
 );
 
 create type attack_scaling as enum ('force', 'intelligence');

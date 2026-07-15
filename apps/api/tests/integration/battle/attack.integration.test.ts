@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
+import { isDot } from "@/domain/battle/BattleEffect";
 import { maxHp } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { AttackNotUsableError, UnknownAttackError } from "@/usecase/battle/errors";
@@ -77,7 +78,7 @@ describe("AttackUseCase (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
 
@@ -211,6 +212,63 @@ describe("AttackUseCase (integration)", () => {
     );
   });
 
+  it("resolves the cure item for an attack-caused effect via the centralized effect_counters table, not the monster's innate type", async () => {
+    // The monster is 'normal' (innate bleed), but its special explicitly
+    // applies 'poison' instead — proving the cure resolves off the effect
+    // *kind*, not off the monster's own innate type or any per-attack data
+    // (attacks/monster_attacks no longer even have a counter_item_id column).
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { force: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 100, force: 1, monsterType: "normal" });
+    const specialId = await createTestMonsterAttack(sql, {
+      name: "Venom Fang",
+      staminaCost: 5,
+      multiplier: 0,
+      scalingAttribute: "force",
+      appliesEffect: "poison",
+      isSpecial: true,
+      chargeTurns: 1,
+    });
+    await linkMonsterMoveset(sql, monsterId, specialId);
+
+    const battle = Battle.create({
+      id: Bun.randomUUIDv7(),
+      playerId,
+      monsterId,
+      playerCurrentHp: maxHp(1, 10),
+      playerCurrentStamina: 10,
+      monsterCurrentHp: 100,
+      monsterCurrentStamina: 25,
+      round: 1,
+      playerEffects: [],
+      monsterEffects: [],
+      monsterChargingAttackId: null,
+      chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      stunCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      dungeonTier: null,
+    });
+
+    const uc = buildUseCases(sql, new FakeRng([0]));
+    await uc.battleRepository.create(battle);
+
+    // Turn 1: monster starts charging Venom Fang. Turn 2: unleashes it,
+    // guaranteed effect on unleash (plan2 §6a).
+    await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
+    await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
+
+    const [antidote] = await sql<
+      { id: string }[]
+    >`select id from items where name = 'antidote' limit 1`;
+
+    const battleAfter = await uc.battleRepository.findByPlayerId(playerId);
+    const poisonEffect = battleAfter?.playerEffects.find((e) => isDot(e) && e.kind === "poison");
+    expect(poisonEffect && isDot(poisonEffect) ? poisonEffect.counterItemId : null).toBe(
+      antidote.id,
+    );
+  });
+
   it("charge -> unleash: the monster charges a special, then unleashes it guaranteed with 100% effect", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { force: 10 });
@@ -240,7 +298,7 @@ describe("AttackUseCase (integration)", () => {
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
-      dungeonBossMonsterId: null,
+      dungeonIsBossFight: false,
       dungeonTier: null,
     });
 

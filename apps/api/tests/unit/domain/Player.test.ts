@@ -14,6 +14,9 @@ const BASE_PROPS = {
   pendingLoot: [],
   dungeonAttempt1: null,
   dungeonAttempt2: null,
+  dungeonRunTier: null,
+  dungeonRunStep: null,
+  dungeonRunTotalSteps: null,
 };
 
 describe("Player playerName", () => {

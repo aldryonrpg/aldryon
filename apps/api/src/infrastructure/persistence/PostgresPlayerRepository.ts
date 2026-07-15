@@ -22,6 +22,9 @@ interface PlayerRow {
   pending_loot: unknown;
   dungeon_attempt_1: string | Date | null;
   dungeon_attempt_2: string | Date | null;
+  dungeon_run_tier: 1 | 2 | 3 | null;
+  dungeon_run_step: number | null;
+  dungeon_run_total_steps: number | null;
 }
 
 function toDate(value: string | Date | null): Date | null {
@@ -51,6 +54,9 @@ function toDomain(row: PlayerRow): Player {
     pendingLoot: parseJsonbColumn<string[]>(row.pending_loot, []),
     dungeonAttempt1: toDate(row.dungeon_attempt_1),
     dungeonAttempt2: toDate(row.dungeon_attempt_2),
+    dungeonRunTier: row.dungeon_run_tier,
+    dungeonRunStep: row.dungeon_run_step,
+    dungeonRunTotalSteps: row.dungeon_run_total_steps,
   });
 }
 
@@ -77,12 +83,14 @@ export class PostgresPlayerRepository implements PlayerRepository {
       insert into players (
         id, user_id, player_name, gold, level, xp, attribute_points,
         force, dexterity, agility, intelligence, vitality, luck,
-        last_death_at, last_run_at, pending_loot, dungeon_attempt_1, dungeon_attempt_2, updated_at
+        last_death_at, last_run_at, pending_loot, dungeon_attempt_1, dungeon_attempt_2,
+        dungeon_run_tier, dungeon_run_step, dungeon_run_total_steps, updated_at
       ) values (
         ${props.id}, ${props.userId}, ${props.playerName}, ${props.gold}, ${props.level}, ${props.xp}, ${props.attributePoints},
         ${attrs.force}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
         ${props.lastDeathAt}, ${props.lastRunAt}, ${JSON.stringify(props.pendingLoot)}::jsonb,
-        ${props.dungeonAttempt1}, ${props.dungeonAttempt2}, now()
+        ${props.dungeonAttempt1}, ${props.dungeonAttempt2},
+        ${props.dungeonRunTier}, ${props.dungeonRunStep}, ${props.dungeonRunTotalSteps}, now()
       )
       returning *
     `;
@@ -114,6 +122,9 @@ export class PostgresPlayerRepository implements PlayerRepository {
         pending_loot = ${JSON.stringify(props.pendingLoot)}::jsonb,
         dungeon_attempt_1 = ${props.dungeonAttempt1},
         dungeon_attempt_2 = ${props.dungeonAttempt2},
+        dungeon_run_tier = ${props.dungeonRunTier},
+        dungeon_run_step = ${props.dungeonRunStep},
+        dungeon_run_total_steps = ${props.dungeonRunTotalSteps},
         updated_at = now()
       where id = ${props.id}
       returning *

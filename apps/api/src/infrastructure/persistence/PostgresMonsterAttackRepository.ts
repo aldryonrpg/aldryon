@@ -10,7 +10,6 @@ interface MonsterAttackRow {
   multiplier: string | number;
   scaling_attribute: AttackScaling;
   applies_effect: BattleEffectKind | null;
-  counter_item_id: string | null;
   is_special: boolean;
   charge_turns: number;
 }
@@ -23,7 +22,6 @@ function toDomain(row: MonsterAttackRow): MonsterAttack {
     multiplier: Number(row.multiplier),
     scalingAttribute: row.scaling_attribute,
     appliesEffect: row.applies_effect,
-    counterItemId: row.counter_item_id,
     isSpecial: row.is_special,
     chargeTurns: row.charge_turns,
   });

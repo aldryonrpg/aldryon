@@ -61,3 +61,11 @@ export type PlayerItemSummaryDto = z.infer<typeof PlayerItemSummarySchema>;
 
 export const EquipItemResponseSchema = z.object({ playerItem: PlayerItemSummarySchema });
 export type EquipItemResponse = z.infer<typeof EquipItemResponseSchema>;
+
+// --- POST /player/bag/destroy (loot-system follow-up) ---
+
+export const DestroyBagItemRequestSchema = z.object({ playerItemId: z.string().min(1) });
+export type DestroyBagItemRequest = z.infer<typeof DestroyBagItemRequestSchema>;
+
+export const DestroyBagItemResponseSchema = z.object({});
+export type DestroyBagItemResponse = z.infer<typeof DestroyBagItemResponseSchema>;

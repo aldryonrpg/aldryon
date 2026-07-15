@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
+import { DUNGEON_CONFIG } from "@/domain/dungeon/dungeonConfig";
 import { BattleAlreadyInProgressError } from "@/usecase/battle/errors";
 import {
   BelowMinimumDungeonLevelError,
   DailyDungeonLimitReachedError,
+  DungeonRunAlreadyInProgressError,
 } from "@/usecase/dungeon/errors";
 import { buildUseCases } from "../support/buildUseCases";
 import { expectRejection } from "../support/expectRejection";
@@ -17,27 +19,13 @@ import {
   setPlayerDungeonAttempts,
 } from "../support/testFixtures";
 
-/**
- * The dungeon's gatekeeper/boss pairing is a true singleton in production
- * (plan3 §2c: exactly one dungeon_encounters row, seeded by migration
- * `20260713090080_seed_dungeon_boss_and_encounter.sql` — the existing Snake
- * as gatekeeper, the Dragon as boss). Tests reuse that real seeded pairing
- * rather than inserting a second one — the shared testcontainers Postgres
- * only ever has room for the one row `DungeonEncounterRepository.findOne()`
- * assumes, and a second row would make which one it returns non-deterministic
- * for every other dungeon test sharing the same container.
- */
-async function findSeededGatekeeperId(sql: SQL): Promise<string> {
-  const rows = await sql<{ id: string }[]>`select id from monsters where name = 'SNAKE' limit 1`;
-  const id = rows[0]?.id;
-  if (!id) throw new Error("Seeded SNAKE monster not found — did migrations run?");
-  return id;
-}
-
-// The Snake's seeded ambush_chance is 10 — any Rng queue whose first value is
-// above 10 guarantees no ambush, keeping these tests focused on the dungeon
-// mechanics rather than the (already-covered-elsewhere) ambush flow.
-const NO_AMBUSH_RNG = () => new FakeRng([50]);
+// Dungeons never roll an empty encounter — the first roll is always the
+// step-monster pick. roll1=0 deterministically picks whichever monster sorts
+// first (name asc) across the whole catalog (fixture-created "Test Monster
+// ..." rows always sort after any all-caps seed name, so this is stable
+// regardless of which real one it happens to be). roll2=99 guarantees no
+// ambush regardless of that monster's ambush_chance.
+const NO_AMBUSH_RNG = () => new FakeRng([0, 99]);
 
 describe("StartDungeonUseCase (integration)", () => {
   let sql: SQL;
@@ -62,62 +50,65 @@ describe("StartDungeonUseCase (integration)", () => {
     );
   });
 
-  it("always encounters the gatekeeper and materializes the tier-1 boss (happy path)", async () => {
-    const gatekeeperId = await findSeededGatekeeperId(sql);
+  it("starts step 1 with a live Dungeon-Enhanced catalog monster, no new monsters row (happy path)", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { level: 12, force: 10 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
+    const monstersBefore = await sql<{ n: number }[]>`select count(*)::int as n from monsters`;
+
     const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
 
     expect(result.outcome).toBe("ongoing");
-    expect(result.monster?.id).toBe(gatekeeperId);
+    expect(result.monster).not.toBeNull();
 
     const battle = await uc.battleRepository.findByPlayerId(playerId);
-    expect(battle?.monsterId).toBe(gatekeeperId);
     expect(battle?.dungeonTier).toBe(1);
-    expect(battle?.dungeonBossMonsterId).not.toBeNull();
+    expect(battle?.dungeonIsBossFight).toBe(false);
 
-    const materialized = await uc.monsterRepository.findById(
-      battle?.dungeonBossMonsterId as string,
-    );
-    expect(materialized?.name).toBe("Dragon — Tier 1");
-    expect(materialized?.hp).toBe(2000); // tier 1 -> 100% of the seeded base 2000
-    expect(materialized?.level).toBe(10);
+    // The picked monster's stats are scaled relative to its own catalog row
+    // (tier 1 -> 100%, so unchanged) — no row was inserted for this pick.
+    const rawMonster = await uc.monsterRepository.findById(result.monster?.id as string);
+    expect(result.monster?.hp).toBe(rawMonster?.hp);
+    expect(result.monster?.attributes.force).toBe(rawMonster?.getAttributes().force);
+
+    const monstersAfter = await sql<{ n: number }[]>`select count(*)::int as n from monsters`;
+    expect(monstersAfter[0]?.n).toBe(monstersBefore[0]?.n);
+
+    const player = await uc.playerRepository.findById(playerId);
+    expect(player?.dungeonRunTier).toBe(1);
+    expect(player?.dungeonRunStep).toBe(1);
+    expect(player?.dungeonRunTotalSteps).toBe(DUNGEON_CONFIG.stepsPerTier[1]);
   });
 
-  it("materializes the boss idempotently: two players at the same tier reuse the same row", async () => {
-    const userId1 = await createTestUser(sql);
-    const playerId1 = await createTestPlayer(sql, userId1, { level: 12 });
-    const userId2 = await createTestUser(sql);
-    const playerId2 = await createTestPlayer(sql, userId2, { level: 13 });
-    const uc = buildUseCases(sql, NO_AMBUSH_RNG());
-
-    const result1 = await uc.startDungeonUseCase.execute({ playerId: playerId1, isVip: false });
-    const result2 = await uc.startDungeonUseCase.execute({ playerId: playerId2, isVip: false });
-
-    const battle1 = await uc.battleRepository.findByPlayerId(playerId1);
-    const battle2 = await uc.battleRepository.findByPlayerId(playerId2);
-    expect(battle1?.dungeonBossMonsterId).toBe(battle2?.dungeonBossMonsterId as string);
-    expect(result1.outcome).toBe("ongoing");
-    expect(result2.outcome).toBe("ongoing");
-  });
-
-  it("a higher-level player faces a visibly tougher (tier 2) materialized boss", async () => {
+  it("scales the step monster's stats up for a tier-2 player (150%)", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { level: 15 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
+    const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+
+    const rawMonster = await uc.monsterRepository.findById(result.monster?.id as string);
+    expect(result.monster?.hp).toBe(Math.ceil((rawMonster?.hp ?? 0) * 1.5));
+    expect(result.monster?.attributes.force).toBe(
+      Math.ceil((rawMonster?.getAttributes().force ?? 0) * 1.5),
+    );
+
+    const player = await uc.playerRepository.findById(playerId);
+    expect(player?.dungeonRunTier).toBe(2);
+    expect(player?.dungeonRunTotalSteps).toBe(DUNGEON_CONFIG.stepsPerTier[2]);
+  });
+
+  it("sets 5 total steps for a tier-3 (level 20+) player", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { level: 20 });
+    const uc = buildUseCases(sql, NO_AMBUSH_RNG());
+
     await uc.startDungeonUseCase.execute({ playerId, isVip: false });
 
-    const battle = await uc.battleRepository.findByPlayerId(playerId);
-    expect(battle?.dungeonTier).toBe(2);
-    const materialized = await uc.monsterRepository.findById(
-      battle?.dungeonBossMonsterId as string,
-    );
-    expect(materialized?.name).toBe("Dragon — Tier 2");
-    expect(materialized?.hp).toBe(3000); // tier 2 -> 150% of the seeded base 2000
-    expect(materialized?.level).toBe(15);
+    const player = await uc.playerRepository.findById(playerId);
+    expect(player?.dungeonRunTier).toBe(3);
+    expect(player?.dungeonRunTotalSteps).toBe(DUNGEON_CONFIG.stepsPerTier[3]);
   });
 
   it("rejects entering while a battle (wild or dungeon) is already in progress (409)", async () => {
@@ -141,14 +132,31 @@ describe("StartDungeonUseCase (integration)", () => {
         chargeRoundsLeft: 0,
         monsterAttackWeights: {},
         stunCooldownRoundsLeft: 0,
-        dungeonBossMonsterId: null,
         dungeonTier: null,
+        dungeonIsBossFight: false,
       }),
     );
 
     await expectRejection(
       uc.startDungeonUseCase.execute({ playerId, isVip: false }),
       BattleAlreadyInProgressError,
+    );
+  });
+
+  it("rejects starting a new run while a previous one is still awaiting Continue/Exit (409)", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { level: 12 });
+    const uc = buildUseCases(sql, NO_AMBUSH_RNG());
+
+    await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    // The kill hasn't happened yet, but simulate "the battle already ended
+    // and the player hasn't clicked Continue/Exit" by clearing just the
+    // battle row (dungeon_run_* stays set, exactly like after a real kill).
+    await uc.battleRepository.deleteByPlayerId(playerId);
+
+    await expectRejection(
+      uc.startDungeonUseCase.execute({ playerId, isVip: false }),
+      DungeonRunAlreadyInProgressError,
     );
   });
 
@@ -159,6 +167,9 @@ describe("StartDungeonUseCase (integration)", () => {
 
     await uc.startDungeonUseCase.execute({ playerId, isVip: false });
     await uc.battleRepository.deleteByPlayerId(playerId);
+    // Close out the run (Exit) so the daily-limit check is what rejects the
+    // next attempt, not the "run already in progress" guard.
+    await uc.exitDungeonRunUseCase.execute({ playerId });
 
     await expectRejection(
       uc.startDungeonUseCase.execute({ playerId, isVip: false }),
@@ -170,8 +181,10 @@ describe("StartDungeonUseCase (integration)", () => {
 
     await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
+    await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
     await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
+    await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
 
     await expectRejection(
       uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true }),

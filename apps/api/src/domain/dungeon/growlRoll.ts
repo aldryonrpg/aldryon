@@ -2,11 +2,11 @@ import { DUNGEON_CONFIG } from "@/domain/dungeon/dungeonConfig";
 import type { Rng } from "@/domain/shared/Rng";
 
 /**
- * The boss's awakening roll (plan3 §2e): 50/50 via the injected Rng, so it's
- * deterministic in tests. On success, the boss Growls (destroys every POT
- * stack in the player's bag) as its reveal action; on failure, nothing
- * happens this turn.
+ * The boss's awakening roll (loot-system follow-up): always fires on boss
+ * reveal (no longer a 50/50 gate) — returns how many percent (0-50,
+ * inclusive) of the player's remaining POTs the Growl breaks. 0 means no
+ * POTs break this time; the caller still narrates the Growl either way.
  */
-export function rollGrowl(rng: Rng): boolean {
-  return rng.int(1, 100) <= DUNGEON_CONFIG.growlChancePercent;
+export function rollGrowlBreakPercent(rng: Rng): number {
+  return rng.int(0, DUNGEON_CONFIG.growlBreakPercentMax);
 }

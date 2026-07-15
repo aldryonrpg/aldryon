@@ -33,8 +33,10 @@ describe("StartBattleUseCase (integration)", () => {
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0.4 });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
-    // roll1=50 (>20, not empty), roll2=0 (pick the only monster), roll3=1 (ambush fails, chance=0)
-    const uc = buildUseCases(sql, new FakeRng([50, 0, 1]));
+    // roll1=50 (>20, not empty), roll2=1 (region monsters ordered by name:
+    // seeded ORC SOLDIER sorts before "Test Monster ..." so index 1 is this
+    // fixture's own monster), roll3=1 (ambush fails, chance=0)
+    const uc = buildUseCases(sql, new FakeRng([50, 1, 1]));
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
@@ -66,12 +68,14 @@ describe("StartBattleUseCase (integration)", () => {
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
-    // roll1=50 (not empty), roll2=0 (pick the only monster), roll3=1 (ambush
-    // rolls <=100 -> lands), roll4=0 (pick the only non-special attack) —
-    // the hit itself needs no roll (10/1*100+25 >= 100 -> guaranteed hit),
-    // roll5=20 (effect proc: 20 <= monster luck 25 - player luck 1 ->
-    // lands), roll6=0 (pick the ambush flavor message).
-    const uc = buildUseCases(sql, new FakeRng([50, 0, 1, 0, 20, 0]));
+    // roll1=50 (not empty), roll2=1 (region monsters ordered by name: seeded
+    // SKELETON GUARD sorts before "Test Monster ..." so index 1 is this
+    // fixture's own monster), roll3=1 (ambush rolls <=100 -> lands), roll4=0
+    // (pick the only non-special attack) — the hit itself needs no roll
+    // (10/1*100+25 >= 100 -> guaranteed hit), roll5=20 (effect proc: 20 <=
+    // monster luck 25 - player luck 1 -> lands), roll6=0 (pick the ambush
+    // flavor message).
+    const uc = buildUseCases(sql, new FakeRng([50, 1, 1, 0, 20, 0]));
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
@@ -138,7 +142,7 @@ describe("StartBattleUseCase (integration)", () => {
         chargeRoundsLeft: 0,
         monsterAttackWeights: {},
         stunCooldownRoundsLeft: 0,
-        dungeonBossMonsterId: null,
+        dungeonIsBossFight: false,
         dungeonTier: null,
       }),
     );
@@ -166,7 +170,10 @@ describe("StartBattleUseCase (integration)", () => {
     const twentySecondsAgo = new Date(Date.now() - 20_000);
     const playerId = await createTestPlayer(sql, userId, { lastRunAt: twentySecondsAgo });
 
-    const uc = buildUseCases(sql, new FakeRng([50, 0, 1]));
+    // roll1=50 (not empty), roll2=0 (the seeded BANDIT SOLDIER is the only
+    // bandit-region monster), roll3=99 (>ambushChance 10 -> no ambush, so no
+    // further rolls are drawn).
+    const uc = buildUseCases(sql, new FakeRng([50, 0, 99]));
 
     // Past the 15s VIP window (but would still be inside the 30s normal one).
     const result = await uc.startBattleUseCase.execute({ playerId, isVip: true, region: "bandit" });
@@ -182,7 +189,10 @@ describe("StartBattleUseCase (integration)", () => {
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0.4 });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
-    const uc = buildUseCases(sql, new FakeRng([50, 0, 1]));
+    // roll1=50 (not empty), roll2=1 (region monsters ordered by name: seeded
+    // SEWER RAT sorts before "Test Monster ..." so index 1 is this
+    // fixture's own monster), roll3=1 (ambush fails, chance=0)
+    const uc = buildUseCases(sql, new FakeRng([50, 1, 1]));
 
     const result = await uc.startBattleUseCase.execute({
       playerId,

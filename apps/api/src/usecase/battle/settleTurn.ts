@@ -1,8 +1,6 @@
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, maxStamina } from "@/domain/battle/battleConfig";
-import { rollGrowl } from "@/domain/dungeon/growlRoll";
-import { decidePhaseTransition } from "@/domain/dungeon/phaseTransitionDecision";
 import { applyXpGain } from "@/domain/level/LevelCurve";
 import { rollDropPool } from "@/domain/monster/dropRoll";
 import type { Monster } from "@/domain/monster/Monster";
@@ -10,12 +8,12 @@ import { Player } from "@/domain/player/Player";
 import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import { resolveLegendaryDrop } from "@/usecase/battle/resolveLegendaryDrop";
 import type { AttackResultOutput, TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 export interface SettleTurnParams {
@@ -41,59 +39,45 @@ export interface SettleTurnParams {
   battleRepository: BattleRepository;
   levelRepository: LevelRepository;
   levelUpAttributePoints: number;
-  monsterRepository: MonsterRepository;
-  playerItemRepository: PlayerItemRepository;
-  itemRepository: ItemRepository;
   dungeonSlayerRankingRepository: DungeonSlayerRankingRepository;
+  itemRepository: ItemRepository;
+  uniqueItemOwnershipRepository: UniqueItemOwnershipRepository;
 }
 
-/** Rolls all three drop pools (the third, legendary_drops, is always empty
- * outside a materialized dungeon boss — plan3 §2c) and combines them into
- * one loot offer. */
-function rollLootOffer(monster: Monster, rng: Rng): string[] {
+/** Rolls all three drop pools and combines them into one loot offer. The
+ * third, legendary_drops, is always empty outside a materialized dungeon
+ * boss (plan3 §2c) and uses its own per-mille roll + unique-item ownership
+ * guard (loot-system follow-up) — see resolveLegendaryDrop. */
+async function rollLootOffer(
+  monster: Monster,
+  playerId: string,
+  rng: Rng,
+  itemRepository: ItemRepository,
+  uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+): Promise<string[]> {
   const dropItemId = rollDropPool(monster.drops, rng);
   const exclusiveDropItemId = rollDropPool(monster.exclusiveDrops, rng);
-  const legendaryDropItemId = rollDropPool(monster.legendaryDrops, rng);
+  const legendaryDropItemId = await resolveLegendaryDrop(
+    monster.legendaryDrops,
+    playerId,
+    rng,
+    itemRepository,
+    uniqueItemOwnershipRepository,
+  );
   return [dropItemId, exclusiveDropItemId, legendaryDropItemId].filter(
     (id): id is string => id !== null,
   );
-}
-
-/** The Growl (plan3 §2e): on success, destroys every POT stack (any
- * player_items row whose underlying item has hp_restore set) in the
- * player's bag. Bandages/antidotes (which cure effects, not restore HP) are
- * untouched. */
-async function applyGrowlIfTriggered(
-  playerId: string,
-  rng: Rng,
-  playerItemRepository: PlayerItemRepository,
-  itemRepository: ItemRepository,
-): Promise<boolean> {
-  if (!rollGrowl(rng)) return false;
-
-  const playerItems = await playerItemRepository.findByPlayerId(playerId);
-  if (playerItems.length === 0) return true;
-
-  const items = await itemRepository.findByIds(playerItems.map((pi) => pi.itemId));
-  const itemById = new Map(items.map((item) => [item.id, item]));
-
-  for (const playerItem of playerItems) {
-    const item = itemById.get(playerItem.itemId);
-    if (item?.hpRestore !== null && item?.hpRestore !== undefined) {
-      await playerItemRepository.delete(playerItem.id);
-    }
-  }
-  return true;
 }
 
 /**
  * Shared win/death/ongoing settlement + persistence + report building
  * (plan2 §5 steps 6-7), for turns where the player's own action never
  * damages the monster (Bag/Rest). DoT ticks can still kill either side.
- * Also owns the dungeon gatekeeper->boss phase transition (plan3 §2d): a
- * monster death with `battle.dungeonBossMonsterId` set is a *partial*
- * settlement (XP/loot awarded, the boss swapped in, the battle continues)
- * rather than the full win settlement below.
+ * Every kill (wild or dungeon — step or boss) fully settles and deletes the
+ * battle row the same way (loot-system follow-up removed the old mid-battle
+ * gatekeeper->boss phase transition — a dungeon run now advances one fresh
+ * fight at a time via /dungeon/continue, not by swapping the monster inside
+ * a still-live battle).
  */
 export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOutput> {
   const {
@@ -119,10 +103,9 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     battleRepository,
     levelRepository,
     levelUpAttributePoints,
-    monsterRepository,
-    playerItemRepository,
-    itemRepository,
     dungeonSlayerRankingRepository,
+    itemRepository,
+    uniqueItemOwnershipRepository,
   } = params;
 
   if (monsterCurrentHp <= 0) {
@@ -136,11 +119,13 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       attributePointsPerLevel: levelUpAttributePoints,
     });
 
-    const lootOffer = rollLootOffer(monster, rng);
-    // pendingLoot accumulates (appends) rather than overwrites — a dungeon
-    // run's gatekeeper-then-boss kills would otherwise silently discard the
-    // first drop (plan3 §2d); safe for every ordinary battle too, since
-    // pendingLoot is always empty going into a normal kill anyway.
+    const lootOffer = await rollLootOffer(
+      monster,
+      player.id,
+      rng,
+      itemRepository,
+      uniqueItemOwnershipRepository,
+    );
     const updatedPlayer = Player.create({
       ...player.toProps(),
       xp: xpResult.xp,
@@ -150,79 +135,11 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     });
     await playerRepository.update(updatedPlayer);
 
-    const transition = decidePhaseTransition(battle.dungeonBossMonsterId);
-
-    if (transition.kind === "partialSettlement") {
-      const bossMonster = await monsterRepository.findById(battle.dungeonBossMonsterId as string);
-      if (!bossMonster) throw new Error("Dungeon boss monster not found");
-
-      const transitionMessages = [
-        `${monster.name} has fallen! You gained ${monster.xpGain} XP.`,
-        `${bossMonster.name} reveals itself!`,
-      ];
-
-      let transitionMonsterAttack = monsterAttack;
-      const growlTriggered = await applyGrowlIfTriggered(
-        player.id,
-        rng,
-        playerItemRepository,
-        itemRepository,
-      );
-      if (growlTriggered) {
-        transitionMessages.push(
-          `${bossMonster.name} lets out a terrifying Growl, destroying every potion in your bag!`,
-        );
-        transitionMonsterAttack = {
-          attackName: "Growl",
-          hit: true,
-          damage: 0,
-          effectApplied: null,
-        };
-      }
-
-      const updatedBattle = Battle.create({
-        ...battle.toProps(),
-        monsterId: bossMonster.id,
-        playerCurrentHp,
-        playerCurrentStamina,
-        monsterCurrentHp: bossMonster.hp,
-        monsterCurrentStamina: bossMonster.maxStamina,
-        round: battle.round + 1,
-        playerEffects,
-        monsterEffects: [],
-        monsterChargingAttackId: null,
-        chargeRoundsLeft: 0,
-        monsterAttackWeights: {},
-        stunCooldownRoundsLeft: 0,
-        dungeonBossMonsterId: null,
-      });
-      await battleRepository.update(updatedBattle);
-
-      return {
-        playerAttack,
-        monsterAttack: transitionMonsterAttack,
-        messages: [...messages, ...transitionMessages],
-        playerStatus: {
-          currentHp: playerCurrentHp,
-          maxHp: playerMaxHp,
-          currentStamina: playerCurrentStamina,
-          maxStamina: maxStamina(player.level),
-        },
-        monsterStatus: {
-          currentHp: bossMonster.hp,
-          maxHp: bossMonster.hp,
-          currentStamina: bossMonster.maxStamina,
-          maxStamina: bossMonster.maxStamina,
-        },
-        // Documented exception to "lootOffer only on a win" — the gatekeeper's
-        // drops are real even though the run continues (plan3 §2d).
-        outcome: "ongoing",
-        lootOffer,
-      };
-    }
-
-    // Full settlement — an ordinary kill, or the dungeon boss's own death.
-    if (battle.dungeonTier === 3) {
+    // Only an actual boss kill at tier 3 counts toward Dungeon Slayer
+    // standing — never a step kill, at any tier (plan3 §2g, loot-system
+    // follow-up: dungeonIsBossFight is the discriminator now that every
+    // kill fully settles).
+    if (battle.dungeonTier === 3 && battle.dungeonIsBossFight) {
       await dungeonSlayerRankingRepository.incrementKill(player.id, new Date());
     }
     await battleRepository.deleteByPlayerId(player.id);
