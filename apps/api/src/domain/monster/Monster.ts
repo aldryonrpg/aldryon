@@ -5,7 +5,11 @@ export type MonsterType = "normal" | "poisonous";
 
 export interface DropTuple {
   itemId: string;
-  /** Percent, in (0, 100]. */
+  /** Per-mille, in (0, 1000] — dropRate=1 means 1-in-1000, dropRate=1000 is
+   * a guaranteed drop. Same scale for `drops`/`exclusiveDrops`/
+   * `legendaryDrops` alike (see `rollDropPool`); legendary/unique rarity is
+   * restricted to dungeon bosses' `legendaryDrops` pool and global-uniqueness
+   * enforcement, not a different roll formula. */
   dropRate: number;
 }
 
@@ -36,8 +40,8 @@ export interface MonsterProps {
 
 function validateDropPool(pool: DropTuple[], poolName: string): void {
   for (const drop of pool) {
-    if (drop.dropRate <= 0 || drop.dropRate > 100) {
-      throw new Error(`Monster ${poolName} dropRate must be in (0, 100], got ${drop.dropRate}`);
+    if (drop.dropRate <= 0 || drop.dropRate > 1000) {
+      throw new Error(`Monster ${poolName} dropRate must be in (0, 1000], got ${drop.dropRate}`);
     }
   }
 }

@@ -30,6 +30,7 @@ import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -170,6 +171,7 @@ const getPlayerProfileUseCase = new GetPlayerProfileUseCase(
   dungeonSlayerRankingRepository,
 );
 const listItemsUseCase = new ListItemsUseCase(itemRepository);
+const getItemRarityColorsUseCase = new GetItemRarityColorsUseCase();
 const startDungeonUseCase = new StartDungeonUseCase(
   playerRepository,
   playerItemRepository,
@@ -227,6 +229,7 @@ const app = createApp({
   updatePlayerNameUseCase,
   getPlayerProfileUseCase,
   listItemsUseCase,
+  getItemRarityColorsUseCase,
   startDungeonUseCase,
   continueDungeonUseCase,
   exitDungeonRunUseCase,

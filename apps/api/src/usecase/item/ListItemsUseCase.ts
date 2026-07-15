@@ -1,5 +1,4 @@
 import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
-import { ITEM_RARITY_COLORS } from "@/domain/item/itemRarityColors";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 
 export interface ItemCatalogEntryOutput {
@@ -7,14 +6,15 @@ export interface ItemCatalogEntryOutput {
   name: string;
   slot: EquipmentSlot | null;
   rarity: ItemRarity;
-  rarityColor: string;
+  setName: string | null;
 }
 
 /**
  * GET /items — the full item catalog, so the client can resolve display
- * names (always colored by rarity, plan3 Store follow-up) for bare item ids
- * (bag contents, loot offers) that aren't already carried by a richer
- * response.
+ * names for bare item ids (bag contents, loot offers) that aren't already
+ * carried by a richer response. Rarity colors are looked up client-side via
+ * GET /items/rarity-colors instead of being embedded per item (equipment-
+ * sets/naming follow-up).
  */
 export class ListItemsUseCase {
   constructor(private readonly itemRepository: ItemRepository) {}
@@ -26,7 +26,7 @@ export class ListItemsUseCase {
       name: item.name,
       slot: item.slot,
       rarity: item.rarity,
-      rarityColor: ITEM_RARITY_COLORS[item.rarity],
+      setName: item.setName,
     }));
   }
 }

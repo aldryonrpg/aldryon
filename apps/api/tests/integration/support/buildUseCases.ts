@@ -24,6 +24,7 @@ import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -170,6 +171,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonSlayerRankingRepository,
     ),
     listItemsUseCase: new ListItemsUseCase(itemRepository),
+    getItemRarityColorsUseCase: new GetItemRarityColorsUseCase(),
     startDungeonUseCase: new StartDungeonUseCase(
       playerRepository,
       playerItemRepository,

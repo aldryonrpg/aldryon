@@ -11,7 +11,7 @@ interface PlayerRow {
   level: number;
   xp: number;
   attribute_points: number;
-  force: number;
+  strength: number;
   dexterity: number;
   agility: number;
   intelligence: number;
@@ -42,7 +42,7 @@ function toDomain(row: PlayerRow): Player {
     xp: row.xp,
     attributePoints: row.attribute_points,
     attributes: {
-      force: row.force,
+      strength: row.strength,
       dexterity: row.dexterity,
       agility: row.agility,
       intelligence: row.intelligence,
@@ -82,12 +82,12 @@ export class PostgresPlayerRepository implements PlayerRepository {
     const rows = await this.sql<PlayerRow[]>`
       insert into players (
         id, user_id, player_name, gold, level, xp, attribute_points,
-        force, dexterity, agility, intelligence, vitality, luck,
+        strength, dexterity, agility, intelligence, vitality, luck,
         last_death_at, last_run_at, pending_loot, dungeon_attempt_1, dungeon_attempt_2,
         dungeon_run_tier, dungeon_run_step, dungeon_run_total_steps, updated_at
       ) values (
         ${props.id}, ${props.userId}, ${props.playerName}, ${props.gold}, ${props.level}, ${props.xp}, ${props.attributePoints},
-        ${attrs.force}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
+        ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
         ${props.lastDeathAt}, ${props.lastRunAt}, ${JSON.stringify(props.pendingLoot)}::jsonb,
         ${props.dungeonAttempt1}, ${props.dungeonAttempt2},
         ${props.dungeonRunTier}, ${props.dungeonRunStep}, ${props.dungeonRunTotalSteps}, now()
@@ -111,7 +111,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
         level = ${props.level},
         xp = ${props.xp},
         attribute_points = ${props.attributePoints},
-        force = ${attrs.force},
+        strength = ${attrs.strength},
         dexterity = ${attrs.dexterity},
         agility = ${attrs.agility},
         intelligence = ${attrs.intelligence},

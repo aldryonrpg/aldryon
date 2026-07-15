@@ -11,9 +11,10 @@ export const StoreItemSchema = z.object({
   price: z.number(),
   slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
-  rarityColor: z.string(),
   hpRestore: z.number().nullable(),
   category: z.enum(["consumable", "gear"]),
+  /** Null for anything not part of an equipment set. */
+  setName: z.string().nullable(),
 });
 export type StoreItemDto = z.infer<typeof StoreItemSchema>;
 

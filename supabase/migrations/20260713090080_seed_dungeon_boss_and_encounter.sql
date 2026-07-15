@@ -31,11 +31,16 @@ from dungeon_bosses b, monster_attacks a
 where b.name = 'Dragon' and a.name in ('Dragon Breath', 'Magic Aura Blast', 'Stun')
 on conflict do nothing;
 
--- The dungeon's current boss identity (plan3 §2c, loot-system follow-up):
--- each dungeon step now draws a random catalog monster rather than a fixed
--- gatekeeper, so this pairing row only needs to name the boss.
-insert into dungeon_encounters (id, dungeon_boss_id)
-select gen_random_uuid(), b.id
-from dungeon_bosses b
-where b.name = 'Dragon'
+-- Gatekeeper/boss pairing: SNAKE (an existing wild monster) reused as the
+-- dungeon's gatekeeper. gatekeeper_monster_id is dropped later by
+-- drop_gatekeeper_from_dungeon_encounters.sql once each dungeon step draws a
+-- random catalog monster instead of always refighting one fixed gatekeeper —
+-- this insert must keep matching what already ran against the live database
+-- (this migration predates that redesign), so a fresh migration replay
+-- doesn't violate the not-null constraint that still exists at this point
+-- in migration history.
+insert into dungeon_encounters (id, gatekeeper_monster_id, dungeon_boss_id)
+select gen_random_uuid(), g.id, b.id
+from dungeon_bosses b, monsters g
+where b.name = 'Dragon' and g.name = 'SNAKE'
 on conflict do nothing;

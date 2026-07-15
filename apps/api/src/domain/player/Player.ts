@@ -116,9 +116,9 @@ export class Player {
     return this.attributes.withBonuses(equippedBonuses);
   }
 
-  /** Max HP = 100 + 10*Vitality + 1*Force, using effective attributes (plan2 §3a). */
+  /** Max HP = 100 + 10*Vitality + 1*Strength, using effective attributes (plan2 §3a). */
   maxHp(effective: Attributes): number {
-    return computeMaxHp(effective.vitality, effective.force);
+    return computeMaxHp(effective.vitality, effective.strength);
   }
 
   /** Max Stamina = min(100, 20 + 5*level) (plan2 §3a). */

@@ -33,12 +33,22 @@ describe("The Growl (integration)", () => {
     await sql.close();
   });
 
+  // Growl only recognizes POT_ITEM_NAMES ("small pot"/"medium pot"/"big
+  // pot"), globally-unique seeded catalog rows — reuse them rather than
+  // creating a same-named item (items.name is unique).
+  async function smallPotId(): Promise<string> {
+    const rows = await sql<{ id: string }[]>`select id from items where name = 'small pot' limit 1`;
+    const id = rows[0]?.id;
+    if (!id) throw new Error("Seeded 'small pot' item not found — did migrations run?");
+    return id;
+  }
+
   it("always narrates on boss reveal and breaks POTs at a high roll, leaving bandages/gear untouched", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { level: 12 });
     await setPlayerDungeonRun(sql, playerId, 1, 1, 1);
 
-    const potId = await createTestItem(sql, { name: "Growl Test Potion", hpRestore: 50 });
+    const potId = await smallPotId();
     const potPlayerItemId = await createTestPlayerItem(sql, playerId, potId, { quantity: 4 });
     const bandageId = await createTestItem(sql, { name: "Growl Test Bandage" });
     const bandagePlayerItemId = await createTestPlayerItem(sql, playerId, bandageId);
@@ -67,7 +77,7 @@ describe("The Growl (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 12 });
     await setPlayerDungeonRun(sql, playerId, 1, 1, 1);
 
-    const potId = await createTestItem(sql, { name: "Growl Test Potion 2", hpRestore: 50 });
+    const potId = await smallPotId();
     const potPlayerItemId = await createTestPlayerItem(sql, playerId, potId, { quantity: 2 });
 
     const uc = buildUseCases(sql, new FakeRng([1, 0]));

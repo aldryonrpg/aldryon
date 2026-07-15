@@ -2,7 +2,7 @@ import type { AttributeKeyDto, AttributeValuesDto } from "@aldryon/dtos";
 
 const ROWS: { label: string; key: AttributeKeyDto }[] = [
   { label: "Agi", key: "agility" },
-  { label: "For", key: "force" },
+  { label: "Str", key: "strength" },
   { label: "Int", key: "intelligence" },
   { label: "Dex", key: "dexterity" },
   { label: "Sor", key: "luck" },

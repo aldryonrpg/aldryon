@@ -1,5 +1,5 @@
 export interface AttributeValues {
-  force: number;
+  strength: number;
   dexterity: number;
   agility: number;
   intelligence: number;
@@ -10,7 +10,7 @@ export interface AttributeValues {
 export type AttributeKey = keyof AttributeValues;
 
 export const ATTRIBUTE_KEYS: readonly AttributeKey[] = [
-  "force",
+  "strength",
   "dexterity",
   "agility",
   "intelligence",
@@ -37,8 +37,8 @@ export class Attributes {
     return new Attributes({ ...values });
   }
 
-  get force(): number {
-    return this.values.force;
+  get strength(): number {
+    return this.values.strength;
   }
   get dexterity(): number {
     return this.values.dexterity;
@@ -80,7 +80,7 @@ export class Attributes {
 
 /** Item attribute bonuses: default 0, may be negative — no floor (plan2 §2). */
 export const ZERO_ATTRIBUTE_BONUSES: AttributeValues = {
-  force: 0,
+  strength: 0,
   dexterity: 0,
   agility: 0,
   intelligence: 0,

@@ -4,7 +4,9 @@ import { BATTLE_CONFIG, maxStamina } from "@/domain/battle/battleConfig";
 import { applyXpGain } from "@/domain/level/LevelCurve";
 import { rollDropPool } from "@/domain/monster/dropRoll";
 import type { Monster } from "@/domain/monster/Monster";
+import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import { Player } from "@/domain/player/Player";
+import type { AttributeKey } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
@@ -34,6 +36,10 @@ export interface SettleTurnParams {
   monsterAttack: AttackResultOutput | null;
   messages: string[];
   playerMaxHp: number;
+  /** Omit to carry `battle.revealedMonsterAttributes` forward unchanged —
+   * only AttackUseCase (REVEAL SPELL) and UseBagItemUseCase (Knowledge
+   * Potion) ever pass a grown set. */
+  revealedMonsterAttributes?: AttributeKey[];
   rng: Rng;
   playerRepository: PlayerRepository;
   battleRepository: BattleRepository;
@@ -108,6 +114,13 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     uniqueItemOwnershipRepository,
   } = params;
 
+  const revealedMonsterAttributes =
+    params.revealedMonsterAttributes ?? battle.revealedMonsterAttributes;
+  const monsterAttributesView = buildRevealedAttributesView(
+    monster.getAttributes().toValues(),
+    revealedMonsterAttributes,
+  );
+
   if (monsterCurrentHp <= 0) {
     const levels = await levelRepository.findAll();
     const xpResult = applyXpGain({
@@ -157,9 +170,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterStatus: {
         currentHp: 0,
         maxHp: monster.hp,
-        currentStamina: monsterCurrentStamina,
-        maxStamina: monster.maxStamina,
       },
+      monsterAttributes: monsterAttributesView,
       outcome: "won",
       lootOffer,
     };
@@ -182,9 +194,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterStatus: {
         currentHp: monsterCurrentHp,
         maxHp: monster.hp,
-        currentStamina: monsterCurrentStamina,
-        maxStamina: monster.maxStamina,
       },
+      monsterAttributes: monsterAttributesView,
       outcome: "lost",
       lootOffer: null,
     };
@@ -203,6 +214,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     chargeRoundsLeft,
     monsterAttackWeights,
     stunCooldownRoundsLeft,
+    revealedMonsterAttributes,
   });
   await battleRepository.update(updatedBattle);
 
@@ -219,9 +231,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterStatus: {
       currentHp: monsterCurrentHp,
       maxHp: monster.hp,
-      currentStamina: monsterCurrentStamina,
-      maxStamina: monster.maxStamina,
     },
+    monsterAttributes: monsterAttributesView,
     outcome: "ongoing",
     lootOffer: null,
   };

@@ -3,6 +3,7 @@ import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
+import { pickUnrevealedAttribute } from "@/domain/monster/monsterAttributeReveal";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
@@ -79,7 +80,7 @@ export class AttackUseCase {
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     if (isStunned(battle.playerEffects)) {
       return resolveStunnedTurn({
@@ -125,6 +126,7 @@ export class AttackUseCase {
     let chargeRoundsLeft = battle.chargeRoundsLeft;
     let monsterAttackWeights = battle.monsterAttackWeights;
     let stunCooldownRoundsLeft = battle.stunCooldownRoundsLeft;
+    let revealedMonsterAttributes = battle.revealedMonsterAttributes;
 
     // Step 1-3: resolve the player's strike (plan2 §6).
     const playerHit = rollHit(
@@ -169,6 +171,19 @@ export class AttackUseCase {
             }),
           ];
           playerEffectApplied = attack.appliesEffect;
+        }
+      }
+
+      if (attack.revealsRandomMonsterAttribute) {
+        const revealedKey = pickUnrevealedAttribute(revealedMonsterAttributes, this.rng);
+        if (revealedKey) {
+          revealedMonsterAttributes = [...revealedMonsterAttributes, revealedKey];
+          const label = revealedKey.charAt(0).toUpperCase() + revealedKey.slice(1);
+          messages.push(
+            `You glimpse the monster's ${label}: ${monsterAttributes.get(revealedKey)}!`,
+          );
+        } else {
+          messages.push("You already know everything about this monster.");
         }
       }
     }
@@ -244,6 +259,7 @@ export class AttackUseCase {
       monsterAttack: monsterAttackResult,
       messages,
       playerMaxHp,
+      revealedMonsterAttributes,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

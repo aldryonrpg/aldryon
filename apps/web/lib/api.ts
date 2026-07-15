@@ -5,9 +5,11 @@ import type {
   ClaimLootResponse,
   ContinueDungeonResponse,
   DestroyBagItemResponse,
+  DungeonLeaderboardResponse,
   EquipItemResponse,
   ExitDungeonRunResponse,
   ItemCatalogResponse,
+  ItemRarityColorsResponse,
   LoginResponse,
   MonsterRegionDto,
   PlayerProfileResponse,
@@ -84,6 +86,10 @@ export function getItemCatalog(): Promise<ItemCatalogResponse> {
   return authedFetch("/items");
 }
 
+export function getItemRarityColors(): Promise<ItemRarityColorsResponse> {
+  return authedFetch("/items/rarity-colors");
+}
+
 export function startBattle(region: MonsterRegionDto): Promise<StartBattleResponse> {
   return authedFetch("/battle/start", { method: "POST", body: JSON.stringify({ region }) });
 }
@@ -98,6 +104,10 @@ export function continueDungeon(): Promise<ContinueDungeonResponse> {
 
 export function exitDungeonRun(): Promise<ExitDungeonRunResponse> {
   return authedFetch("/dungeon/exit", { method: "POST", body: JSON.stringify({}) });
+}
+
+export function getDungeonLeaderboard(): Promise<DungeonLeaderboardResponse> {
+  return authedFetch("/dungeon/leaderboard");
 }
 
 export function attack(attackName: string): Promise<TurnReportDto> {

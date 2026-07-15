@@ -27,7 +27,7 @@ export interface DotEffect {
 }
 
 /**
- * A percentage stat-decay debuff (Fear -> force, Magic Aura Blast ->
+ * A percentage stat-decay debuff (Fear -> strength, Magic Aura Blast ->
  * intelligence): held at -50% for 2 rounds, then recovers 10 points a round
  * until back to normal. `roundsElapsed` indexes into
  * `STAT_DEBUFF_SCHEDULE_PERCENT` and advances once per round via
@@ -36,7 +36,7 @@ export interface DotEffect {
 export interface StatDebuffEffect {
   type: "debuff";
   kind: "fear" | "magic_aura_blast";
-  stat: "force" | "intelligence";
+  stat: "strength" | "intelligence";
   roundsElapsed: number;
 }
 
@@ -81,8 +81,8 @@ export function statDebuffPercent(roundsElapsed: number): number {
   return STAT_DEBUFF_SCHEDULE_PERCENT[roundsElapsed] ?? 0;
 }
 
-const STAT_DEBUFF_STAT: Record<"fear" | "magic_aura_blast", "force" | "intelligence"> = {
-  fear: "force",
+const STAT_DEBUFF_STAT: Record<"fear" | "magic_aura_blast", "strength" | "intelligence"> = {
+  fear: "strength",
   magic_aura_blast: "intelligence",
 };
 
@@ -172,7 +172,7 @@ export function removeDotByCounterItem(
 export function effectAppliedMessage(kind: BattleEffectKind): string | null {
   switch (kind) {
     case "fear":
-      return "The monster's Fear grips you, sapping your Force!";
+      return "The monster's Fear grips you, sapping your Strength!";
     case "magic_aura_blast":
       return "The monster's Magic Aura Blast disrupts your mind, sapping your Intelligence!";
     case "stun":

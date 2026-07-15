@@ -69,15 +69,15 @@ describe("Player management use cases (integration)", () => {
   describe("AllocateAttributePointsUseCase", () => {
     it("spends points and increments base attributes", async () => {
       const userId = await createTestUser(sql);
-      const playerId = await createTestPlayer(sql, userId, { attributePoints: 10, force: 5 });
+      const playerId = await createTestPlayer(sql, userId, { attributePoints: 10, strength: 5 });
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       const result = await uc.allocateAttributePointsUseCase.execute({
         playerId,
-        allocations: { force: 3, luck: 2 },
+        allocations: { strength: 3, luck: 2 },
       });
 
-      expect(result.attributes.force).toBe(8);
+      expect(result.attributes.strength).toBe(8);
       expect(result.attributes.luck).toBe(3);
       expect(result.attributePoints).toBe(5);
     });
@@ -88,7 +88,7 @@ describe("Player management use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       await expectRejection(
-        uc.allocateAttributePointsUseCase.execute({ playerId, allocations: { force: 3 } }),
+        uc.allocateAttributePointsUseCase.execute({ playerId, allocations: { strength: 3 } }),
         InsufficientAttributePointsError,
       );
     });

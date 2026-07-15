@@ -26,10 +26,10 @@ export const BATTLE_CONFIG = {
   bagCapacityVip: 25,
   bagStackMax: 5,
   specialSlotMax: 5,
-  /** Max HP = 100 + 10*Vitality + 1*Force (plan2 §3a). */
+  /** Max HP = 100 + 10*Vitality + 1*Strength (plan2 §3a). */
   baseMaxHp: 100,
   maxHpPerVitality: 10,
-  maxHpPerForce: 1,
+  maxHpPerStrength: 1,
   /** Max Stamina = min(100, 20 + 5*level) (plan2 §3a). */
   baseMaxStamina: 20,
   maxStaminaPerLevel: 5,
@@ -57,11 +57,11 @@ export const CHARGE_WARNING_FLAVOR: readonly string[] = [
   "The monster stopped and is glowing, be careful...",
 ];
 
-export function maxHp(vitality: number, force: number): number {
+export function maxHp(vitality: number, strength: number): number {
   return (
     BATTLE_CONFIG.baseMaxHp +
     BATTLE_CONFIG.maxHpPerVitality * vitality +
-    BATTLE_CONFIG.maxHpPerForce * force
+    BATTLE_CONFIG.maxHpPerStrength * strength
   );
 }
 

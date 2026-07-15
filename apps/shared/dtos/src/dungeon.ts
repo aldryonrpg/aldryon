@@ -4,6 +4,7 @@ import {
   BattleMonsterSchema,
   BattleOutcomeSchema,
   BattleStatusSchema,
+  MonsterStatusSchema,
 } from "./battle";
 
 // --- POST /dungeon/start ---
@@ -12,7 +13,7 @@ export const StartDungeonResponseSchema = z.object({
   monster: BattleMonsterSchema.nullable(),
   message: z.string().nullable(),
   playerStatus: BattleStatusSchema.nullable(),
-  monsterStatus: BattleStatusSchema.nullable(),
+  monsterStatus: MonsterStatusSchema.nullable(),
   availableAttacks: z.array(AvailableAttackSchema),
   ambushOccurred: z.boolean(),
   outcome: BattleOutcomeSchema.nullable(),

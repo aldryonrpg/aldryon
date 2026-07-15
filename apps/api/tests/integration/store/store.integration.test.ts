@@ -41,27 +41,32 @@ describe("Store (integration)", () => {
         price: 25,
         slot: null,
         rarity: "common",
-        rarityColor: "gray",
         hpRestore: 50,
         category: "consumable",
+        setName: null,
       });
     });
 
-    it("lists Basic Helmet as gear, not consumable", async () => {
+    it("lists Basic Helmet as gear, not consumable, tagged with the leather set", async () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
       const listing = await uc.listStoreItemsUseCase.execute();
 
       const helmet = listing.find((entry) => entry.name === "Basic Helmet");
       expect(helmet?.category).toBe("gear");
       expect(helmet?.rarity).toBe("basic");
-      expect(helmet?.rarityColor).toBe("white");
+      expect(helmet?.setName).toBe("leather");
     });
 
     it("excludes rare and legendary items", async () => {
-      const rareId = await createTestItem(sql, { name: "Store Test Rare Item", rarity: "rare" });
+      const rareId = await createTestItem(sql, {
+        name: "Store Test Rare Item",
+        rarity: "rare",
+        storePurchasable: false,
+      });
       const legendaryId = await createTestItem(sql, {
         name: "Store Test Legendary Item",
         rarity: "legendary",
+        storePurchasable: false,
       });
       const uc = buildUseCases(sql, new FakeRng([1]));
 
@@ -69,6 +74,20 @@ describe("Store (integration)", () => {
 
       expect(listing.some((entry) => entry.id === rareId)).toBe(false);
       expect(listing.some((entry) => entry.id === legendaryId)).toBe(false);
+    });
+
+    it("excludes an otherwise store-eligible rarity when storePurchasable is false (e.g. a set tier)", async () => {
+      const ironHelmetId = await createTestItem(sql, {
+        name: "Store Test Iron Helmet",
+        rarity: "uncommon",
+        setName: "iron",
+        storePurchasable: false,
+      });
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const listing = await uc.listStoreItemsUseCase.execute();
+
+      expect(listing.some((entry) => entry.id === ironHelmetId)).toBe(false);
     });
   });
 
@@ -130,7 +149,11 @@ describe("Store (integration)", () => {
     it("rejects buying a rare or legendary item — the store never sells them", async () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId, { gold: 100000 });
-      const rareId = await createTestItem(sql, { name: "Purchase Test Rare Item", rarity: "rare" });
+      const rareId = await createTestItem(sql, {
+        name: "Purchase Test Rare Item",
+        rarity: "rare",
+        storePurchasable: false,
+      });
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       await expectRejection(

@@ -4,11 +4,26 @@ import type { BagItemDto, PlayerProfileResponse, StoreItemDto } from "@aldryon/d
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getPlayerProfile, getStoreListing, purchaseItem } from "@/lib/api";
+import { formatDisplayName } from "@/lib/formatDisplayName";
+import { getRarityColor, loadRarityColors } from "@/lib/rarityColors";
 
-function ItemName({ name, color }: { name: string; color: string }) {
+function ItemName({
+  name,
+  rarity,
+  setName,
+}: {
+  name: string;
+  rarity: string;
+  setName: string | null;
+}) {
   return (
-    <span className="font-bold" style={{ color }}>
-      {name}
+    <span>
+      <span className="font-bold" style={{ color: getRarityColor(rarity) }}>
+        {formatDisplayName(name)}
+      </span>
+      {setName && (
+        <span className="ml-1 text-xs text-stone-400">({formatDisplayName(setName)} Set)</span>
+      )}
     </span>
   );
 }
@@ -23,7 +38,7 @@ function BagList({ bag }: { bag: BagItemDto[] }) {
         <ul className="space-y-1 text-sm">
           {bag.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-2">
-              <ItemName name={item.name} color={item.rarityColor} />
+              <ItemName name={item.name} rarity={item.rarity} setName={item.setName} />
               <span className="text-stone-400">x{item.quantity}</span>
             </li>
           ))}
@@ -46,7 +61,7 @@ function StoreItemCard({
 }) {
   return (
     <div className="flex flex-col gap-1 border border-white bg-black p-3 text-sm">
-      <ItemName name={item.name} color={item.rarityColor} />
+      <ItemName name={item.name} rarity={item.rarity} setName={item.setName} />
       <p className="text-stone-400">{item.description}</p>
       {item.slot && <p className="text-xs text-stone-500">Slot: {item.slot}</p>}
       {item.hpRestore !== null && (
@@ -78,7 +93,11 @@ export default function StorePage() {
     let cancelled = false;
     (async () => {
       try {
-        const [profileResult, listing] = await Promise.all([getPlayerProfile(), getStoreListing()]);
+        const [profileResult, listing] = await Promise.all([
+          getPlayerProfile(),
+          getStoreListing(),
+          loadRarityColors(),
+        ]);
         if (cancelled) return;
         setProfile(profileResult);
         setItems(listing);

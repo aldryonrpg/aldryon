@@ -12,10 +12,17 @@ export const BattleStatusSchema = z.object({
 });
 export type BattleStatusDto = z.infer<typeof BattleStatusSchema>;
 
+/** The monster's own Stamina is never sent to the client — HP only. */
+export const MonsterStatusSchema = z.object({
+  currentHp: z.number(),
+  maxHp: z.number(),
+});
+export type MonsterStatusDto = z.infer<typeof MonsterStatusSchema>;
+
 export const BattleOutcomeSchema = z.enum(["ongoing", "won", "lost", "fled"]);
 export type BattleOutcomeDto = z.infer<typeof BattleOutcomeSchema>;
 
-export const AttackScalingSchema = z.enum(["force", "intelligence"]);
+export const AttackScalingSchema = z.enum(["strength", "intelligence"]);
 export type AttackScalingDto = z.infer<typeof AttackScalingSchema>;
 
 export const AvailableAttackSchema = z.object({
@@ -32,7 +39,9 @@ export const BattleMonsterSchema = z.object({
   description: z.string(),
   monsterImage: z.string(),
   hp: z.number(),
-  attributes: AttributeValuesSchema,
+  /** Only revealed keys are present (REVEAL SPELL/Knowledge Potion) — an
+   * absent key means "??", never a leaked value. */
+  attributes: AttributeValuesSchema.partial(),
 });
 export type BattleMonsterDto = z.infer<typeof BattleMonsterSchema>;
 
@@ -45,7 +54,7 @@ export const StartBattleResponseSchema = z.object({
   monster: BattleMonsterSchema.nullable(),
   message: z.string().nullable(),
   playerStatus: BattleStatusSchema.nullable(),
-  monsterStatus: BattleStatusSchema.nullable(),
+  monsterStatus: MonsterStatusSchema.nullable(),
   availableAttacks: z.array(AvailableAttackSchema),
   ambushOccurred: z.boolean(),
   outcome: BattleOutcomeSchema.nullable(),
@@ -67,7 +76,9 @@ export const TurnReportSchema = z.object({
   monsterAttack: AttackResultSchema.nullable(),
   messages: z.array(z.string()),
   playerStatus: BattleStatusSchema,
-  monsterStatus: BattleStatusSchema,
+  monsterStatus: MonsterStatusSchema,
+  /** Only revealed keys are present — see `BattleMonsterSchema.attributes`. */
+  monsterAttributes: AttributeValuesSchema.partial(),
   outcome: BattleOutcomeSchema,
   lootOffer: z.array(z.string()).nullable(),
 });
@@ -100,7 +111,7 @@ export const ActiveBattleResponseSchema = z
   .object({
     monster: BattleMonsterSchema,
     playerStatus: BattleStatusSchema,
-    monsterStatus: BattleStatusSchema,
+    monsterStatus: MonsterStatusSchema,
     availableAttacks: z.array(AvailableAttackSchema),
   })
   .nullable();

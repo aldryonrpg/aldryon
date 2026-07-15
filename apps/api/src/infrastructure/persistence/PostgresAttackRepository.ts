@@ -11,12 +11,13 @@ interface AttackRow {
   scaling_attribute: AttackScaling;
   applies_effect: BattleEffectKind | null;
   min_level: number;
-  req_force: number;
+  req_strength: number;
   req_dexterity: number;
   req_agility: number;
   req_intelligence: number;
   req_vitality: number;
   req_luck: number;
+  reveals_random_monster_attribute: boolean;
 }
 
 function toDomain(row: AttackRow): Attack {
@@ -29,13 +30,14 @@ function toDomain(row: AttackRow): Attack {
     appliesEffect: row.applies_effect,
     minLevel: row.min_level,
     attributeRequirements: {
-      force: row.req_force,
+      strength: row.req_strength,
       dexterity: row.req_dexterity,
       agility: row.req_agility,
       intelligence: row.req_intelligence,
       vitality: row.req_vitality,
       luck: row.req_luck,
     },
+    revealsRandomMonsterAttribute: row.reveals_random_monster_attribute,
   });
 }
 

@@ -40,6 +40,17 @@ export interface ItemProps {
   slot: EquipmentSlot | null;
   attributeBonuses: AttributeValues;
   hpRestore: number | null;
+  /** Knowledge Potion only — reveals every monster attribute at once when
+   * consumed from the Bag, unlike REVEAL SPELL's one-at-a-time reveal. */
+  revealsAllMonsterAttributes: boolean;
+  /** Null for anything not part of an equipment set (weapons, consumables,
+   * unique items). Equipping all 6 non-weapon slots from the same set name
+   * grants a flat +2-all-attributes bonus — see `computeSetBonus`. */
+  setName: string | null;
+  /** Decoupled from `rarity` — the store lists basic/common/uncommon items
+   * by default, but a set tier can be an uncommon-or-rarer rarity that's
+   * still drop-only (e.g. the Iron Set), never store stock. */
+  storePurchasable: boolean;
 }
 
 /** Item catalog entry (plan2 §3b). Immutable — items are catalog data. */
@@ -80,13 +91,22 @@ export class Item {
   get hpRestore(): number | null {
     return this.props.hpRestore;
   }
+  get revealsAllMonsterAttributes(): boolean {
+    return this.props.revealsAllMonsterAttributes;
+  }
+  get setName(): string | null {
+    return this.props.setName;
+  }
+  get storePurchasable(): boolean {
+    return this.props.storePurchasable;
+  }
 
   get isEquippable(): boolean {
     return this.props.slot !== null;
   }
 
   get isConsumable(): boolean {
-    return this.props.hpRestore !== null;
+    return this.props.hpRestore !== null || this.props.revealsAllMonsterAttributes;
   }
 
   toProps(): ItemProps {

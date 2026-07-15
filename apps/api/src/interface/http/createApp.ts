@@ -21,6 +21,7 @@ import type { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUs
 import type { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import type { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -52,6 +53,7 @@ export interface AppDependencies {
   updatePlayerNameUseCase: UpdatePlayerNameUseCase;
   getPlayerProfileUseCase: GetPlayerProfileUseCase;
   listItemsUseCase: ListItemsUseCase;
+  getItemRarityColorsUseCase: GetItemRarityColorsUseCase;
   startDungeonUseCase: StartDungeonUseCase;
   continueDungeonUseCase: ContinueDungeonUseCase;
   exitDungeonRunUseCase: ExitDungeonRunUseCase;
@@ -100,7 +102,13 @@ export function createApp(deps: AppDependencies): Hono {
       getPlayerProfileUseCase: deps.getPlayerProfileUseCase,
     }),
   );
-  gameplay.route("/", createItemController({ listItemsUseCase: deps.listItemsUseCase }));
+  gameplay.route(
+    "/",
+    createItemController({
+      listItemsUseCase: deps.listItemsUseCase,
+      getItemRarityColorsUseCase: deps.getItemRarityColorsUseCase,
+    }),
+  );
   gameplay.route(
     "/",
     createDungeonController({

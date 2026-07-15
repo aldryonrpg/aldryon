@@ -23,6 +23,7 @@ import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
+import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
@@ -37,12 +38,7 @@ export interface StartBattleInput {
   region: MonsterRegion;
 }
 
-export interface BattleStatusOutput {
-  currentHp: number;
-  maxHp: number;
-  currentStamina: number;
-  maxStamina: number;
-}
+export type { BattleStatusOutput, MonsterStatusOutput };
 
 export interface AvailableAttackOutput {
   name: string;
@@ -58,11 +54,12 @@ export interface StartBattleOutput {
     description: string;
     monsterImage: string;
     hp: number;
-    attributes: AttributeValues;
+    /** Only revealed keys are present — hidden ("??" client-side) otherwise. */
+    attributes: Partial<AttributeValues>;
   } | null;
   message: string | null;
   playerStatus: BattleStatusOutput | null;
-  monsterStatus: BattleStatusOutput | null;
+  monsterStatus: MonsterStatusOutput | null;
   availableAttacks: AvailableAttackOutput[];
   ambushOccurred: boolean;
   outcome: "ongoing" | "lost" | null;
@@ -156,7 +153,7 @@ export class StartBattleUseCase {
     const monster = pick(monsters, this.rng);
     const moveset = await this.monsterAttackRepository.findMovesetByMonsterId(monster.id);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
     const playerMaxStamina = maxStamina(player.level);
     const monsterMaxStamina = monster.maxStamina;
 
@@ -251,6 +248,7 @@ export class StartBattleUseCase {
       stunCooldownRoundsLeft: 0,
       dungeonTier: null,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
     });
     await this.battleRepository.create(battle);
 
@@ -261,7 +259,8 @@ export class StartBattleUseCase {
         description: monster.description,
         monsterImage: monster.monsterImage,
         hp: monster.hp,
-        attributes: monster.getAttributes().toValues(),
+        // Fresh battle — nothing revealed yet.
+        attributes: {},
       },
       message: ambushOccurred
         ? [pick([...AMBUSH_FLAVOR], this.rng), ambushEffectMessage].filter(Boolean).join(" ")
@@ -275,8 +274,6 @@ export class StartBattleUseCase {
       monsterStatus: {
         currentHp: monster.hp,
         maxHp: monster.hp,
-        currentStamina: monsterMaxStamina,
-        maxStamina: monsterMaxStamina,
       },
       availableAttacks,
       ambushOccurred,

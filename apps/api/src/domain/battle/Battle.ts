@@ -1,4 +1,5 @@
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
+import type { AttributeKey } from "@/domain/shared/Attributes";
 
 export type BattleOutcome = "ongoing" | "won" | "lost" | "fled";
 
@@ -33,6 +34,10 @@ export interface BattleProps {
    * (step or boss) now fully settles its own battle. False for every
    * regular dungeon step and every ordinary battle. */
   dungeonIsBossFight: boolean;
+  /** Which of the monster's 6 attributes the player has revealed this battle
+   * (REVEAL SPELL adds one at a time; Knowledge Potion adds all at once) —
+   * everything else stays hidden ("??"), never sent to the client at all. */
+  revealedMonsterAttributes: AttributeKey[];
 }
 
 /**
@@ -110,6 +115,9 @@ export class Battle {
   get dungeonIsBossFight(): boolean {
     return this.props.dungeonIsBossFight;
   }
+  get revealedMonsterAttributes(): AttributeKey[] {
+    return [...this.props.revealedMonsterAttributes];
+  }
 
   toProps(): BattleProps {
     return {
@@ -117,6 +125,7 @@ export class Battle {
       playerEffects: [...this.props.playerEffects],
       monsterEffects: [...this.props.monsterEffects],
       monsterAttackWeights: { ...this.props.monsterAttackWeights },
+      revealedMonsterAttributes: [...this.props.revealedMonsterAttributes],
     };
   }
 }

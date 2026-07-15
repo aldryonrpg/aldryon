@@ -13,7 +13,7 @@ interface DungeonBossRow {
   base_hp: number;
   base_xp_gain: number;
   base_max_stamina: number;
-  base_force: number;
+  base_strength: number;
   base_dexterity: number;
   base_agility: number;
   base_intelligence: number;
@@ -35,7 +35,7 @@ function toDomain(row: DungeonBossRow): DungeonBoss {
     baseXpGain: row.base_xp_gain,
     baseMaxStamina: row.base_max_stamina,
     baseAttributes: {
-      force: row.base_force,
+      strength: row.base_strength,
       dexterity: row.base_dexterity,
       agility: row.base_agility,
       intelligence: row.base_intelligence,

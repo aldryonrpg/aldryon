@@ -2,6 +2,7 @@ import { effectAppliedMessage, isStunned } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
+import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import { Player } from "@/domain/player/Player";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
@@ -70,7 +71,7 @@ export class RunFromBattleUseCase {
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     // Stunned: the flee attempt itself is voided too — the monster gets a
     // full normal turn instead of just a parting-hit chance.
@@ -97,6 +98,10 @@ export class RunFromBattleUseCase {
     }
 
     const monsterAttributes = monster.getAttributes();
+    const monsterAttributesView = buildRevealedAttributesView(
+      monsterAttributes.toValues(),
+      battle.revealedMonsterAttributes,
+    );
 
     let playerCurrentHp = battle.playerCurrentHp;
     let monsterAttack: TurnReportOutput["monsterAttack"] = null;
@@ -149,9 +154,8 @@ export class RunFromBattleUseCase {
         monsterStatus: {
           currentHp: battle.monsterCurrentHp,
           maxHp: monster.hp,
-          currentStamina: battle.monsterCurrentStamina,
-          maxStamina: monster.maxStamina,
         },
+        monsterAttributes: monsterAttributesView,
         outcome: "lost",
         lootOffer: null,
       };
@@ -173,9 +177,8 @@ export class RunFromBattleUseCase {
       monsterStatus: {
         currentHp: battle.monsterCurrentHp,
         maxHp: monster.hp,
-        currentStamina: battle.monsterCurrentStamina,
-        maxStamina: monster.maxStamina,
       },
+      monsterAttributes: monsterAttributesView,
       outcome: "fled",
       lootOffer: null,
     };

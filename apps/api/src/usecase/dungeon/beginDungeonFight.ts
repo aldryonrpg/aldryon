@@ -17,7 +17,7 @@ import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/comb
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
-import type { BattleStatusOutput } from "@/usecase/battle/StartBattleUseCase";
+import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/StartBattleUseCase";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -50,11 +50,11 @@ export interface BeginDungeonFightOutput {
     description: string;
     monsterImage: string;
     hp: number;
-    attributes: AttributeValues;
+    attributes: Partial<AttributeValues>;
   } | null;
   message: string | null;
   playerStatus: BattleStatusOutput | null;
-  monsterStatus: BattleStatusOutput | null;
+  monsterStatus: MonsterStatusOutput | null;
   ambushOccurred: boolean;
   outcome: "ongoing" | "lost";
 }
@@ -87,7 +87,7 @@ export async function beginDungeonFight(
   } = params;
 
   const moveset = await monsterAttackRepository.findMovesetByMonsterId(monster.id);
-  const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+  const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
   const playerMaxStamina = maxStamina(player.level);
   const monsterMaxStamina = monster.maxStamina;
 
@@ -174,6 +174,7 @@ export async function beginDungeonFight(
     stunCooldownRoundsLeft: 0,
     dungeonTier,
     dungeonIsBossFight: isBossFight,
+    revealedMonsterAttributes: [],
   });
   await battleRepository.create(battle);
 
@@ -184,7 +185,8 @@ export async function beginDungeonFight(
       description: monster.description,
       monsterImage: monster.monsterImage,
       hp: monster.hp,
-      attributes: monster.getAttributes().toValues(),
+      // Fresh battle — nothing revealed yet.
+      attributes: {},
     },
     message: ambushOccurred
       ? [pick([...AMBUSH_FLAVOR], rng), ambushEffectMessage].filter(Boolean).join(" ")
@@ -198,8 +200,6 @@ export async function beginDungeonFight(
     monsterStatus: {
       currentHp: monster.hp,
       maxHp: monster.hp,
-      currentStamina: monsterMaxStamina,
-      maxStamina: monsterMaxStamina,
     },
     ambushOccurred,
     outcome: "ongoing",

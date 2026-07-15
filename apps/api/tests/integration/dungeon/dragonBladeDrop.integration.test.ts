@@ -58,6 +58,7 @@ describe("Dragon Blade unique drop (integration)", () => {
       stunCooldownRoundsLeft: 0,
       dungeonTier: 1,
       dungeonIsBossFight: true,
+      revealedMonsterAttributes: [],
     });
   }
 
@@ -71,8 +72,15 @@ describe("Dragon Blade unique drop (integration)", () => {
 
     const userId = await createTestUser(sql);
     // dexterity=20 matches the Dragon's own -> hit chance (dex/dex)*100=100,
-    // guaranteed hit with zero rng consumed for the strike itself.
-    const playerId = await createTestPlayer(sql, userId, { level: 12, dexterity: 20 });
+    // guaranteed hit with zero rng consumed for the strike itself. strength is
+    // absurdly high so HIT's damage clears the Dragon's defense (level 10 *
+    // its stance's scaling attribute, up to intelligence 50 = 500) no matter
+    // which of its 3 moveset attacks resolves as its defensive stance.
+    const playerId = await createTestPlayer(sql, userId, {
+      level: 12,
+      dexterity: 20,
+      strength: 5000,
+    });
     const battle = await oneHitKillBattle(playerId, bossMonsterId);
     // roll1=1 (legendary pool dropRate check, always succeeds at dropRate
     // 1000), roll2=0 (winner-index pick, the only success).
@@ -110,7 +118,11 @@ describe("Dragon Blade unique drop (integration)", () => {
     `;
 
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { level: 12, dexterity: 20 });
+    const playerId = await createTestPlayer(sql, userId, {
+      level: 12,
+      dexterity: 20,
+      strength: 5000,
+    });
     const battle = await oneHitKillBattle(playerId, bossMonsterId);
     const uc = buildUseCases(sql, new FakeRng([1, 0]));
     await uc.battleRepository.create(battle);

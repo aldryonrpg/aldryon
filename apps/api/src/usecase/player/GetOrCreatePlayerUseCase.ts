@@ -31,7 +31,7 @@ export class GetOrCreatePlayerUseCase {
       xp: 0,
       attributePoints: BATTLE_CONFIG.startingAttributePoints,
       attributes: {
-        force: 10,
+        strength: 10,
         dexterity: 10,
         agility: 10,
         intelligence: 10,

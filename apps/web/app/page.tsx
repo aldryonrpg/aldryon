@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { BattleEntryButtons } from "@/components/BattleEntryButtons";
+import { DungeonSlayerRanking } from "@/components/DungeonSlayerRanking";
 import { PlayerStatusCorner } from "@/components/PlayerStatusCorner";
 
 export default function MainPage() {
@@ -15,6 +16,7 @@ export default function MainPage() {
       />
       <BattleEntryButtons />
       <PlayerStatusCorner />
+      <DungeonSlayerRanking />
     </main>
   );
 }

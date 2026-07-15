@@ -62,7 +62,7 @@ describe("StartBattleUseCase (integration)", () => {
       ambushChance: 100,
       dexterity: 10,
       luck: 25,
-      force: 5,
+      strength: 5,
       monsterType: "poisonous",
     });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
@@ -143,6 +143,7 @@ describe("StartBattleUseCase (integration)", () => {
         monsterAttackWeights: {},
         stunCooldownRoundsLeft: 0,
         dungeonIsBossFight: false,
+        revealedMonsterAttributes: [],
         dungeonTier: null,
       }),
     );

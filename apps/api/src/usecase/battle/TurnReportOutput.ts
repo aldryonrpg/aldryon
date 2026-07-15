@@ -1,10 +1,17 @@
 import type { BattleOutcome } from "@/domain/battle/Battle";
+import type { AttributeValues } from "@/domain/shared/Attributes";
 
 export interface BattleStatusOutput {
   currentHp: number;
   maxHp: number;
   currentStamina: number;
   maxStamina: number;
+}
+
+/** The monster's own Stamina is never sent to the client — only HP. */
+export interface MonsterStatusOutput {
+  currentHp: number;
+  maxHp: number;
 }
 
 export interface AttackResultOutput {
@@ -25,7 +32,10 @@ export interface TurnReportOutput {
   monsterAttack: AttackResultOutput | null;
   messages: string[];
   playerStatus: BattleStatusOutput;
-  monsterStatus: BattleStatusOutput;
+  monsterStatus: MonsterStatusOutput;
+  /** Only revealed keys are present — REVEAL SPELL/Knowledge Potion grow
+   * this over the course of a battle; everything else stays omitted. */
+  monsterAttributes: Partial<AttributeValues>;
   outcome: BattleOutcome;
   lootOffer: string[] | null;
 }

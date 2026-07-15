@@ -40,9 +40,11 @@ import {
   startBattle,
   unequipItem,
 } from "@/lib/api";
+import { loadRarityColors } from "@/lib/rarityColors";
 
 type MonsterView = NonNullable<ActiveBattleResponse>["monster"];
 type StatusView = NonNullable<ActiveBattleResponse>["playerStatus"];
+type MonsterStatusView = NonNullable<ActiveBattleResponse>["monsterStatus"];
 type Outcome = "ongoing" | "won" | "lost" | "fled" | null;
 
 export default function BattlePage() {
@@ -52,7 +54,7 @@ export default function BattlePage() {
   const [itemCatalog, setItemCatalog] = useState<ItemCatalogResponse>([]);
   const [monster, setMonster] = useState<MonsterView | null>(null);
   const [playerStatus, setPlayerStatus] = useState<StatusView | null>(null);
-  const [monsterStatus, setMonsterStatus] = useState<StatusView | null>(null);
+  const [monsterStatus, setMonsterStatus] = useState<MonsterStatusView | null>(null);
   const [availableAttacks, setAvailableAttacks] = useState<AvailableAttackDto[]>([]);
   const [messages, setMessages] = useState<string[]>([]);
   const [lastPlayerAttack, setLastPlayerAttack] = useState<AttackResultDto | null>(null);
@@ -68,7 +70,10 @@ export default function BattlePage() {
   const [error, setError] = useState<string | null>(null);
 
   const itemDetailsById = new Map(
-    itemCatalog.map((item) => [item.id, { name: item.name, rarityColor: item.rarityColor }]),
+    itemCatalog.map((item) => [
+      item.id,
+      { name: item.name, rarity: item.rarity, setName: item.setName },
+    ]),
   );
 
   const refreshPlayer = useCallback(async () => {
@@ -92,6 +97,7 @@ export default function BattlePage() {
           getActiveBattle(),
           getPlayerProfile(),
           getItemCatalog(),
+          loadRarityColors(),
         ]);
         if (cancelled) return;
         setPlayer(profile);
@@ -120,6 +126,7 @@ export default function BattlePage() {
       const report = await reportPromise;
       setPlayerStatus(report.playerStatus);
       setMonsterStatus(report.monsterStatus);
+      setMonster((prev) => (prev ? { ...prev, attributes: report.monsterAttributes } : prev));
       setLastPlayerAttack(report.playerAttack);
       setLastMonsterAttack(report.monsterAttack);
       setMessages(report.messages);
@@ -327,6 +334,7 @@ export default function BattlePage() {
           monsterImage={monster.monsterImage}
           currentHp={monsterStatus.currentHp}
           maxHp={monsterStatus.maxHp}
+          attributes={monster.attributes}
         />
 
         <PlayerStatusBar

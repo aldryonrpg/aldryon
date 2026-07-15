@@ -19,7 +19,7 @@ export function AttacksPanel({ attacks, onSelect, disabled }: AttacksPanelProps)
           className="block w-full border-b border-white px-2 py-2 text-left last:border-b-0 hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {atk.name} ({atk.staminaCost} Stamina) (
-          {atk.scalingAttribute === "force" ? "Force" : "Int"})
+          {atk.scalingAttribute === "strength" ? "Strength" : "Int"})
         </button>
       ))}
     </div>

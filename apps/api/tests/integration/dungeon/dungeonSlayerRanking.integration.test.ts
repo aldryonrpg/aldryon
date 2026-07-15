@@ -52,6 +52,7 @@ describe("Dungeon Slayer ranking (integration)", () => {
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight,
       dungeonTier,
+      revealedMonsterAttributes: [],
     });
   }
 

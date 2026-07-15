@@ -30,9 +30,17 @@ export const ItemCatalogEntrySchema = z.object({
   name: z.string(),
   slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
-  rarityColor: z.string(),
+  /** Null for anything not part of an equipment set. Colors are looked up
+   * client-side from `rarity` via GET /items/rarity-colors — never sent
+   * per-item. */
+  setName: z.string().nullable(),
 });
 export type ItemCatalogEntryDto = z.infer<typeof ItemCatalogEntrySchema>;
 
 export const ItemCatalogResponseSchema = z.array(ItemCatalogEntrySchema);
 export type ItemCatalogResponse = z.infer<typeof ItemCatalogResponseSchema>;
+
+// --- GET /items/rarity-colors ---
+
+export const ItemRarityColorsResponseSchema = z.record(ItemRaritySchema, z.string());
+export type ItemRarityColorsResponse = z.infer<typeof ItemRarityColorsResponseSchema>;

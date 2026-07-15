@@ -41,13 +41,13 @@ describe("buildBattleEffect", () => {
     });
   });
 
-  it("builds a Fear stat-debuff targeting Force, starting at roundsElapsed 0", () => {
+  it("builds a Fear stat-debuff targeting Strength, starting at roundsElapsed 0", () => {
     const effect = buildBattleEffect("fear", {
       inflictorLevel: 5,
       victimLevel: 3,
       counterItemId: null,
     });
-    expect(effect).toEqual({ type: "debuff", kind: "fear", stat: "force", roundsElapsed: 0 });
+    expect(effect).toEqual({ type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 });
   });
 
   it("builds a Magic Aura Blast stat-debuff targeting Intelligence", () => {
@@ -98,16 +98,18 @@ describe("tickEffects", () => {
 
   it("advances a stat-debuff's roundsElapsed and keeps it while the schedule has entries", () => {
     const effects: BattleEffect[] = [
-      { type: "debuff", kind: "fear", stat: "force", roundsElapsed: 0 },
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 },
     ];
     const { totalDamage, remaining } = tickEffects(effects);
     expect(totalDamage).toBe(0);
-    expect(remaining).toEqual([{ type: "debuff", kind: "fear", stat: "force", roundsElapsed: 1 }]);
+    expect(remaining).toEqual([
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 1 },
+    ]);
   });
 
   it("expires a stat-debuff once its schedule is exhausted", () => {
     const effects: BattleEffect[] = [
-      { type: "debuff", kind: "fear", stat: "force", roundsElapsed: 5 },
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 5 },
     ];
     const { remaining } = tickEffects(effects);
     expect(remaining).toHaveLength(0);
@@ -169,7 +171,7 @@ describe("isStunned / consumeStunTurn", () => {
 
 describe("applyStatDebuffs", () => {
   const base = Attributes.create({
-    force: 20,
+    strength: 20,
     dexterity: 10,
     agility: 10,
     intelligence: 20,
@@ -177,12 +179,12 @@ describe("applyStatDebuffs", () => {
     luck: 10,
   });
 
-  it("reduces Force by the Fear schedule's current percent, floored", () => {
+  it("reduces Strength by the Fear schedule's current percent, floored", () => {
     // 20 * (1 - 0.5) = 10
     const result = applyStatDebuffs(base, [
-      { type: "debuff", kind: "fear", stat: "force", roundsElapsed: 0 },
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 },
     ]);
-    expect(result.force).toBe(10);
+    expect(result.strength).toBe(10);
     expect(result.intelligence).toBe(20);
   });
 
@@ -196,7 +198,7 @@ describe("applyStatDebuffs", () => {
 
   it("never drops the debuffed stat below the fighter floor of 1", () => {
     const low = Attributes.create({
-      force: 1,
+      strength: 1,
       dexterity: 1,
       agility: 1,
       intelligence: 1,
@@ -204,9 +206,9 @@ describe("applyStatDebuffs", () => {
       luck: 1,
     });
     const result = applyStatDebuffs(low, [
-      { type: "debuff", kind: "fear", stat: "force", roundsElapsed: 0 },
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 },
     ]);
-    expect(result.force).toBe(1);
+    expect(result.strength).toBe(1);
   });
 
   it("ignores DoT and stun effects entirely", () => {
@@ -214,7 +216,7 @@ describe("applyStatDebuffs", () => {
       { type: "dot", kind: "poison", damagePerRound: 5, counterItemId: null },
       { type: "stun", roundsLeft: 2 },
     ]);
-    expect(result.force).toBe(20);
+    expect(result.strength).toBe(20);
     expect(result.intelligence).toBe(20);
   });
 });

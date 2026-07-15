@@ -49,14 +49,14 @@ describe("GetPlayerProfileUseCase (integration)", () => {
       itemId: helmetId,
       name: "Profile Test Helm",
       rarity: "common",
-      rarityColor: "gray",
+      setName: null,
     });
     expect(profile.equipped.bracelet).toEqual({
       playerItemId: ringPlayerItemId,
       itemId: ringId,
       name: "Profile Test Ring",
       rarity: "common",
-      rarityColor: "gray",
+      setName: null,
     });
     expect(profile.equipped.boots).toBeNull();
     expect(profile.bag).toEqual([
@@ -67,7 +67,7 @@ describe("GetPlayerProfileUseCase (integration)", () => {
         quantity: 3,
         slot: null,
         rarity: "common",
-        rarityColor: "gray",
+        setName: null,
       },
     ]);
   });

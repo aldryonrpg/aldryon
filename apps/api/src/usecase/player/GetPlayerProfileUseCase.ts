@@ -1,5 +1,4 @@
 import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
-import { ITEM_RARITY_COLORS } from "@/domain/item/itemRarityColors";
 import type { EquipmentPosition } from "@/domain/player/PlayerItem";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
@@ -16,7 +15,7 @@ export interface EquippedItemOutput {
   itemId: string;
   name: string;
   rarity: ItemRarity;
-  rarityColor: string;
+  setName: string | null;
 }
 
 export type EquippedItemsOutput = Record<EquipmentPosition, EquippedItemOutput | null>;
@@ -28,7 +27,7 @@ export interface BagItemOutput {
   quantity: number;
   slot: EquipmentSlot | null;
   rarity: ItemRarity;
-  rarityColor: string;
+  setName: string | null;
 }
 
 export interface DungeonRunStatusOutput {
@@ -98,7 +97,7 @@ export class GetPlayerProfileUseCase {
           itemId: item.id,
           name: item.name,
           rarity: item.rarity,
-          rarityColor: ITEM_RARITY_COLORS[item.rarity],
+          setName: item.setName,
         };
       } else {
         bag.push({
@@ -108,7 +107,7 @@ export class GetPlayerProfileUseCase {
           quantity: playerItem.quantity,
           slot: item.slot,
           rarity: item.rarity,
-          rarityColor: ITEM_RARITY_COLORS[item.rarity],
+          setName: item.setName,
         });
       }
     }

@@ -7,7 +7,7 @@ const EquippedItemSchema = z.object({
   itemId: z.string(),
   name: z.string(),
   rarity: ItemRaritySchema,
-  rarityColor: z.string(),
+  setName: z.string().nullable(),
 });
 
 export const EquippedItemsSchema = z.object({
@@ -29,7 +29,7 @@ export const BagItemSchema = z.object({
   quantity: z.number(),
   slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
-  rarityColor: z.string(),
+  setName: z.string().nullable(),
 });
 export type BagItemDto = z.infer<typeof BagItemSchema>;
 

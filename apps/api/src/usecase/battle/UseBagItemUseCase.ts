@@ -6,6 +6,7 @@ import {
 } from "@/domain/battle/BattleEffect";
 import { maxHp } from "@/domain/battle/battleConfig";
 import { PlayerItem } from "@/domain/player/PlayerItem";
+import { ATTRIBUTE_KEYS } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
@@ -70,7 +71,7 @@ export class UseBagItemUseCase {
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     if (isStunned(battle.playerEffects)) {
       return resolveStunnedTurn({
@@ -107,6 +108,8 @@ export class UseBagItemUseCase {
 
     let playerCurrentHp = battle.playerCurrentHp;
     let playerEffects = battle.playerEffects;
+    let revealedMonsterAttributes = battle.revealedMonsterAttributes;
+    const messages: string[] = [];
 
     if (item.hpRestore !== null) {
       playerCurrentHp = Math.min(playerMaxHp, playerCurrentHp + item.hpRestore);
@@ -115,6 +118,9 @@ export class UseBagItemUseCase {
       // bleed/poison can stack unlimited via repeated procs, but one
       // bandage/antidote clears all of them at once (see BattleEffect.ts).
       playerEffects = removeDotByCounterItem(playerEffects, item.id);
+    } else if (item.revealsAllMonsterAttributes) {
+      revealedMonsterAttributes = [...ATTRIBUTE_KEYS];
+      messages.push("The Knowledge Potion lays bare every one of the monster's attributes!");
     } else {
       throw new InvalidBagItemError("This item has no consumable use");
     }
@@ -146,6 +152,7 @@ export class UseBagItemUseCase {
       effectCounterRepository: this.effectCounterRepository,
       stunCooldownRounds: this.stunCooldownRounds,
     });
+    messages.push(...monsterTurn.messages);
 
     const playerTick = tickEffects(monsterTurn.playerEffects);
     const monsterTick = tickEffects(battle.monsterEffects);
@@ -168,8 +175,9 @@ export class UseBagItemUseCase {
       stunCooldownRoundsLeft: monsterTurn.stunCooldownRoundsLeft,
       playerAttack: null,
       monsterAttack: monsterTurn.monsterAttack,
-      messages: monsterTurn.messages,
+      messages,
       playerMaxHp,
+      revealedMonsterAttributes,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

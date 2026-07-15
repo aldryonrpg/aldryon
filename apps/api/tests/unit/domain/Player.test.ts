@@ -8,7 +8,7 @@ const BASE_PROPS = {
   level: 1,
   xp: 0,
   attributePoints: 10,
-  attributes: { force: 1, dexterity: 1, agility: 1, intelligence: 1, vitality: 1, luck: 1 },
+  attributes: { strength: 1, dexterity: 1, agility: 1, intelligence: 1, vitality: 1, luck: 1 },
   lastDeathAt: null,
   lastRunAt: null,
   pendingLoot: [],

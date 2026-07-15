@@ -52,7 +52,7 @@ describe("StartDungeonUseCase (integration)", () => {
 
   it("starts step 1 with a live Dungeon-Enhanced catalog monster, no new monsters row (happy path)", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { level: 12, force: 10 });
+    const playerId = await createTestPlayer(sql, userId, { level: 12, strength: 10 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
     const monstersBefore = await sql<{ n: number }[]>`select count(*)::int as n from monsters`;
@@ -68,9 +68,14 @@ describe("StartDungeonUseCase (integration)", () => {
 
     // The picked monster's stats are scaled relative to its own catalog row
     // (tier 1 -> 100%, so unchanged) — no row was inserted for this pick.
+    // Attribute values themselves are never in the client-facing output
+    // until revealed (loot-system-adjacent monster-attribute-reveal
+    // feature) — hp is the one stat that stays visible, so it's what proves
+    // the scaling wiring; the scaling math itself is unit-tested in
+    // scaleMonsterForDungeonStep.test.ts.
     const rawMonster = await uc.monsterRepository.findById(result.monster?.id as string);
     expect(result.monster?.hp).toBe(rawMonster?.hp);
-    expect(result.monster?.attributes.force).toBe(rawMonster?.getAttributes().force);
+    expect(result.monster?.attributes).toEqual({});
 
     const monstersAfter = await sql<{ n: number }[]>`select count(*)::int as n from monsters`;
     expect(monstersAfter[0]?.n).toBe(monstersBefore[0]?.n);
@@ -90,9 +95,6 @@ describe("StartDungeonUseCase (integration)", () => {
 
     const rawMonster = await uc.monsterRepository.findById(result.monster?.id as string);
     expect(result.monster?.hp).toBe(Math.ceil((rawMonster?.hp ?? 0) * 1.5));
-    expect(result.monster?.attributes.force).toBe(
-      Math.ceil((rawMonster?.getAttributes().force ?? 0) * 1.5),
-    );
 
     const player = await uc.playerRepository.findById(playerId);
     expect(player?.dungeonRunTier).toBe(2);
@@ -134,6 +136,7 @@ describe("StartDungeonUseCase (integration)", () => {
         stunCooldownRoundsLeft: 0,
         dungeonTier: null,
         dungeonIsBossFight: false,
+        revealedMonsterAttributes: [],
       }),
     );
 
@@ -163,7 +166,7 @@ describe("StartDungeonUseCase (integration)", () => {
   it("daily limit: normal player gets 1 attempt/day, VIP gets 2, both reset the next UTC day", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { level: 12 });
-    const uc = buildUseCases(sql, NO_AMBUSH_RNG());
+    let uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
     await uc.startDungeonUseCase.execute({ playerId, isVip: false });
     await uc.battleRepository.deleteByPlayerId(playerId);
@@ -171,6 +174,10 @@ describe("StartDungeonUseCase (integration)", () => {
     // next attempt, not the "run already in progress" guard.
     await uc.exitDungeonRunUseCase.execute({ playerId });
 
+    // Each successful start consumes both of NO_AMBUSH_RNG's queued values
+    // (pick index + ambush check) — a fresh instance per attempt keeps the
+    // next pick's index in bounds instead of falling back to FakeRng's
+    // "repeat the last queued value forever" behavior.
     await expectRejection(
       uc.startDungeonUseCase.execute({ playerId, isVip: false }),
       DailyDungeonLimitReachedError,
@@ -179,9 +186,11 @@ describe("StartDungeonUseCase (integration)", () => {
     const vipUserId = await createTestUser(sql, { isVip: true });
     const vipPlayerId = await createTestPlayer(sql, vipUserId, { level: 12 });
 
+    uc = buildUseCases(sql, NO_AMBUSH_RNG());
     await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
     await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
+    uc = buildUseCases(sql, NO_AMBUSH_RNG());
     await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
     await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
@@ -194,6 +203,7 @@ describe("StartDungeonUseCase (integration)", () => {
     // Simulate "yesterday" for the normal player -> eligible again today.
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await setPlayerDungeonAttempts(sql, playerId, yesterday, null);
+    uc = buildUseCases(sql, NO_AMBUSH_RNG());
     const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
     expect(result.outcome).toBe("ongoing");
   });

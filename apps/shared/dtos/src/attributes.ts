@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const AttributeValuesSchema = z.object({
-  force: z.number().int(),
+  strength: z.number().int(),
   dexterity: z.number().int(),
   agility: z.number().int(),
   intelligence: z.number().int(),
@@ -11,7 +11,7 @@ export const AttributeValuesSchema = z.object({
 export type AttributeValuesDto = z.infer<typeof AttributeValuesSchema>;
 
 export const AttributeKeySchema = z.enum([
-  "force",
+  "strength",
   "dexterity",
   "agility",
   "intelligence",

@@ -66,6 +66,7 @@ describe("ContinueDungeonUseCase (integration)", () => {
         stunCooldownRoundsLeft: 0,
         dungeonTier: null,
         dungeonIsBossFight: false,
+        revealedMonsterAttributes: [],
       }),
     );
 

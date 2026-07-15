@@ -37,7 +37,7 @@ describe("GetActiveBattleUseCase (integration)", () => {
 
   it("returns the live battle's monster/statuses/availableAttacks", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 10 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
     const monsterId = await createTestMonster(sql, { hp: 100, maxStamina: 50 });
     const monsterAttackId = await createTestMonsterAttack(sql, { staminaCost: 0 });
     await linkMonsterMoveset(sql, monsterId, monsterAttackId);
@@ -59,6 +59,7 @@ describe("GetActiveBattleUseCase (integration)", () => {
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
       dungeonTier: null,
     });
     const uc = buildUseCases(sql, new FakeRng([1]));
@@ -76,8 +77,6 @@ describe("GetActiveBattleUseCase (integration)", () => {
     expect(result?.monsterStatus).toEqual({
       currentHp: 80,
       maxHp: 100,
-      currentStamina: 40,
-      maxStamina: 50,
     });
     expect(result?.availableAttacks.length).toBeGreaterThan(0);
     expect(result?.availableAttacks[0]).toHaveProperty("scalingAttribute");

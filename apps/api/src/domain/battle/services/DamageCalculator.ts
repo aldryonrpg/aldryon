@@ -1,7 +1,7 @@
 export interface DamageInput {
   /** attack.multiplier of the move being used. */
   attackMultiplier: number;
-  /** Attacker's effective value of the attack's scaling attribute (Force/Intelligence). */
+  /** Attacker's effective value of the attack's scaling attribute (Strength/Intelligence). */
   attackerScalingValue: number;
   /** attack.stamina_cost — added, not multiplied, so a cheap attack needs no special-casing. */
   staminaCost: number;

@@ -15,6 +15,7 @@ import { BattleAlreadyInProgressError } from "@/usecase/battle/errors";
 import type {
   AvailableAttackOutput,
   BattleStatusOutput,
+  MonsterStatusOutput,
 } from "@/usecase/battle/StartBattleUseCase";
 import { beginDungeonFight } from "@/usecase/dungeon/beginDungeonFight";
 import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
@@ -51,11 +52,11 @@ export interface ContinueDungeonOutput {
     description: string;
     monsterImage: string;
     hp: number;
-    attributes: AttributeValues;
+    attributes: Partial<AttributeValues>;
   } | null;
   message: string | null;
   playerStatus: BattleStatusOutput | null;
-  monsterStatus: BattleStatusOutput | null;
+  monsterStatus: MonsterStatusOutput | null;
   availableAttacks: AvailableAttackOutput[];
   ambushOccurred: boolean;
   outcome: "ongoing" | "lost";

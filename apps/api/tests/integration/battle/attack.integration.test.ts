@@ -36,8 +36,8 @@ describe("AttackUseCase (integration)", () => {
     playerStamina?: number;
     monsterHp?: number;
     monsterStamina?: number;
-    playerForce?: number;
-    monsterForce?: number;
+    playerStrength?: number;
+    monsterStrength?: number;
     monsterLuck?: number;
     playerLuck?: number;
     monsterType?: "normal" | "poisonous";
@@ -45,12 +45,12 @@ describe("AttackUseCase (integration)", () => {
   }) {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
-      force: overrides.playerForce ?? 10,
+      strength: overrides.playerStrength ?? 10,
       luck: overrides.playerLuck ?? 1,
     });
     const monsterId = await createTestMonster(sql, {
       hp: overrides.monsterHp ?? 100,
-      force: overrides.monsterForce ?? 1,
+      strength: overrides.monsterStrength ?? 1,
       luck: overrides.monsterLuck ?? 1,
       monsterType: overrides.monsterType ?? "normal",
       drops: overrides.drops ?? [],
@@ -58,11 +58,11 @@ describe("AttackUseCase (integration)", () => {
     const monsterAttackId = await createTestMonsterAttack(sql, {
       staminaCost: 0,
       multiplier: 1,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     await linkMonsterMoveset(sql, monsterId, monsterAttackId);
 
-    const playerMaxHp = maxHp(1, overrides.playerForce ?? 10);
+    const playerMaxHp = maxHp(1, overrides.playerStrength ?? 10);
     const battle = Battle.create({
       id: Bun.randomUUIDv7(),
       playerId,
@@ -79,6 +79,7 @@ describe("AttackUseCase (integration)", () => {
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
       dungeonTier: null,
     });
 
@@ -140,11 +141,11 @@ describe("AttackUseCase (integration)", () => {
     const itemId = await createTestItem(sql, { name: "Rare Fang" });
     const { playerId, monsterId, battle } = await setupBasicBattle({
       monsterHp: 1,
-      drops: [{ itemId, dropRate: 100 }],
+      drops: [{ itemId, dropRate: 1000 }],
     });
 
     // pick(monster attack, unused since monster dies before acting) not consumed;
-    // drop roll: [tuple-roll(<=100 always succeeds), winner-index(0, only success)]
+    // drop roll: [tuple-roll(<=100000 always succeeds at dropRate 1000), winner-index(0, only success)]
     const uc = buildUseCases(sql, new FakeRng([50, 0]));
     await uc.battleRepository.create(battle);
 
@@ -167,8 +168,8 @@ describe("AttackUseCase (integration)", () => {
   it("death flow: applies the 1% XP penalty and deletes the battle row", async () => {
     const { playerId, battle } = await setupBasicBattle({
       playerHp: 1,
-      playerForce: 1, // player deals ~0 damage, monster survives to act
-      monsterForce: 10, // monster deals lethal damage back
+      playerStrength: 1, // player deals ~0 damage, monster survives to act
+      monsterStrength: 10, // monster deals lethal damage back
       monsterHp: 100,
     });
     await sql`update players set xp = 1000 where id = ${playerId}`;
@@ -195,7 +196,7 @@ describe("AttackUseCase (integration)", () => {
       monsterLuck: 100,
       playerLuck: 1,
       monsterType: "poisonous",
-      monsterForce: 1,
+      monsterStrength: 1,
     });
 
     // pick(idx0), proc roll (<=99 always procs given a 99-point Luck lead)
@@ -218,13 +219,13 @@ describe("AttackUseCase (integration)", () => {
     // *kind*, not off the monster's own innate type or any per-attack data
     // (attacks/monster_attacks no longer even have a counter_item_id column).
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 10 });
-    const monsterId = await createTestMonster(sql, { hp: 100, force: 1, monsterType: "normal" });
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 100, strength: 1, monsterType: "normal" });
     const specialId = await createTestMonsterAttack(sql, {
       name: "Venom Fang",
       staminaCost: 5,
       multiplier: 0,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
       appliesEffect: "poison",
       isSpecial: true,
       chargeTurns: 1,
@@ -247,6 +248,7 @@ describe("AttackUseCase (integration)", () => {
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
       dungeonTier: null,
     });
 
@@ -271,13 +273,13 @@ describe("AttackUseCase (integration)", () => {
 
   it("charge -> unleash: the monster charges a special, then unleashes it guaranteed with 100% effect", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 10 });
-    const monsterId = await createTestMonster(sql, { hp: 100, force: 1, monsterType: "normal" });
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 100, strength: 1, monsterType: "normal" });
     const specialId = await createTestMonsterAttack(sql, {
       name: "Charged Slam",
       staminaCost: 5,
       multiplier: 2,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
       isSpecial: true,
       chargeTurns: 1,
     });
@@ -299,6 +301,7 @@ describe("AttackUseCase (integration)", () => {
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
       dungeonTier: null,
     });
 

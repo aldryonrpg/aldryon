@@ -5,7 +5,7 @@ Aldryon is a text-based RPG built as a monorepo with a web Next.js front-end and
 ## Gameplay
 
 You fight monsters in turn-based battles. Both you and the monster have
-**attributes** (Force, Dexterity, Agility, Intelligence, Vitality, Luck),
+**attributes** (Strength, Dexterity, Agility, Intelligence, Vitality, Luck),
 which determine how much damage each attack deals. You also have **HP**
 (health) and **Stamina** — attacks cost Stamina to perform.
 
@@ -33,7 +33,7 @@ items) in the database.
   (player or monster). Equipped item bonuses start at **0** and can be
   negative, but a fighter's *effective* attribute (base + bonuses) never
   drops below 1.
-- **Max HP** = `100 + 10 × Vitality + 1 × Force` (effective attributes).
+- **Max HP** = `100 + 10 × Vitality + 1 × Strength` (effective attributes).
 - **Max Stamina** = `min(100, 20 + 5 × level)` for **players**, 25 at level 1,
   +5 per level, capped at 100 from level 16 onward. **Monsters use their own
   `max_stamina` catalog column instead** — a plain tunable number per
@@ -62,7 +62,7 @@ defense_value = ceil(defender_level × effective(defender's scaling attribute))
 Damage        = max(0, attack_value + attack.stamina_cost − defense_value)
 ```
 
-- Every attack has a `scaling_attribute` — **Force** for physical attacks,
+- Every attack has a `scaling_attribute` — **Strength** for physical attacks,
   **Intelligence** for magical ones — used both offensively (the attacker's
   multiplier) and defensively (the defender's level × attribute).
 - **Both `attack_value` and `defense_value` always round UP** (never down)
@@ -72,7 +72,7 @@ Damage        = max(0, attack_value + attack.stamina_cost − defense_value)
   only into their *defense* against the other side.
 - `stamina_cost` is **added**, not multiplied, so **`HIT`** — the nearly-free
   fallback attack every player and monster always has, 1 Stamina cost,
-  ×0.4 multiplier, Force-scaling — needs no special-casing.
+  ×0.4 multiplier, Strength-scaling — needs no special-casing.
 - A side's defensive scaling attribute is fixed to its own `HIT` attack's
   scaling attribute for the whole battle (there's no "last attack used"
   state tracked on a battle).
@@ -100,7 +100,7 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [20, 10
   stacked instance of that kind in one use — one bandage cures all
   stacked bleeds, one antidote cures all stacked poisons. `bandage` and
   `antidote` still only carry up to **5** in their own dedicated bag slot
-  (plan2 §3d) — that's a cap on how many cure items you can hold, unrelated
+ — that's a cap on how many cure items you can hold, unrelated
   to how many times the effect itself can stack on you. The player's
   `burn` on a monster has no cure (monsters carry no bag).
 
@@ -124,7 +124,7 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [20, 10
 Three special attacks are pure status effects (multiplier ≈0 — their value
 is the effect, not direct damage):
 
-- **Fear** (-50% Force) and **Magic Aura Blast** (-50% Intelligence): a
+- **Fear** (-50% Strength) and **Magic Aura Blast** (-50% Intelligence): a
   percentage stat-decay debuff on the player. Held at -50% for 2 rounds,
   then recovers 10 points a round — `50, 50, 40, 30, 20, 10`, then back to
   normal. The percent applies to the player's already-computed effective

@@ -12,7 +12,7 @@ export function scaleAttributesByTier(
   multiplier: number,
 ): AttributeValues {
   return {
-    force: scaleByTier(attributes.force, multiplier),
+    strength: scaleByTier(attributes.strength, multiplier),
     dexterity: scaleByTier(attributes.dexterity, multiplier),
     agility: scaleByTier(attributes.agility, multiplier),
     intelligence: scaleByTier(attributes.intelligence, multiplier),

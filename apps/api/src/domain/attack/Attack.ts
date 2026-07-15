@@ -10,6 +10,9 @@ export interface AttackProps {
   appliesEffect: BattleEffectKind | null;
   minLevel: number;
   attributeRequirements: AttributeValues;
+  /** REVEAL SPELL only — reveals one random not-yet-known monster attribute
+   * on a successful hit. */
+  revealsRandomMonsterAttribute: boolean;
 }
 
 /**
@@ -54,6 +57,9 @@ export class Attack {
   }
   get attributeRequirements(): AttributeValues {
     return { ...this.props.attributeRequirements };
+  }
+  get revealsRandomMonsterAttribute(): boolean {
+    return this.props.revealsRandomMonsterAttribute;
   }
 
   /** Level/attribute gating only — stamina affordability is checked separately. */

@@ -23,7 +23,7 @@ export interface TestPlayerOverrides {
   level?: number;
   xp?: number;
   attributePoints?: number;
-  force?: number;
+  strength?: number;
   dexterity?: number;
   agility?: number;
   intelligence?: number;
@@ -42,12 +42,12 @@ export async function createTestPlayer(
   await sql`
     insert into players (
       id, user_id, gold, level, xp, attribute_points,
-      force, dexterity, agility, intelligence, vitality, luck,
+      strength, dexterity, agility, intelligence, vitality, luck,
       last_run_at, last_death_at
     ) values (
       ${id}, ${userId}, ${overrides.gold ?? 0}, ${overrides.level ?? 1}, ${overrides.xp ?? 0},
       ${overrides.attributePoints ?? 10},
-      ${overrides.force ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
+      ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
       ${overrides.lastRunAt ?? null}, ${overrides.lastDeathAt ?? null}
     )
@@ -61,7 +61,7 @@ export interface TestMonsterOverrides {
   level?: number;
   xpGain?: number;
   maxStamina?: number;
-  force?: number;
+  strength?: number;
   dexterity?: number;
   agility?: number;
   intelligence?: number;
@@ -82,13 +82,13 @@ export async function createTestMonster(
   await sql`
     insert into monsters (
       id, name, description, region, monster_image, hp, xp_gain, level, max_stamina,
-      force, dexterity, agility, intelligence, vitality, luck, monster_type,
+      strength, dexterity, agility, intelligence, vitality, luck, monster_type,
       drops, exclusive_drops, legendary_drops, ambush_chance
     ) values (
       ${id}, ${`Test Monster ${id}`}, 'test monster', ${overrides.region ?? "forest"},
       ${`data:image/svg+xml,test-${id}`},
       ${overrides.hp ?? 100}, ${overrides.xpGain ?? 50}, ${overrides.level ?? 1}, ${overrides.maxStamina ?? 100},
-      ${overrides.force ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
+      ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
       ${overrides.monsterType ?? "normal"},
       ${JSON.stringify(overrides.drops ?? [])}::jsonb, ${JSON.stringify(overrides.exclusiveDrops ?? [])}::jsonb,
@@ -140,7 +140,7 @@ export interface TestMonsterAttackOverrides {
   name?: string;
   staminaCost?: number;
   multiplier?: number;
-  scalingAttribute?: "force" | "intelligence";
+  scalingAttribute?: "strength" | "intelligence";
   appliesEffect?: "bleed" | "poison" | "burn" | "fear" | "magic_aura_blast" | "stun" | null;
   isSpecial?: boolean;
   chargeTurns?: number;
@@ -157,7 +157,7 @@ export async function createTestMonsterAttack(
       is_special, charge_turns
     ) values (
       ${id}, ${overrides.name ?? `Test Attack ${id}`}, ${overrides.staminaCost ?? 0}, ${overrides.multiplier ?? 1},
-      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null},
+      ${overrides.scalingAttribute ?? "strength"}, ${overrides.appliesEffect ?? null},
       ${overrides.isSpecial ?? false}, ${overrides.chargeTurns ?? 0}
     )
   `;
@@ -180,12 +180,15 @@ export interface TestItemOverrides {
   rarity?: "basic" | "common" | "uncommon" | "rare" | "very_rare" | "legendary" | "unique";
   slot?: string | null;
   hpRestore?: number | null;
-  force?: number;
+  strength?: number;
   dexterity?: number;
   agility?: number;
   intelligence?: number;
   vitality?: number;
   luck?: number;
+  revealsAllMonsterAttributes?: boolean;
+  setName?: string | null;
+  storePurchasable?: boolean;
 }
 
 export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}): Promise<string> {
@@ -193,12 +196,15 @@ export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}
   await sql`
     insert into items (
       id, name, description, value, rarity, slot, hp_restore,
-      force, dexterity, agility, intelligence, vitality, luck
+      strength, dexterity, agility, intelligence, vitality, luck,
+      reveals_all_monster_attributes, set_name, store_purchasable
     ) values (
       ${id}, ${overrides.name ?? `Test Item ${id}`}, 'test item', ${overrides.value ?? 10},
       ${overrides.rarity ?? "common"}, ${overrides.slot ?? null}, ${overrides.hpRestore ?? null},
-      ${overrides.force ?? 0}, ${overrides.dexterity ?? 0}, ${overrides.agility ?? 0},
-      ${overrides.intelligence ?? 0}, ${overrides.vitality ?? 0}, ${overrides.luck ?? 0}
+      ${overrides.strength ?? 0}, ${overrides.dexterity ?? 0}, ${overrides.agility ?? 0},
+      ${overrides.intelligence ?? 0}, ${overrides.vitality ?? 0}, ${overrides.luck ?? 0},
+      ${overrides.revealsAllMonsterAttributes ?? false}, ${overrides.setName ?? null},
+      ${overrides.storePurchasable ?? true}
     )
   `;
   return id;
@@ -208,15 +214,16 @@ export interface TestPlayerAttackOverrides {
   name?: string;
   staminaCost?: number;
   multiplier?: number;
-  scalingAttribute?: "force" | "intelligence";
+  scalingAttribute?: "strength" | "intelligence";
   appliesEffect?: "bleed" | "poison" | "burn" | null;
   minLevel?: number;
-  reqForce?: number;
+  reqStrength?: number;
   reqDexterity?: number;
   reqAgility?: number;
   reqIntelligence?: number;
   reqVitality?: number;
   reqLuck?: number;
+  revealsRandomMonsterAttribute?: boolean;
 }
 
 export async function createTestPlayerAttack(
@@ -227,13 +234,15 @@ export async function createTestPlayerAttack(
   await sql`
     insert into attacks (
       id, name, stamina_cost, multiplier, scaling_attribute, applies_effect, min_level,
-      req_force, req_dexterity, req_agility, req_intelligence, req_vitality, req_luck
+      req_strength, req_dexterity, req_agility, req_intelligence, req_vitality, req_luck,
+      reveals_random_monster_attribute
     ) values (
       ${id}, ${overrides.name ?? `Test Player Attack ${id}`}, ${overrides.staminaCost ?? 0}, ${overrides.multiplier ?? 1},
-      ${overrides.scalingAttribute ?? "force"}, ${overrides.appliesEffect ?? null},
+      ${overrides.scalingAttribute ?? "strength"}, ${overrides.appliesEffect ?? null},
       ${overrides.minLevel ?? 1},
-      ${overrides.reqForce ?? 1}, ${overrides.reqDexterity ?? 1}, ${overrides.reqAgility ?? 1},
-      ${overrides.reqIntelligence ?? 1}, ${overrides.reqVitality ?? 1}, ${overrides.reqLuck ?? 1}
+      ${overrides.reqStrength ?? 1}, ${overrides.reqDexterity ?? 1}, ${overrides.reqAgility ?? 1},
+      ${overrides.reqIntelligence ?? 1}, ${overrides.reqVitality ?? 1}, ${overrides.reqLuck ?? 1},
+      ${overrides.revealsRandomMonsterAttribute ?? false}
     )
   `;
   return id;

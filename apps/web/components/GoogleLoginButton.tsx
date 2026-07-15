@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export function GoogleLoginButton() {
@@ -17,9 +18,17 @@ export function GoogleLoginButton() {
     <button
       type="button"
       onClick={handleClick}
-      className="rounded-md bg-white px-6 py-3 font-medium text-stone-900 shadow-lg transition hover:bg-stone-200"
+      aria-label="Sign in with Google"
+      className="transition hover:brightness-110 active:brightness-95"
     >
-      Sign in with Google
+      <Image
+        src="/login_button.png"
+        alt="Sign in with Google"
+        width={1024}
+        height={559}
+        priority
+        className="h-auto w-64"
+      />
     </button>
   );
 }

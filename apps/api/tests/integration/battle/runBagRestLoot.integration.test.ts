@@ -38,8 +38,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     playerAgility?: number;
     monsterAgility?: number;
     playerHp?: number;
-    playerForce?: number;
-    monsterForce?: number;
+    playerStrength?: number;
+    monsterStrength?: number;
     playerLuck?: number;
     monsterLuck?: number;
     monsterType?: "normal" | "poisonous";
@@ -47,19 +47,19 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
       agility: overrides.playerAgility ?? 1,
-      force: overrides.playerForce ?? 10,
+      strength: overrides.playerStrength ?? 10,
       luck: overrides.playerLuck ?? 1,
     });
     const monsterId = await createTestMonster(sql, {
       agility: overrides.monsterAgility ?? 1,
-      force: overrides.monsterForce ?? 1,
+      strength: overrides.monsterStrength ?? 1,
       luck: overrides.monsterLuck ?? 1,
       monsterType: overrides.monsterType ?? "normal",
     });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
-    const playerMaxHp = maxHp(1, overrides.playerForce ?? 10);
+    const playerMaxHp = maxHp(1, overrides.playerStrength ?? 10);
     const battle = Battle.create({
       id: Bun.randomUUIDv7(),
       playerId,
@@ -76,6 +76,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       monsterAttackWeights: {},
       stunCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
       dungeonTier: null,
     });
 
@@ -102,7 +103,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 20,
+        monsterStrength: 20,
         playerHp: 500,
       });
       const uc = buildUseCases(sql, new FakeRng([1]));
@@ -119,7 +120,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 20,
+        monsterStrength: 20,
         playerHp: 500,
         monsterLuck: 25,
         playerLuck: 1,
@@ -144,9 +145,9 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 50,
+        monsterStrength: 50,
         playerHp: 1,
-        playerForce: 1,
+        playerStrength: 1,
       });
       await sql`update players set xp = 1000 where id = ${playerId}`;
       const uc = buildUseCases(sql, new FakeRng([1]));

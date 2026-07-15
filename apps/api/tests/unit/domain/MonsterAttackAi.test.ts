@@ -11,7 +11,7 @@ function attack(id: string, overrides: { isSpecial?: boolean } = {}): MonsterAtt
     name: `Attack ${id}`,
     staminaCost: 0,
     multiplier: 1,
-    scalingAttribute: "force",
+    scalingAttribute: "strength",
     appliesEffect: null,
     isSpecial: overrides.isSpecial ?? false,
     chargeTurns: overrides.isSpecial ? 1 : 0,

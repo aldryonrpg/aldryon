@@ -1,10 +1,12 @@
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
+import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import type {
   AvailableAttackOutput,
   BattleStatusOutput,
+  MonsterStatusOutput,
 } from "@/usecase/battle/StartBattleUseCase";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
@@ -22,13 +24,13 @@ export interface ActiveBattleMonsterOutput {
   description: string;
   monsterImage: string;
   hp: number;
-  attributes: AttributeValues;
+  attributes: Partial<AttributeValues>;
 }
 
 export interface ActiveBattleOutput {
   monster: ActiveBattleMonsterOutput;
   playerStatus: BattleStatusOutput;
-  monsterStatus: BattleStatusOutput;
+  monsterStatus: MonsterStatusOutput;
   availableAttacks: AvailableAttackOutput[];
 }
 
@@ -70,7 +72,7 @@ export class GetActiveBattleUseCase {
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
     }));
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     return {
       monster: {
@@ -79,7 +81,10 @@ export class GetActiveBattleUseCase {
         description: monster.description,
         monsterImage: monster.monsterImage,
         hp: monster.hp,
-        attributes: monster.getAttributes().toValues(),
+        attributes: buildRevealedAttributesView(
+          monster.getAttributes().toValues(),
+          battle.revealedMonsterAttributes,
+        ),
       },
       playerStatus: {
         currentHp: battle.playerCurrentHp,
@@ -90,8 +95,6 @@ export class GetActiveBattleUseCase {
       monsterStatus: {
         currentHp: battle.monsterCurrentHp,
         maxHp: monster.hp,
-        currentStamina: battle.monsterCurrentStamina,
-        maxStamina: monster.maxStamina,
       },
       availableAttacks,
     };

@@ -1,7 +1,7 @@
-export type AttackScaling = "force" | "intelligence";
+export type AttackScaling = "strength" | "intelligence";
 /**
  * bleed/poison/burn are damage-over-time. fear/magic_aura_blast are
- * percentage stat-decay debuffs (Force/Intelligence); stun voids the
+ * percentage stat-decay debuffs (Strength/Intelligence); stun voids the
  * player's next turns. The latter three are delivered exclusively via
  * special attacks and have no counter item — they just run their course.
  */

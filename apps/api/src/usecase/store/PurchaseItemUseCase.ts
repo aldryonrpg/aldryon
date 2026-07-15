@@ -1,4 +1,3 @@
-import { isStorePurchasable } from "@/domain/item/storeRarities";
 import { potLimitForLevel } from "@/domain/player/Bag";
 import { Player } from "@/domain/player/Player";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
@@ -29,9 +28,10 @@ export interface PurchaseItemOutput {
 
 /**
  * POST /store/purchase — buys exactly one unit of a store item for gold
- * (plan3 Store follow-up). Rejects anything above uncommon (never sold),
- * insufficient gold, or a full bag/special-slot/POT-slot — same placement
- * rules a loot claim would hit, via the shared placeItemInBag helper.
+ * (plan3 Store follow-up). Rejects anything not `storePurchasable` (a
+ * per-item flag, not just rarity — equipment-sets follow-up), insufficient
+ * gold, or a full bag/special-slot/POT-slot — same placement rules a loot
+ * claim would hit, via the shared placeItemInBag helper.
  */
 export class PurchaseItemUseCase {
   constructor(
@@ -45,7 +45,7 @@ export class PurchaseItemUseCase {
     if (!player) throw new Error("Player not found");
 
     const item = await this.itemRepository.findById(input.itemId);
-    if (!item || !isStorePurchasable(item.rarity)) {
+    if (!item?.storePurchasable) {
       throw new ItemNotPurchasableError();
     }
     if (player.gold < item.value) {

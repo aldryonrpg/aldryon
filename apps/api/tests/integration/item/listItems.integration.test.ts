@@ -33,7 +33,50 @@ describe("ListItemsUseCase (integration)", () => {
       name: "Catalog Test Helm",
       slot: "helmet",
       rarity: "rare",
-      rarityColor: "blue",
+      setName: null,
+    });
+  });
+
+  it("returns setName for a set piece", async () => {
+    const itemId = await createTestItem(sql, {
+      name: "Catalog Test Iron Helm",
+      slot: "helmet",
+      rarity: "uncommon",
+      setName: "iron",
+    });
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const catalog = await uc.listItemsUseCase.execute();
+
+    expect(catalog.find((item) => item.id === itemId)?.setName).toBe("iron");
+  });
+});
+
+describe("GetItemRarityColorsUseCase (integration)", () => {
+  let sql: SQL;
+
+  beforeAll(async () => {
+    const env = await getSharedPostgresEnvironment();
+    sql = new SQL(env.connectionUri);
+  }, 120_000);
+
+  afterAll(async () => {
+    await sql.close();
+  });
+
+  it("returns a color for every rarity tier", async () => {
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const colors = uc.getItemRarityColorsUseCase.execute();
+
+    expect(colors).toEqual({
+      basic: "white",
+      common: "gray",
+      uncommon: "green",
+      rare: "blue",
+      very_rare: "purple",
+      legendary: "gold",
+      unique: "red",
     });
   });
 });

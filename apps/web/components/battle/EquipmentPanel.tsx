@@ -1,4 +1,6 @@
 import type { EquipmentPositionDto, EquippedItemsDto } from "@aldryon/dtos";
+import { formatDisplayName } from "@/lib/formatDisplayName";
+import { getRarityColor } from "@/lib/rarityColors";
 
 const CELLS: { label: string; position: EquipmentPositionDto }[] = [
   { label: "Helmet", position: "helmet" },
@@ -30,16 +32,22 @@ export function EquipmentPanel({ equipped, onUnequip, disabled }: EquipmentPanel
             type="button"
             disabled={disabled || !item}
             onClick={() => item && onUnequip(item.playerItemId)}
-            title={item ? `${item.name} — click to unequip` : label}
+            title={
+              item
+                ? `${formatDisplayName(item.name)}${
+                    item.setName ? ` (${formatDisplayName(item.setName)} Set)` : ""
+                  } — click to unequip`
+                : label
+            }
             className="flex h-12 w-24 flex-col items-center justify-center border border-white bg-black text-[10px] hover:enabled:bg-stone-800 disabled:cursor-default"
           >
             <span className="text-stone-400">{label}</span>
             {item && (
               <span
                 className="w-full truncate px-1 text-center"
-                style={{ color: item.rarityColor }}
+                style={{ color: getRarityColor(item.rarity) }}
               >
-                {item.name}
+                {formatDisplayName(item.name)}
               </span>
             )}
           </button>

@@ -13,7 +13,14 @@ function makeMonster(overrides: Partial<Parameters<typeof Monster.create>[0]> = 
     xpGain: 750,
     level: 8,
     maxStamina: 100,
-    attributes: { force: 15, dexterity: 15, agility: 15, intelligence: 15, vitality: 15, luck: 15 },
+    attributes: {
+      strength: 15,
+      dexterity: 15,
+      agility: 15,
+      intelligence: 15,
+      vitality: 15,
+      luck: 15,
+    },
     monsterType: "normal",
     drops: [],
     exclusiveDrops: [],
@@ -34,7 +41,7 @@ describe("scaleMonsterForDungeonStep", () => {
     expect(scaled.hp).toBe(1500);
     expect(scaled.level).toBe(10);
     expect(scaled.maxStamina).toBe(100);
-    expect(scaled.getAttributes().force).toBe(15);
+    expect(scaled.getAttributes().strength).toBe(15);
     // xpGain is deliberately NOT scaled — the monster keeps its own catalog value.
     expect(scaled.xpGain).toBe(750);
   });
@@ -46,7 +53,7 @@ describe("scaleMonsterForDungeonStep", () => {
     expect(scaled.hp).toBe(2250);
     expect(scaled.level).toBe(15);
     expect(scaled.maxStamina).toBe(150);
-    expect(scaled.getAttributes().force).toBe(23); // 15 * 1.5 = 22.5 -> ceil 23
+    expect(scaled.getAttributes().strength).toBe(23); // 15 * 1.5 = 22.5 -> ceil 23
     expect(scaled.xpGain).toBe(750);
   });
 
@@ -57,7 +64,7 @@ describe("scaleMonsterForDungeonStep", () => {
     expect(scaled.hp).toBe(3000);
     expect(scaled.level).toBe(20);
     expect(scaled.maxStamina).toBe(200);
-    expect(scaled.getAttributes().force).toBe(30);
+    expect(scaled.getAttributes().strength).toBe(30);
     expect(scaled.xpGain).toBe(750);
   });
 });

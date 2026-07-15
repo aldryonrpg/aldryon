@@ -1,4 +1,6 @@
 import type { BagItemDto } from "@aldryon/dtos";
+import { formatDisplayName } from "@/lib/formatDisplayName";
+import { getRarityColor } from "@/lib/rarityColors";
 
 interface BagPanelProps {
   bag: BagItemDto[];
@@ -25,14 +27,16 @@ export function BagPanel({ bag, onUse, onEquip, disabled }: BagPanelProps) {
               type="button"
               disabled={disabled}
               onClick={() => (item.slot ? onEquip(item.id) : onUse(item.id))}
-              title={`${item.name} x${item.quantity}`}
+              title={`${formatDisplayName(item.name)} x${item.quantity}${
+                item.setName ? ` (${formatDisplayName(item.setName)} Set)` : ""
+              }`}
               className="flex h-14 w-14 flex-col items-center justify-center border border-white bg-black text-[9px] hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span
                 className="w-full truncate px-0.5 text-center"
-                style={{ color: item.rarityColor }}
+                style={{ color: getRarityColor(item.rarity) }}
               >
-                {item.name}
+                {formatDisplayName(item.name)}
               </span>
               <span className="text-stone-400">x{item.quantity}</span>
             </button>

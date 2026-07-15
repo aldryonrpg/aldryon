@@ -63,7 +63,7 @@ export class RestUseCase {
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     if (isStunned(battle.playerEffects)) {
       return resolveStunnedTurn({

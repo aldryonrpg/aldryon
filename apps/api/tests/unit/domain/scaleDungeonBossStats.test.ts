@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { scaleDungeonBossStats } from "@/domain/dungeon/scaleDungeonBossStats";
 
 const BASE_ATTRIBUTES = {
-  force: 20,
+  strength: 20,
   dexterity: 20,
   agility: 20,
   intelligence: 50,
@@ -27,7 +27,7 @@ describe("scaleDungeonBossStats", () => {
     expect(result.hp).toBe(3000);
     expect(result.xpGain).toBe(7500);
     expect(result.attributes.intelligence).toBe(75);
-    expect(result.attributes.force).toBe(30);
+    expect(result.attributes.strength).toBe(30);
   });
 
   it("tier 3 applies a 200% multiplier", () => {

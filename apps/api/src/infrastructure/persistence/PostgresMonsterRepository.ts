@@ -14,7 +14,7 @@ interface MonsterRow {
   xp_gain: number;
   level: number;
   max_stamina: number;
-  force: number;
+  strength: number;
   dexterity: number;
   agility: number;
   intelligence: number;
@@ -39,7 +39,7 @@ function toDomain(row: MonsterRow): Monster {
     level: row.level,
     maxStamina: row.max_stamina,
     attributes: {
-      force: row.force,
+      strength: row.strength,
       dexterity: row.dexterity,
       agility: row.agility,
       intelligence: row.intelligence,
@@ -90,12 +90,12 @@ export class PostgresMonsterRepository implements MonsterRepository {
     const rows = await this.sql<MonsterRow[]>`
       insert into monsters (
         id, name, description, region, monster_image, hp, xp_gain, level, max_stamina,
-        force, dexterity, agility, intelligence, vitality, luck, monster_type,
+        strength, dexterity, agility, intelligence, vitality, luck, monster_type,
         drops, exclusive_drops, legendary_drops, ambush_chance
       ) values (
         ${props.id}, ${props.name}, ${props.description}, ${props.region}, ${props.monsterImage},
         ${props.hp}, ${props.xpGain}, ${props.level}, ${props.maxStamina},
-        ${attrs.force}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
+        ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
         ${props.monsterType},
         ${JSON.stringify(props.drops)}::jsonb, ${JSON.stringify(props.exclusiveDrops)}::jsonb,
         ${JSON.stringify(props.legendaryDrops)}::jsonb, ${props.ambushChance}

@@ -1,4 +1,4 @@
-import { rollLegendaryDropPool } from "@/domain/monster/dropRoll";
+import { rollDropPool } from "@/domain/monster/dropRoll";
 import type { DropTuple } from "@/domain/monster/Monster";
 import type { Rng } from "@/domain/shared/Rng";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
@@ -20,7 +20,7 @@ export async function resolveLegendaryDrop(
   itemRepository: ItemRepository,
   uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
 ): Promise<string | null> {
-  const winnerId = rollLegendaryDropPool(pool, rng);
+  const winnerId = rollDropPool(pool, rng);
   if (!winnerId) return null;
 
   const item = await itemRepository.findById(winnerId);

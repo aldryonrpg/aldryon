@@ -1,9 +1,24 @@
 import type { BagItemDto } from "@aldryon/dtos";
+import { formatDisplayName } from "@/lib/formatDisplayName";
+import { getRarityColor } from "@/lib/rarityColors";
 
-function ItemName({ name, color }: { name: string; color: string }) {
+function ItemName({
+  name,
+  rarity,
+  setName,
+}: {
+  name: string;
+  rarity: string;
+  setName: string | null;
+}) {
   return (
-    <span className="font-bold" style={{ color }}>
-      {name}
+    <span className="flex items-center gap-1">
+      <span className="font-bold" style={{ color: getRarityColor(rarity) }}>
+        {formatDisplayName(name)}
+      </span>
+      {setName && (
+        <span className="text-xs text-stone-400">({formatDisplayName(setName)} Set)</span>
+      )}
     </span>
   );
 }
@@ -13,7 +28,7 @@ interface LootScreenProps {
   /** Item ids from the kill's lootOffer that haven't been claimed (or
    * rejected) yet. */
   lootOfferIds: string[];
-  itemDetailsById: Map<string, { name: string; rarityColor: string }>;
+  itemDetailsById: Map<string, { name: string; rarity: string; setName: string | null }>;
   busy: boolean;
   onDestroy: (playerItemId: string) => void;
   onClaim: (itemId: string) => void;
@@ -54,7 +69,7 @@ export function LootScreen({
               {bag.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
-                    <ItemName name={item.name} color={item.rarityColor} />
+                    <ItemName name={item.name} rarity={item.rarity} setName={item.setName} />
                     <span className="text-stone-400">x{item.quantity}</span>
                   </span>
                   <button
@@ -83,7 +98,8 @@ export function LootScreen({
                   <li key={itemId} className="flex items-center justify-between gap-2">
                     <ItemName
                       name={detail?.name ?? itemId}
-                      color={detail?.rarityColor ?? "white"}
+                      rarity={detail?.rarity ?? "basic"}
+                      setName={detail?.setName ?? null}
                     />
                     <button
                       type="button"
