@@ -18,7 +18,10 @@ export type PatchPlayerResponse = z.infer<typeof PatchPlayerResponseSchema>;
 // --- POST /player/attributes ---
 
 export const AllocateAttributePointsRequestSchema = z.object({
-  allocations: z.record(AttributeKeySchema, z.number().int().min(0)),
+  // partialRecord, not record: a request only ever names the attributes the
+  // player is actually allocating to (often just 1-2 of the 6) — z.record
+  // with an enum key schema requires every key to be present in Zod 4.
+  allocations: z.partialRecord(AttributeKeySchema, z.number().int().min(0)),
 });
 export type AllocateAttributePointsRequest = z.infer<typeof AllocateAttributePointsRequestSchema>;
 
@@ -36,6 +39,7 @@ export const EquipmentPositionSchema = z.enum([
   "boots",
   "gloves",
   "necklace",
+  "bracelet",
   "weapon_1",
   "weapon_2",
 ]);
@@ -60,3 +64,11 @@ export type PlayerItemSummaryDto = z.infer<typeof PlayerItemSummarySchema>;
 
 export const EquipItemResponseSchema = z.object({ playerItem: PlayerItemSummarySchema });
 export type EquipItemResponse = z.infer<typeof EquipItemResponseSchema>;
+
+// --- POST /player/bag/destroy (loot-system follow-up) ---
+
+export const DestroyBagItemRequestSchema = z.object({ playerItemId: z.string().min(1) });
+export type DestroyBagItemRequest = z.infer<typeof DestroyBagItemRequestSchema>;
+
+export const DestroyBagItemResponseSchema = z.object({});
+export type DestroyBagItemResponse = z.infer<typeof DestroyBagItemResponseSchema>;

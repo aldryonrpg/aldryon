@@ -4,20 +4,35 @@ import { createAuthController } from "@/interface/http/authController";
 import type { AuthedVariables } from "@/interface/http/authMiddleware";
 import { createAuthMiddleware } from "@/interface/http/authMiddleware";
 import { createBattleController } from "@/interface/http/battleController";
+import { createDungeonController } from "@/interface/http/dungeonController";
+import { createItemController } from "@/interface/http/itemController";
 import { createPlayerController } from "@/interface/http/playerController";
+import { createStoreController } from "@/interface/http/storeController";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import type { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import type { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
+import type { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
 import type { RestUseCase } from "@/usecase/battle/RestUseCase";
 import type { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import type { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import type { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
+import type { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import type { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
+import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
+import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import type { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
+import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
+import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import type { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import type { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
+import type { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import type { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
+import type { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
+import type { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
+import type { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 import type { UserRepository } from "@/usecase/user/UserRepository";
 
 export interface AppDependencies {
@@ -31,10 +46,22 @@ export interface AppDependencies {
   useBagItemUseCase: UseBagItemUseCase;
   restUseCase: RestUseCase;
   claimLootUseCase: ClaimLootUseCase;
+  getActiveBattleUseCase: GetActiveBattleUseCase;
   equipItemUseCase: EquipItemUseCase;
   unequipItemUseCase: UnequipItemUseCase;
+  destroyBagItemUseCase: DestroyBagItemUseCase;
   allocateAttributePointsUseCase: AllocateAttributePointsUseCase;
   updatePlayerNameUseCase: UpdatePlayerNameUseCase;
+  getPlayerProfileUseCase: GetPlayerProfileUseCase;
+  listItemsUseCase: ListItemsUseCase;
+  getItemRarityColorsUseCase: GetItemRarityColorsUseCase;
+  startDungeonUseCase: StartDungeonUseCase;
+  continueDungeonUseCase: ContinueDungeonUseCase;
+  exitDungeonRunUseCase: ExitDungeonRunUseCase;
+  getDungeonSlayerLeaderboardUseCase: GetDungeonSlayerLeaderboardUseCase;
+  listStoreItemsUseCase: ListStoreItemsUseCase;
+  purchaseItemUseCase: PurchaseItemUseCase;
+  sellItemUseCase: SellItemUseCase;
   webOrigin: string;
 }
 
@@ -63,6 +90,7 @@ export function createApp(deps: AppDependencies): Hono {
       useBagItemUseCase: deps.useBagItemUseCase,
       restUseCase: deps.restUseCase,
       claimLootUseCase: deps.claimLootUseCase,
+      getActiveBattleUseCase: deps.getActiveBattleUseCase,
     }),
   );
   gameplay.route(
@@ -70,8 +98,34 @@ export function createApp(deps: AppDependencies): Hono {
     createPlayerController({
       equipItemUseCase: deps.equipItemUseCase,
       unequipItemUseCase: deps.unequipItemUseCase,
+      destroyBagItemUseCase: deps.destroyBagItemUseCase,
       allocateAttributePointsUseCase: deps.allocateAttributePointsUseCase,
       updatePlayerNameUseCase: deps.updatePlayerNameUseCase,
+      getPlayerProfileUseCase: deps.getPlayerProfileUseCase,
+    }),
+  );
+  gameplay.route(
+    "/",
+    createItemController({
+      listItemsUseCase: deps.listItemsUseCase,
+      getItemRarityColorsUseCase: deps.getItemRarityColorsUseCase,
+    }),
+  );
+  gameplay.route(
+    "/",
+    createDungeonController({
+      startDungeonUseCase: deps.startDungeonUseCase,
+      continueDungeonUseCase: deps.continueDungeonUseCase,
+      exitDungeonRunUseCase: deps.exitDungeonRunUseCase,
+      getDungeonSlayerLeaderboardUseCase: deps.getDungeonSlayerLeaderboardUseCase,
+    }),
+  );
+  gameplay.route(
+    "/",
+    createStoreController({
+      listStoreItemsUseCase: deps.listStoreItemsUseCase,
+      purchaseItemUseCase: deps.purchaseItemUseCase,
+      sellItemUseCase: deps.sellItemUseCase,
     }),
   );
   app.route("/", gameplay);

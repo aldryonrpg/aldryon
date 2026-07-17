@@ -8,9 +8,11 @@ export interface AttackProps {
   multiplier: number;
   scalingAttribute: AttackScaling;
   appliesEffect: BattleEffectKind | null;
-  counterItemId: string | null;
   minLevel: number;
   attributeRequirements: AttributeValues;
+  /** REVEAL SPELL only — reveals one random not-yet-known monster attribute
+   * on a successful hit. */
+  revealsRandomMonsterAttribute: boolean;
 }
 
 /**
@@ -50,14 +52,14 @@ export class Attack {
   get appliesEffect(): BattleEffectKind | null {
     return this.props.appliesEffect;
   }
-  get counterItemId(): string | null {
-    return this.props.counterItemId;
-  }
   get minLevel(): number {
     return this.props.minLevel;
   }
   get attributeRequirements(): AttributeValues {
     return { ...this.props.attributeRequirements };
+  }
+  get revealsRandomMonsterAttribute(): boolean {
+    return this.props.revealsRandomMonsterAttribute;
   }
 
   /** Level/attribute gating only — stamina affordability is checked separately. */

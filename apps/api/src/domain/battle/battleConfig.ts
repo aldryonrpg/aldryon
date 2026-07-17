@@ -7,9 +7,15 @@
 export const BATTLE_CONFIG = {
   /** 20% of /battle/start calls find nothing (plan2 §4 step 2). */
   emptyEncounterChance: 0.2,
-  /** Roll bounds shared by hit checks and effect procs (plan2 §6/§6a). */
-  rollMin: 20,
-  rollMax: 100,
+  /** Hit-check roll bounds (plan2 §6) — a hit chance below this floor is a
+   * guaranteed miss, since the roll can never come in low enough to match it. */
+  hitRollMin: 10,
+  hitRollMax: 100,
+  /** Effect-proc roll bounds (plan2 §6a) — separate from the hit-check
+   * bounds above so tuning one never silently changes the other. An effect
+   * can never land below this floor's Luck lead (attackerLuck - defenderLuck). */
+  effectProcRollMin: 5,
+  effectProcRollMax: 100,
   /** Both sides recover this passively at the end of every round. */
   passiveStaminaRegen: 5,
   /** Rest (and monster charge/rest turns) recover this instead. */
@@ -26,10 +32,10 @@ export const BATTLE_CONFIG = {
   bagCapacityVip: 25,
   bagStackMax: 5,
   specialSlotMax: 5,
-  /** Max HP = 100 + 10*Vitality + 1*Force (plan2 §3a). */
+  /** Max HP = 100 + 10*Vitality + 1*Strength (plan2 §3a). */
   baseMaxHp: 100,
   maxHpPerVitality: 10,
-  maxHpPerForce: 1,
+  maxHpPerStrength: 1,
   /** Max Stamina = min(100, 20 + 5*level) (plan2 §3a). */
   baseMaxStamina: 20,
   maxStaminaPerLevel: 5,
@@ -57,11 +63,11 @@ export const CHARGE_WARNING_FLAVOR: readonly string[] = [
   "The monster stopped and is glowing, be careful...",
 ];
 
-export function maxHp(vitality: number, force: number): number {
+export function maxHp(vitality: number, strength: number): number {
   return (
     BATTLE_CONFIG.baseMaxHp +
     BATTLE_CONFIG.maxHpPerVitality * vitality +
-    BATTLE_CONFIG.maxHpPerForce * force
+    BATTLE_CONFIG.maxHpPerStrength * strength
   );
 }
 

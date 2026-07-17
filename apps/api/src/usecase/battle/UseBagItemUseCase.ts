@@ -6,19 +6,23 @@ import {
 } from "@/domain/battle/BattleEffect";
 import { maxHp } from "@/domain/battle/battleConfig";
 import { PlayerItem } from "@/domain/player/PlayerItem";
+import { ATTRIBUTE_KEYS } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { InvalidBagItemError, NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -40,7 +44,11 @@ export class UseBagItemUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
-    private readonly stunCooldownRounds: number,
+    private readonly statusCooldownRounds: number,
+    private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+    private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: UseBagItemInput): Promise<TurnReportOutput> {
@@ -53,18 +61,23 @@ export class UseBagItemUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+    const [
+      playerAttacks,
+      moveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+    ] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(
+      computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
         this.itemRepository,
+        this.setAttributeBonus,
         battle.playerEffects,
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     if (isStunned(battle.playerEffects)) {
       return resolveStunnedTurn({
@@ -74,14 +87,18 @@ export class UseBagItemUseCase {
         moveset,
         playerAttacks,
         effectiveAttributes,
+        attributesBeforeDebuff,
         playerMaxHp,
         rng: this.rng,
-        itemRepository: this.itemRepository,
+        effectCounterRepository: this.effectCounterRepository,
         playerRepository: this.playerRepository,
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
+        dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+        itemRepository: this.itemRepository,
+        uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
       });
     }
 
@@ -98,6 +115,8 @@ export class UseBagItemUseCase {
 
     let playerCurrentHp = battle.playerCurrentHp;
     let playerEffects = battle.playerEffects;
+    let revealedMonsterAttributes = battle.revealedMonsterAttributes;
+    const messages: string[] = [];
 
     if (item.hpRestore !== null) {
       playerCurrentHp = Math.min(playerMaxHp, playerCurrentHp + item.hpRestore);
@@ -106,6 +125,9 @@ export class UseBagItemUseCase {
       // bleed/poison can stack unlimited via repeated procs, but one
       // bandage/antidote clears all of them at once (see BattleEffect.ts).
       playerEffects = removeDotByCounterItem(playerEffects, item.id);
+    } else if (item.revealsAllMonsterAttributes) {
+      revealedMonsterAttributes = [...ATTRIBUTE_KEYS];
+      messages.push("The Knowledge Potion lays bare every one of the monster's attributes!");
     } else {
       throw new InvalidBagItemError("This item has no consumable use");
     }
@@ -126,7 +148,7 @@ export class UseBagItemUseCase {
         monsterChargingAttackId: battle.monsterChargingAttackId,
         chargeRoundsLeft: battle.chargeRoundsLeft,
         monsterAttackWeights: battle.monsterAttackWeights,
-        stunCooldownRoundsLeft: battle.stunCooldownRoundsLeft,
+        statusCooldownRoundsLeft: battle.statusCooldownRoundsLeft,
       },
       monster,
       moveset,
@@ -134,9 +156,10 @@ export class UseBagItemUseCase {
       playerLevel: player.level,
       effectiveAttributes,
       rng: this.rng,
-      itemRepository: this.itemRepository,
-      stunCooldownRounds: this.stunCooldownRounds,
+      effectCounterRepository: this.effectCounterRepository,
+      statusCooldownRounds: this.statusCooldownRounds,
     });
+    messages.push(...monsterTurn.messages);
 
     const playerTick = tickEffects(monsterTurn.playerEffects);
     const monsterTick = tickEffects(battle.monsterEffects);
@@ -156,16 +179,21 @@ export class UseBagItemUseCase {
       monsterChargingAttackId: monsterTurn.monsterChargingAttackId,
       chargeRoundsLeft: monsterTurn.chargeRoundsLeft,
       monsterAttackWeights: monsterTurn.monsterAttackWeights,
-      stunCooldownRoundsLeft: monsterTurn.stunCooldownRoundsLeft,
+      statusCooldownRoundsLeft: monsterTurn.statusCooldownRoundsLeft,
       playerAttack: null,
       monsterAttack: monsterTurn.monsterAttack,
-      messages: monsterTurn.messages,
+      messages,
       playerMaxHp,
+      attributesBeforeDebuff,
+      revealedMonsterAttributes,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,
       levelRepository: this.levelRepository,
       levelUpAttributePoints: this.levelUpAttributePoints,
+      dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+      itemRepository: this.itemRepository,
+      uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
     });
   }
 }

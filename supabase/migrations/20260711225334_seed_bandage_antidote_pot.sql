@@ -1,6 +1,9 @@
 -- Seed items that exist from day one (plan2 §7/§10): bandage (cures bleed)
 -- and antidote (cure poison) at 50 gold each, common, not equippable; plus
--- one POT (HP restore consumable) so the game is playable end-to-end.
+-- three POT sizes (HP restore consumables) so the game is playable
+-- end-to-end. `value` doubles as the store price (plan3 Store follow-up) —
+-- bandage, antidote, and every POT size are store-only stock, never a
+-- monster drop, in the store's separate consumables section.
 insert into items (id, name, description, value, rarity, hp_restore)
 values (
   gen_random_uuid(), 'bandage', 'A rough cloth wrap. Stops the bleeding.', 50, 'common', null
@@ -17,4 +20,18 @@ insert into items (id, name, description, value, rarity, hp_restore)
 values (
   gen_random_uuid(), 'small pot', 'A small clay pot of restorative salve.', 25, 'common', 50
 )
+on conflict (name) do nothing;
+
+insert into items (id, name, description, value, rarity, hp_restore)
+values (
+           gen_random_uuid(), 'medium pot', 'A medium glass pot of restorative salve.', 60, 'common', 100
+       )
+on conflict (name) do nothing;
+
+-- One tier above common (plan3 Store follow-up, explicit call-out): still
+-- store stock, in the separate consumables section, just a step rarer/pricier.
+insert into items (id, name, description, value, rarity, hp_restore)
+values (
+           gen_random_uuid(), 'big pot', 'A big pot of restorative salve.', 100, 'uncommon', 150
+       )
 on conflict (name) do nothing;

@@ -1,6 +1,18 @@
 import type { BattleEffectKind } from "@/domain/monster/MonsterAttack";
 import type { Attributes } from "@/domain/shared/Attributes";
 
+/** Stun/Fear/Magic Aura Blast — the three kinds the monster AI's shared
+ * cooldown (Battle.statusCooldownRoundsLeft) gates selection on, since none of
+ * them should chain: Stun by design, Fear/Magic Aura Blast because they
+ * don't stack either (see addBattleEffect below) so reapplying the same one
+ * back-to-back barely matters. Bleed/poison/burn are excluded — those stack
+ * freely and don't need this protection. */
+export const STATUS_EFFECT_KINDS: ReadonlySet<BattleEffectKind> = new Set([
+  "stun",
+  "fear",
+  "magic_aura_blast",
+]);
+
 /**
  * Damage-over-time effect (plan2 §6a): bleed/poison/burn. damagePerRound is
  * computed once and snapshotted when the effect is applied — it never
@@ -27,7 +39,7 @@ export interface DotEffect {
 }
 
 /**
- * A percentage stat-decay debuff (Fear -> force, Magic Aura Blast ->
+ * A percentage stat-decay debuff (Fear -> strength, Magic Aura Blast ->
  * intelligence): held at -50% for 2 rounds, then recovers 10 points a round
  * until back to normal. `roundsElapsed` indexes into
  * `STAT_DEBUFF_SCHEDULE_PERCENT` and advances once per round via
@@ -36,7 +48,7 @@ export interface DotEffect {
 export interface StatDebuffEffect {
   type: "debuff";
   kind: "fear" | "magic_aura_blast";
-  stat: "force" | "intelligence";
+  stat: "strength" | "intelligence";
   roundsElapsed: number;
 }
 
@@ -81,8 +93,24 @@ export function statDebuffPercent(roundsElapsed: number): number {
   return STAT_DEBUFF_SCHEDULE_PERCENT[roundsElapsed] ?? 0;
 }
 
-const STAT_DEBUFF_STAT: Record<"fear" | "magic_aura_blast", "force" | "intelligence"> = {
-  fear: "force",
+/** A StatDebuffEffect plus its current percent reduction, so the client can
+ * display it without duplicating STAT_DEBUFF_SCHEDULE_PERCENT itself. */
+export type StatDebuffEffectView = StatDebuffEffect & { percent: number };
+
+export type BattleEffectView = DotEffect | StatDebuffEffectView | StunEffect;
+
+/** Maps a stored effect to its client-facing view — every type passes
+ * through unchanged except a stat-debuff, which gets its current percent
+ * computed from roundsElapsed (see EffectsPanel.tsx on the frontend). */
+export function toBattleEffectView(effect: BattleEffect): BattleEffectView {
+  if (isStatDebuff(effect)) {
+    return { ...effect, percent: statDebuffPercent(effect.roundsElapsed) };
+  }
+  return effect;
+}
+
+const STAT_DEBUFF_STAT: Record<"fear" | "magic_aura_blast", "strength" | "intelligence"> = {
+  fear: "strength",
   magic_aura_blast: "intelligence",
 };
 
@@ -109,6 +137,33 @@ export function buildBattleEffect(
     damagePerRound: computeDotMagnitude(params.inflictorLevel, params.victimLevel),
     counterItemId: params.counterItemId,
   };
+}
+
+/**
+ * Adds a freshly-landed effect to an existing list, honoring each type's own
+ * stacking rule. DoTs (bleed/poison/burn) stack unlimited — always append a
+ * new instance (BattleEffect.ts top-of-file doc). Fear/Magic Aura Blast do
+ * NOT stack — landing the same kind again while one is already active just
+ * refreshes its schedule back to round 0 in place, instead of adding a
+ * second simultaneous instance (which would double the stat.withBonuses
+ * reduction in applyStatDebuffs). Stun always appends — the monster AI's own
+ * cooldown (see MonsterTurnState.statusCooldownRoundsLeft) is what prevents it
+ * chaining, not de-duplication here.
+ */
+export function addBattleEffect(
+  effects: BattleEffect[],
+  kind: BattleEffectKind,
+  params: { inflictorLevel: number; victimLevel: number; counterItemId: string | null },
+): BattleEffect[] {
+  if (kind === "fear" || kind === "magic_aura_blast") {
+    const alreadyActive = effects.some((effect) => isStatDebuff(effect) && effect.kind === kind);
+    if (alreadyActive) {
+      return effects.map((effect) =>
+        isStatDebuff(effect) && effect.kind === kind ? { ...effect, roundsElapsed: 0 } : effect,
+      );
+    }
+  }
+  return [...effects, buildBattleEffect(kind, params)];
 }
 
 /**
@@ -172,7 +227,7 @@ export function removeDotByCounterItem(
 export function effectAppliedMessage(kind: BattleEffectKind): string | null {
   switch (kind) {
     case "fear":
-      return "The monster's Fear grips you, sapping your Force!";
+      return "The monster's Fear grips you, sapping your Strength!";
     case "magic_aura_blast":
       return "The monster's Magic Aura Blast disrupts your mind, sapping your Intelligence!";
     case "stun":

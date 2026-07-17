@@ -10,13 +10,17 @@ interface ItemRow {
   value: number;
   rarity: ItemRarity;
   slot: EquipmentSlot | null;
-  force: number;
+  strength: number;
   dexterity: number;
   agility: number;
   intelligence: number;
   vitality: number;
   luck: number;
   hp_restore: number | null;
+  reveals_all_monster_attributes: boolean;
+  set_name: string | null;
+  store_purchasable: boolean;
+  item_image: string | null;
 }
 
 function toDomain(row: ItemRow): Item {
@@ -28,7 +32,7 @@ function toDomain(row: ItemRow): Item {
     rarity: row.rarity,
     slot: row.slot,
     attributeBonuses: {
-      force: row.force,
+      strength: row.strength,
       dexterity: row.dexterity,
       agility: row.agility,
       intelligence: row.intelligence,
@@ -36,6 +40,10 @@ function toDomain(row: ItemRow): Item {
       luck: row.luck,
     },
     hpRestore: row.hp_restore,
+    revealsAllMonsterAttributes: row.reveals_all_monster_attributes,
+    setName: row.set_name,
+    storePurchasable: row.store_purchasable,
+    itemImage: row.item_image,
   });
 }
 
@@ -55,6 +63,11 @@ export class PostgresItemRepository implements ItemRepository {
   async findByIds(ids: string[]): Promise<Item[]> {
     if (ids.length === 0) return [];
     const rows = await this.sql<ItemRow[]>`select * from items where id in ${this.sql(ids)}`;
+    return rows.map(toDomain);
+  }
+
+  async findAll(): Promise<Item[]> {
+    const rows = await this.sql<ItemRow[]>`select * from items order by name asc`;
     return rows.map(toDomain);
   }
 }

@@ -10,7 +10,6 @@ interface MonsterAttackRow {
   multiplier: string | number;
   scaling_attribute: AttackScaling;
   applies_effect: BattleEffectKind | null;
-  counter_item_id: string | null;
   is_special: boolean;
   charge_turns: number;
 }
@@ -23,7 +22,6 @@ function toDomain(row: MonsterAttackRow): MonsterAttack {
     multiplier: Number(row.multiplier),
     scalingAttribute: row.scaling_attribute,
     appliesEffect: row.applies_effect,
-    counterItemId: row.counter_item_id,
     isSpecial: row.is_special,
     chargeTurns: row.charge_turns,
   });
@@ -48,5 +46,15 @@ export class PostgresMonsterAttackRepository implements MonsterAttackRepository 
       order by ma.name asc
     `;
     return rows.map(toDomain);
+  }
+
+  async copyDungeonBossMoveset(dungeonBossId: string, monsterId: string): Promise<void> {
+    await this.sql`
+      insert into monster_movesets (monster_id, monster_attack_id)
+      select ${monsterId}, dbm.monster_attack_id
+      from dungeon_boss_movesets dbm
+      where dbm.dungeon_boss_id = ${dungeonBossId}
+      on conflict do nothing
+    `;
   }
 }

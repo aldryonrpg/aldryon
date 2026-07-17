@@ -1,0 +1,12 @@
+-- Widened from Stun-only to a shared cooldown across every status-effect
+-- special (Stun/Fear/Magic Aura Blast) — one field, not one per kind. None
+-- of the three should chain: Stun by design, Fear/Magic Aura Blast because
+-- they don't stack either (see addBattleEffect in BattleEffect.ts, which
+-- refreshes rather than adds a second instance), so reapplying the same one
+-- back-to-back the instant it's affordable again would barely matter.
+-- STATUS_COOLDOWN_ROUNDS (env-configurable, default 5, renamed from
+-- STUN_COOLDOWN_ROUNDS) is set on any of the three unleashing and ticks down
+-- by 1 every round; while > 0, any moveset attack whose applies_effect is
+-- stun/fear/magic_aura_blast is excluded from the AI's selection pool
+-- entirely, not just de-prioritized.
+alter table battles rename column stun_cooldown_rounds_left to status_cooldown_rounds_left;

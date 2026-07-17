@@ -30,10 +30,22 @@ export class GetOrCreatePlayerUseCase {
       level: 1,
       xp: 0,
       attributePoints: BATTLE_CONFIG.startingAttributePoints,
-      attributes: { force: 1, dexterity: 1, agility: 1, intelligence: 1, vitality: 1, luck: 1 },
+      attributes: {
+        strength: 10,
+        dexterity: 10,
+        agility: 10,
+        intelligence: 10,
+        vitality: 10,
+        luck: 10,
+      },
       lastDeathAt: null,
       lastRunAt: null,
       pendingLoot: [],
+      dungeonAttempt1: null,
+      dungeonAttempt2: null,
+      dungeonRunTier: null,
+      dungeonRunStep: null,
+      dungeonRunTotalSteps: null,
     });
 
     const saved = await this.playerRepository.create(player);

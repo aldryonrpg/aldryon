@@ -18,6 +18,7 @@ import {
   RunCooldownError,
   UnknownAttackError,
 } from "@/usecase/battle/errors";
+import type { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
 import type { RestUseCase } from "@/usecase/battle/RestUseCase";
 import type { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import type { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
@@ -30,12 +31,18 @@ export interface BattleControllerDeps {
   useBagItemUseCase: UseBagItemUseCase;
   restUseCase: RestUseCase;
   claimLootUseCase: ClaimLootUseCase;
+  getActiveBattleUseCase: GetActiveBattleUseCase;
 }
 
 export function createBattleController(
   deps: BattleControllerDeps,
 ): Hono<{ Variables: AuthedVariables }> {
   const app = new Hono<{ Variables: AuthedVariables }>();
+
+  app.get("/battle", async (c) => {
+    const result = await deps.getActiveBattleUseCase.execute({ playerId: c.get("playerId") });
+    return c.json(result, 200);
+  });
 
   app.post("/battle/start", async (c) => {
     const body = await c.req.json().catch(() => null);

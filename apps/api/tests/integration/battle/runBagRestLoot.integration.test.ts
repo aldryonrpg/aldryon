@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import { maxHp } from "@/domain/battle/battleConfig";
+import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import {
   InvalidBagItemError,
   InvalidLootPickError,
@@ -38,8 +39,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     playerAgility?: number;
     monsterAgility?: number;
     playerHp?: number;
-    playerForce?: number;
-    monsterForce?: number;
+    playerStrength?: number;
+    monsterStrength?: number;
     playerLuck?: number;
     monsterLuck?: number;
     monsterType?: "normal" | "poisonous";
@@ -47,19 +48,19 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
       agility: overrides.playerAgility ?? 1,
-      force: overrides.playerForce ?? 10,
+      strength: overrides.playerStrength ?? 10,
       luck: overrides.playerLuck ?? 1,
     });
     const monsterId = await createTestMonster(sql, {
       agility: overrides.monsterAgility ?? 1,
-      force: overrides.monsterForce ?? 1,
+      strength: overrides.monsterStrength ?? 1,
       luck: overrides.monsterLuck ?? 1,
       monsterType: overrides.monsterType ?? "normal",
     });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 1 });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
-    const playerMaxHp = maxHp(1, overrides.playerForce ?? 10);
+    const playerMaxHp = maxHp(1, overrides.playerStrength ?? 10);
     const battle = Battle.create({
       id: Bun.randomUUIDv7(),
       playerId,
@@ -74,7 +75,10 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     return { playerId, monsterId, battle, playerMaxHp };
@@ -100,7 +104,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 20,
+        monsterStrength: 20,
         playerHp: 500,
       });
       const uc = buildUseCases(sql, new FakeRng([1]));
@@ -117,7 +121,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 20,
+        monsterStrength: 20,
         playerHp: 500,
         monsterLuck: 25,
         playerLuck: 1,
@@ -142,9 +146,9 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const { playerId, battle } = await setupBattle({
         playerAgility: 1,
         monsterAgility: 10,
-        monsterForce: 50,
+        monsterStrength: 50,
         playerHp: 1,
-        playerForce: 1,
+        playerStrength: 1,
       });
       await sql`update players set xp = 1000 where id = ${playerId}`;
       const uc = buildUseCases(sql, new FakeRng([1]));
@@ -175,14 +179,23 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
 
       // Attack selection is deterministic (only one moveset entry), so the
       // single rng value below is the monster's effect-proc roll; 50 fails
-      // it (diff 0) so no fresh bleed lands and same-turn-ticks the HP back
-      // down below the just-healed max.
+      // it (diff 0) so no bleed lands — but the monster still lands its own
+      // direct attack this same turn, chipping the just-healed max back down
+      // (a landed hit always deals at least 1 damage — combat-balance
+      // follow-up).
       const uc = buildUseCases(sql, new FakeRng([50]));
       await uc.battleRepository.create(battle);
 
       const result = await uc.useBagItemUseCase.execute({ playerId, playerItemId });
 
-      expect(result.playerStatus.currentHp).toBe(playerMaxHp);
+      const expectedMonsterDamage = computeDamage({
+        attackMultiplier: 1, // the moveset's Test Attack
+        attackerScalingValue: 1, // monster strength
+        staminaCost: 0,
+        defenderLevel: 1, // player level
+        defenderScalingValue: 10, // player's HIT-scaling attribute (strength)
+      });
+      expect(result.playerStatus.currentHp).toBe(playerMaxHp - expectedMonsterDamage);
       expect(await uc.playerItemRepository.findById(playerItemId)).toBeNull();
     });
 
@@ -278,7 +291,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Claimable Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [itemId] });
@@ -294,7 +307,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Overflow Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 20; i++) {
         const fillerId = await createTestItem(sql, { name: `Filler ${i}-${playerId}` });
@@ -315,7 +328,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql, { isVip: true });
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "VIP Overflow Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 20; i++) {
         const fillerId = await createTestItem(sql, { name: `VIP Filler ${i}-${playerId}` });
@@ -336,7 +349,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql, { isVip: true });
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "VIP Full Bag Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 25; i++) {
         const fillerId = await createTestItem(sql, { name: `VIP Full Filler ${i}-${playerId}` });
@@ -369,7 +382,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Offered Item" });
       const otherItemId = await createTestItem(sql, { name: "Not Offered" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
 
@@ -377,6 +390,98 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
         uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [otherItemId] }),
         InvalidLootPickError,
       );
+    });
+  });
+
+  describe("ClaimLootUseCase — POT special slot (small/medium/big share one cap)", () => {
+    async function potIds(sql: SQL) {
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const [small, medium, big] = await Promise.all([
+        uc.itemRepository.findByName("small pot"),
+        uc.itemRepository.findByName("medium pot"),
+        uc.itemRepository.findByName("big pot"),
+      ]);
+      if (!small || !medium || !big)
+        throw new Error("Seeded POT items not found — did migrations run?");
+      return { smallId: small.id, mediumId: medium.id, bigId: big.id };
+    }
+
+    it("claims a mix of all 3 POT types up to the combined POT_LIMIT (5), each its own stack", async () => {
+      const { smallId, mediumId, bigId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      const picks = [smallId, smallId, mediumId, mediumId, bigId];
+      await sql`update players set pending_loot = ${picks}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks });
+
+      expect(result.claimed).toEqual(picks);
+      expect(result.rejected).toEqual([]);
+
+      const playerItems = await uc.playerItemRepository.findByPlayerId(playerId);
+      const bySmall = playerItems.find((pi) => pi.itemId === smallId);
+      const byMedium = playerItems.find((pi) => pi.itemId === mediumId);
+      const byBig = playerItems.find((pi) => pi.itemId === bigId);
+      expect(bySmall?.quantity).toBe(2);
+      expect(byMedium?.quantity).toBe(2);
+      expect(byBig?.quantity).toBe(1);
+    });
+
+    it("rejects a different POT type once the combined total already sits at the cap", async () => {
+      const { smallId, mediumId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      await createTestPlayerItem(sql, playerId, smallId, { quantity: 5 });
+      await sql`update players set pending_loot = ${[mediumId]}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({
+        playerId,
+        isVip: false,
+        picks: [mediumId],
+      });
+
+      expect(result.claimed).toEqual([]);
+      expect(result.rejected).toEqual([
+        { itemId: mediumId, reason: "POT slot is full (max 5 combined)" },
+      ]);
+    });
+
+    it("rejects once a mix across types already sums to the cap", async () => {
+      const { smallId, mediumId, bigId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      await createTestPlayerItem(sql, playerId, smallId, { quantity: 3 });
+      await createTestPlayerItem(sql, playerId, mediumId, { quantity: 2 });
+      await sql`update players set pending_loot = ${[bigId]}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [bigId] });
+
+      expect(result.claimed).toEqual([]);
+      expect(result.rejected).toHaveLength(1);
+    });
+
+    it("POTs don't count against the ordinary 20-slot bag capacity", async () => {
+      const { smallId } = await potIds(sql);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      for (let i = 0; i < 20; i++) {
+        const fillerId = await createTestItem(sql, { name: `POT-test Filler ${i}-${playerId}` });
+        await createTestPlayerItem(sql, playerId, fillerId, { quantity: 1 });
+      }
+      await sql`update players set pending_loot = ${[smallId]}::jsonb where id = ${playerId}`;
+
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      const result = await uc.claimLootUseCase.execute({
+        playerId,
+        isVip: false,
+        picks: [smallId],
+      });
+
+      expect(result.claimed).toEqual([smallId]);
+      expect(result.rejected).toEqual([]);
     });
   });
 });

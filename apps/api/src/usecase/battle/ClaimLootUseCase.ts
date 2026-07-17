@@ -1,6 +1,9 @@
 import {
+  POT_ITEM_NAMES,
   planAddNormalItem,
+  planAddPotItem,
   planAddSpecialItem,
+  potLimitForLevel,
   SPECIAL_SLOT_ITEM_NAMES,
 } from "@/domain/player/Bag";
 import { Player } from "@/domain/player/Player";
@@ -55,12 +58,26 @@ export class ClaimLootUseCase {
       const item = itemsById.get(itemId);
       return item ? SPECIAL_SLOT_ITEM_NAMES.includes(item.name) : false;
     };
+    const isPot = (itemId: string) => {
+      const item = itemsById.get(itemId);
+      return item ? POT_ITEM_NAMES.includes(item.name) : false;
+    };
 
     const normalSlots = unequipped
-      .filter((pi) => !isSpecial(pi.itemId))
+      .filter((pi) => !isSpecial(pi.itemId) && !isPot(pi.itemId))
       .map((pi) => ({ playerItemId: pi.id, itemId: pi.itemId, quantity: pi.quantity }));
     const specialByItemId = new Map(
       unequipped.filter((pi) => isSpecial(pi.itemId)).map((pi) => [pi.itemId, pi]),
+    );
+    const potStacksByItemId = new Map(
+      unequipped.filter((pi) => isPot(pi.itemId)).map((pi) => [pi.itemId, pi]),
+    );
+    // The three POT variants share ONE running total (plan3 POT special-slot
+    // follow-up) — updated as claims land within this same batch, not just
+    // read once from the pre-existing DB state.
+    let potTotalQuantity = [...potStacksByItemId.values()].reduce(
+      (sum, pi) => sum + pi.quantity,
+      0,
     );
 
     const claimed: string[] = [];
@@ -98,6 +115,36 @@ export class ClaimLootUseCase {
           await this.playerItemRepository.create(created);
           specialByItemId.set(pick, created);
         }
+        claimed.push(pick);
+        continue;
+      }
+
+      if (isPot(pick)) {
+        const plan = planAddPotItem(potTotalQuantity, potLimitForLevel(player.level));
+        if (!plan.fits) {
+          rejected.push({ itemId: pick, reason: plan.reason ?? "POT slot is full" });
+          continue;
+        }
+        const existing = potStacksByItemId.get(pick);
+        if (existing) {
+          const updated = PlayerItem.create({
+            ...existing.toProps(),
+            quantity: existing.quantity + 1,
+          });
+          await this.playerItemRepository.update(updated);
+          potStacksByItemId.set(pick, updated);
+        } else {
+          const created = PlayerItem.create({
+            id: Bun.randomUUIDv7(),
+            playerId: player.id,
+            itemId: pick,
+            equippedSlot: null,
+            quantity: 1,
+          });
+          await this.playerItemRepository.create(created);
+          potStacksByItemId.set(pick, created);
+        }
+        potTotalQuantity += 1;
         claimed.push(pick);
         continue;
       }

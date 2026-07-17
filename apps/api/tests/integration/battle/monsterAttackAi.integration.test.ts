@@ -27,19 +27,19 @@ describe("Monster attack-selection AI (integration)", () => {
 
   it("always starts charging an affordable special over a much higher-damage normal attack", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 1 });
-    const monsterId = await createTestMonster(sql, { hp: 1000, force: 100 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 1 });
+    const monsterId = await createTestMonster(sql, { hp: 1000, strength: 100 });
     const strongNormalId = await createTestMonsterAttack(sql, {
       name: "Strong Normal",
       staminaCost: 0,
       multiplier: 10,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     const weakSpecialId = await createTestMonsterAttack(sql, {
       name: "Weak Special",
       staminaCost: 2,
       multiplier: 0,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
       isSpecial: true,
       chargeTurns: 1,
     });
@@ -60,7 +60,10 @@ describe("Monster attack-selection AI (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     // Both attacks are affordable and selection is deterministic (a single
@@ -80,20 +83,20 @@ describe("Monster attack-selection AI (integration)", () => {
 
   it("rotates onto a lower-damage attack once its unpicked weight outweighs the gap", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 5 });
-    const monsterId = await createTestMonster(sql, { hp: 100_000, force: 10 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 5 });
+    const monsterId = await createTestMonster(sql, { hp: 100_000, strength: 10 });
     // damage = ceil(multiplier * 10) + 0 - ceil(1 * 5): Strong=5, Weak=3.
     const strongId = await createTestMonsterAttack(sql, {
       name: "Strong",
       staminaCost: 0,
       multiplier: 1.0,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     const weakId = await createTestMonsterAttack(sql, {
       name: "Weak",
       staminaCost: 0,
       multiplier: 0.8,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     await linkMonsterMoveset(sql, monsterId, strongId);
     await linkMonsterMoveset(sql, monsterId, weakId);
@@ -112,7 +115,10 @@ describe("Monster attack-selection AI (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     // Hits are guaranteed both ways and selection itself needs no rng, so

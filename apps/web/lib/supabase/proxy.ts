@@ -7,10 +7,15 @@ type CookieToSet = {
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
 
+/** Paths that require an authenticated session — kept alongside the
+ * matcher in proxy.ts so both lists stay in sync. */
+const PROTECTED_PATHS = ["/", "/battle", "/store"];
+
 /**
- * Route protection lives here (not per-page) so `/` and `/login` stay
- * simple: unauthenticated visitors to `/` are bounced to `/login`, and an
- * already-authenticated visitor to `/login` is bounced to `/`.
+ * Route protection lives here (not per-page) so `/`, `/battle`, `/store`,
+ * and `/login` stay simple: unauthenticated visitors to a protected path
+ * are bounced to `/login`, and an already-authenticated visitor to
+ * `/login` is bounced to `/`.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -42,7 +47,7 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!user && pathname === "/") {
+  if (!user && PROTECTED_PATHS.includes(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

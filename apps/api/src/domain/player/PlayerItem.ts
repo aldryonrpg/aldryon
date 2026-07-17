@@ -4,6 +4,7 @@ export type EquipmentPosition =
   | "boots"
   | "gloves"
   | "necklace"
+  | "bracelet"
   | "weapon_1"
   | "weapon_2";
 

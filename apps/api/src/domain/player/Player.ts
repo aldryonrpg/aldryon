@@ -20,6 +20,17 @@ export interface PlayerProps {
   lastRunAt: Date | null;
   /** Item ids awaiting the player's pick from the last kill (plan2 §5e). */
   pendingLoot: string[];
+  /** Daily dungeon attempt slots (plan3 §2f) — a slot from a previous UTC day
+   * simply doesn't count today; see domain/dungeon/dungeonAttempts.ts. */
+  dungeonAttempt1: Date | null;
+  dungeonAttempt2: Date | null;
+  /** Dungeon run progress (loot-system follow-up) — null means no run is
+   * currently awaiting a Continue/Exit decision. The battle row itself gets
+   * deleted after every kill, so this is what survives the gap between one
+   * step's kill and the next fight starting. */
+  dungeonRunTier: 1 | 2 | 3 | null;
+  dungeonRunStep: number | null;
+  dungeonRunTotalSteps: number | null;
 }
 
 /**
@@ -80,6 +91,21 @@ export class Player {
   get pendingLoot(): string[] {
     return [...this.props.pendingLoot];
   }
+  get dungeonAttempt1(): Date | null {
+    return this.props.dungeonAttempt1;
+  }
+  get dungeonAttempt2(): Date | null {
+    return this.props.dungeonAttempt2;
+  }
+  get dungeonRunTier(): 1 | 2 | 3 | null {
+    return this.props.dungeonRunTier;
+  }
+  get dungeonRunStep(): number | null {
+    return this.props.dungeonRunStep;
+  }
+  get dungeonRunTotalSteps(): number | null {
+    return this.props.dungeonRunTotalSteps;
+  }
 
   getAttributes(): Attributes {
     return this.attributes;
@@ -90,9 +116,9 @@ export class Player {
     return this.attributes.withBonuses(equippedBonuses);
   }
 
-  /** Max HP = 100 + 10*Vitality + 1*Force, using effective attributes (plan2 §3a). */
+  /** Max HP = 100 + 10*Vitality + 1*Strength, using effective attributes (plan2 §3a). */
   maxHp(effective: Attributes): number {
-    return computeMaxHp(effective.vitality, effective.force);
+    return computeMaxHp(effective.vitality, effective.strength);
   }
 
   /** Max Stamina = min(100, 20 + 5*level) (plan2 §3a). */

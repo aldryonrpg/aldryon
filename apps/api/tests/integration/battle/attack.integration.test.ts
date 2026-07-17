@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
+import { isDot } from "@/domain/battle/BattleEffect";
 import { maxHp } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { AttackNotUsableError, UnknownAttackError } from "@/usecase/battle/errors";
@@ -35,8 +36,8 @@ describe("AttackUseCase (integration)", () => {
     playerStamina?: number;
     monsterHp?: number;
     monsterStamina?: number;
-    playerForce?: number;
-    monsterForce?: number;
+    playerStrength?: number;
+    monsterStrength?: number;
     monsterLuck?: number;
     playerLuck?: number;
     monsterType?: "normal" | "poisonous";
@@ -44,12 +45,12 @@ describe("AttackUseCase (integration)", () => {
   }) {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, {
-      force: overrides.playerForce ?? 10,
+      strength: overrides.playerStrength ?? 10,
       luck: overrides.playerLuck ?? 1,
     });
     const monsterId = await createTestMonster(sql, {
       hp: overrides.monsterHp ?? 100,
-      force: overrides.monsterForce ?? 1,
+      strength: overrides.monsterStrength ?? 1,
       luck: overrides.monsterLuck ?? 1,
       monsterType: overrides.monsterType ?? "normal",
       drops: overrides.drops ?? [],
@@ -57,11 +58,11 @@ describe("AttackUseCase (integration)", () => {
     const monsterAttackId = await createTestMonsterAttack(sql, {
       staminaCost: 0,
       multiplier: 1,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     await linkMonsterMoveset(sql, monsterId, monsterAttackId);
 
-    const playerMaxHp = maxHp(1, overrides.playerForce ?? 10);
+    const playerMaxHp = maxHp(1, overrides.playerStrength ?? 10);
     const battle = Battle.create({
       id: Bun.randomUUIDv7(),
       playerId,
@@ -76,7 +77,10 @@ describe("AttackUseCase (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     return { userId, playerId, monsterId, monsterAttackId, playerMaxHp, battle };
@@ -90,9 +94,9 @@ describe("AttackUseCase (integration)", () => {
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
     const expectedPlayerDamage = computeDamage({
-      attackMultiplier: 0.4,
+      attackMultiplier: 1, // seeded HIT multiplier (combat-balance follow-up)
       attackerScalingValue: 10,
-      staminaCost: 1, // HIT costs 1 stamina
+      staminaCost: 5, // seeded HIT stamina cost (combat-balance follow-up)
       defenderLevel: 1,
       defenderScalingValue: 1,
     });
@@ -104,7 +108,7 @@ describe("AttackUseCase (integration)", () => {
       effectApplied: null,
     });
     expect(result.outcome).toBe("ongoing");
-    expect(result.playerStatus.currentStamina).toBe(14); // 10 - 1 (HIT) + 5 passive
+    expect(result.playerStatus.currentStamina).toBe(10); // 10 - 5 (HIT) + 5 passive
     expect(result.monsterStatus.currentHp).toBe(100 - expectedPlayerDamage);
   });
 
@@ -137,11 +141,11 @@ describe("AttackUseCase (integration)", () => {
     const itemId = await createTestItem(sql, { name: "Rare Fang" });
     const { playerId, monsterId, battle } = await setupBasicBattle({
       monsterHp: 1,
-      drops: [{ itemId, dropRate: 100 }],
+      drops: [{ itemId, dropRate: 1000 }],
     });
 
     // pick(monster attack, unused since monster dies before acting) not consumed;
-    // drop roll: [tuple-roll(<=100 always succeeds), winner-index(0, only success)]
+    // drop roll: [tuple-roll(<=100000 always succeeds at dropRate 1000), winner-index(0, only success)]
     const uc = buildUseCases(sql, new FakeRng([50, 0]));
     await uc.battleRepository.create(battle);
 
@@ -164,8 +168,8 @@ describe("AttackUseCase (integration)", () => {
   it("death flow: applies the 1% XP penalty and deletes the battle row", async () => {
     const { playerId, battle } = await setupBasicBattle({
       playerHp: 1,
-      playerForce: 1, // player deals ~0 damage, monster survives to act
-      monsterForce: 10, // monster deals lethal damage back
+      playerStrength: 1, // player deals ~0 damage, monster survives to act
+      monsterStrength: 10, // monster deals lethal damage back
       monsterHp: 100,
     });
     await sql`update players set xp = 1000 where id = ${playerId}`;
@@ -192,7 +196,7 @@ describe("AttackUseCase (integration)", () => {
       monsterLuck: 100,
       playerLuck: 1,
       monsterType: "poisonous",
-      monsterForce: 1,
+      monsterStrength: 1,
     });
 
     // pick(idx0), proc roll (<=99 always procs given a 99-point Luck lead)
@@ -209,15 +213,20 @@ describe("AttackUseCase (integration)", () => {
     );
   });
 
-  it("charge -> unleash: the monster charges a special, then unleashes it guaranteed with 100% effect", async () => {
+  it("resolves the cure item for an attack-caused effect via the centralized effect_counters table, not the monster's innate type", async () => {
+    // The monster is 'normal' (innate bleed), but its special explicitly
+    // applies 'poison' instead — proving the cure resolves off the effect
+    // *kind*, not off the monster's own innate type or any per-attack data
+    // (attacks/monster_attacks no longer even have a counter_item_id column).
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 10 });
-    const monsterId = await createTestMonster(sql, { hp: 100, force: 1, monsterType: "normal" });
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 100, strength: 1, monsterType: "normal" });
     const specialId = await createTestMonsterAttack(sql, {
-      name: "Charged Slam",
+      name: "Venom Fang",
       staminaCost: 5,
-      multiplier: 2,
-      scalingAttribute: "force",
+      multiplier: 0,
+      scalingAttribute: "strength",
+      appliesEffect: "poison",
       isSpecial: true,
       chargeTurns: 1,
     });
@@ -237,7 +246,63 @@ describe("AttackUseCase (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
+    });
+
+    const uc = buildUseCases(sql, new FakeRng([0]));
+    await uc.battleRepository.create(battle);
+
+    // Turn 1: monster starts charging Venom Fang. Turn 2: unleashes it,
+    // guaranteed effect on unleash (plan2 §6a).
+    await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
+    await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
+
+    const [antidote] = await sql<
+      { id: string }[]
+    >`select id from items where name = 'antidote' limit 1`;
+
+    const battleAfter = await uc.battleRepository.findByPlayerId(playerId);
+    const poisonEffect = battleAfter?.playerEffects.find((e) => isDot(e) && e.kind === "poison");
+    expect(poisonEffect && isDot(poisonEffect) ? poisonEffect.counterItemId : null).toBe(
+      antidote.id,
+    );
+  });
+
+  it("charge -> unleash: the monster charges a special, then unleashes it guaranteed with 100% effect", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 100, strength: 1, monsterType: "normal" });
+    const specialId = await createTestMonsterAttack(sql, {
+      name: "Charged Slam",
+      staminaCost: 5,
+      multiplier: 2,
+      scalingAttribute: "strength",
+      isSpecial: true,
+      chargeTurns: 1,
+    });
+    await linkMonsterMoveset(sql, monsterId, specialId);
+
+    const battle = Battle.create({
+      id: Bun.randomUUIDv7(),
+      playerId,
+      monsterId,
+      playerCurrentHp: maxHp(1, 10),
+      playerCurrentStamina: 10,
+      monsterCurrentHp: 100,
+      monsterCurrentStamina: 25,
+      round: 1,
+      playerEffects: [],
+      monsterEffects: [],
+      monsterChargingAttackId: null,
+      chargeRoundsLeft: 0,
+      monsterAttackWeights: {},
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0]));

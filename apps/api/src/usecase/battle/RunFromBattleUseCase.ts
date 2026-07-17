@@ -1,21 +1,25 @@
-import { effectAppliedMessage, isStunned } from "@/domain/battle/BattleEffect";
+import { effectAppliedMessage, isStunned, toBattleEffectView } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
+import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import { Player } from "@/domain/player/Player";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
+import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
+import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -40,7 +44,11 @@ export class RunFromBattleUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
-    private readonly stunCooldownRounds: number,
+    private readonly statusCooldownRounds: number,
+    private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+    private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: RunFromBattleInput): Promise<TurnReportOutput> {
@@ -53,18 +61,23 @@ export class RunFromBattleUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+    const [
+      playerAttacks,
+      moveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+    ] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(
+      computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
         this.itemRepository,
+        this.setAttributeBonus,
         battle.playerEffects,
       ),
     ]);
 
-    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.force);
+    const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 
     // Stunned: the flee attempt itself is voided too — the monster gets a
     // full normal turn instead of just a parting-hit chance.
@@ -76,18 +89,26 @@ export class RunFromBattleUseCase {
         moveset,
         playerAttacks,
         effectiveAttributes,
+        attributesBeforeDebuff,
         playerMaxHp,
         rng: this.rng,
-        itemRepository: this.itemRepository,
+        effectCounterRepository: this.effectCounterRepository,
         playerRepository: this.playerRepository,
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
+        dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
+        itemRepository: this.itemRepository,
+        uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
       });
     }
 
     const monsterAttributes = monster.getAttributes();
+    const monsterAttributesView = buildRevealedAttributesView(
+      monsterAttributes.toValues(),
+      battle.revealedMonsterAttributes,
+    );
 
     let playerCurrentHp = battle.playerCurrentHp;
     let monsterAttack: TurnReportOutput["monsterAttack"] = null;
@@ -140,11 +161,14 @@ export class RunFromBattleUseCase {
         monsterStatus: {
           currentHp: battle.monsterCurrentHp,
           maxHp: monster.hp,
-          currentStamina: battle.monsterCurrentStamina,
-          maxStamina: monster.maxStamina,
         },
+        monsterAttributes: monsterAttributesView,
         outcome: "lost",
         lootOffer: null,
+        playerEffects: battle.playerEffects.map(toBattleEffectView),
+        monsterEffects: battle.monsterEffects.map(toBattleEffectView),
+        attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+        attributesAfterDebuff: effectiveAttributes.toValues(),
       };
     }
 
@@ -164,11 +188,14 @@ export class RunFromBattleUseCase {
       monsterStatus: {
         currentHp: battle.monsterCurrentHp,
         maxHp: monster.hp,
-        currentStamina: battle.monsterCurrentStamina,
-        maxStamina: monster.maxStamina,
       },
+      monsterAttributes: monsterAttributesView,
       outcome: "fled",
       lootOffer: null,
+      playerEffects: battle.playerEffects.map(toBattleEffectView),
+      monsterEffects: battle.monsterEffects.map(toBattleEffectView),
+      attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+      attributesAfterDebuff: effectiveAttributes.toValues(),
     };
   }
 }

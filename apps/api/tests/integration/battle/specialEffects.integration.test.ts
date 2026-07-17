@@ -26,15 +26,15 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
     await sql.close();
   });
 
-  it("unleashing a Fear special applies a Force stat-debuff to the player", async () => {
+  it("unleashing a Fear special applies a Strength stat-debuff to the player", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 20 });
-    const monsterId = await createTestMonster(sql, { hp: 1000, force: 1 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 20 });
+    const monsterId = await createTestMonster(sql, { hp: 1000, strength: 1 });
     const fearId = await createTestMonsterAttack(sql, {
       name: "Fear Test",
       staminaCost: 10,
       multiplier: 0,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
       appliesEffect: "fear",
       isSpecial: true,
       chargeTurns: 1,
@@ -55,7 +55,10 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     // turn1: pick Fear (only option, idx0), charge-warning flavor pick (idx0)
@@ -75,25 +78,25 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
     expect(fearDebuff?.type).toBe("debuff");
     if (fearDebuff?.type === "debuff") {
       expect(fearDebuff.kind).toBe("fear");
-      expect(fearDebuff.stat).toBe("force");
+      expect(fearDebuff.stat).toBe("strength");
     }
   });
 
   it("unleashing a Stun special voids the player's next two turns while the monster keeps attacking", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 10 });
-    const monsterId = await createTestMonster(sql, { hp: 1000, force: 1 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 10 });
+    const monsterId = await createTestMonster(sql, { hp: 1000, strength: 1 });
     const clawId = await createTestMonsterAttack(sql, {
       name: "Claw",
       staminaCost: 2,
       multiplier: 1,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     const stunId = await createTestMonsterAttack(sql, {
       name: "Stun Test",
       staminaCost: 10,
       multiplier: 1,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
       appliesEffect: "stun",
       isSpecial: true,
       chargeTurns: 1,
@@ -115,7 +118,10 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     // Attack selection is deterministic (no rng), so every queued value
@@ -135,7 +141,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
 
     const afterUnleash = await uc.battleRepository.findByPlayerId(playerId);
     expect(afterUnleash?.playerEffects.some((e) => e.type === "stun")).toBe(true);
-    expect(afterUnleash?.stunCooldownRoundsLeft).toBeGreaterThan(0);
+    expect(afterUnleash?.statusCooldownRoundsLeft).toBeGreaterThan(0);
 
     const turn3 = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
     expect(turn3.playerAttack).toBeNull();
@@ -153,15 +159,15 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
     expect(turn5.playerAttack).not.toBeNull();
   });
 
-  it("an active Fear debuff halves the player's effective Force, reducing damage output", async () => {
+  it("an active Fear debuff halves the player's effective Strength, reducing damage output", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { force: 20 });
-    const monsterId = await createTestMonster(sql, { hp: 1000, force: 1 });
+    const playerId = await createTestPlayer(sql, userId, { strength: 20 });
+    const monsterId = await createTestMonster(sql, { hp: 1000, strength: 1 });
     const attackId = await createTestMonsterAttack(sql, {
       name: "Basic Strike",
       staminaCost: 0,
       multiplier: 0.4,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     await linkMonsterMoveset(sql, monsterId, attackId);
 
@@ -174,12 +180,15 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterCurrentHp: 1000,
       monsterCurrentStamina: 10,
       round: 1,
-      playerEffects: [{ type: "debuff", kind: "fear", stat: "force", roundsElapsed: 0 }],
+      playerEffects: [{ type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 }],
       monsterEffects: [],
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0, 50]));
@@ -188,9 +197,9 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
     const expectedDamage = computeDamage({
-      attackMultiplier: 0.4,
+      attackMultiplier: 1, // seeded HIT multiplier (combat-balance follow-up)
       attackerScalingValue: 10, // 20 halved by the active Fear debuff
-      staminaCost: 1, // seeded HIT costs 1
+      staminaCost: 5, // seeded HIT stamina cost (combat-balance follow-up)
       defenderLevel: 1,
       defenderScalingValue: 1,
     });
@@ -201,12 +210,12 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
   it("an active Magic Aura Blast debuff reduces the player's effective Intelligence", async () => {
     const userId = await createTestUser(sql);
     const playerId = await createTestPlayer(sql, userId, { intelligence: 20 });
-    const monsterId = await createTestMonster(sql, { hp: 1000, force: 1 });
+    const monsterId = await createTestMonster(sql, { hp: 1000, strength: 1 });
     const attackId = await createTestMonsterAttack(sql, {
       name: "Basic Strike 2",
       staminaCost: 0,
       multiplier: 0.4,
-      scalingAttribute: "force",
+      scalingAttribute: "strength",
     });
     await linkMonsterMoveset(sql, monsterId, attackId);
     await createTestPlayerAttack(sql, {
@@ -232,7 +241,10 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
+      dungeonIsBossFight: false,
+      revealedMonsterAttributes: [],
+      dungeonTier: null,
     });
 
     const uc = buildUseCases(sql, new FakeRng([0, 50]));

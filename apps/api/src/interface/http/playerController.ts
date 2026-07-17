@@ -1,5 +1,6 @@
 import {
   AllocateAttributePointsRequestSchema,
+  DestroyBagItemRequestSchema,
   EquipItemRequestSchema,
   PatchPlayerRequestSchema,
   UnequipItemRequestSchema,
@@ -7,20 +8,25 @@ import {
 import { Hono } from "hono";
 import type { AuthedVariables } from "@/interface/http/authMiddleware";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
+import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import type { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import {
+  CannotDestroyEquippedItemError,
   InsufficientAttributePointsError,
   ItemNotEquippableError,
   PlayerItemNotFoundError,
 } from "@/usecase/player/errors";
+import type { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import type { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 
 export interface PlayerControllerDeps {
   equipItemUseCase: EquipItemUseCase;
   unequipItemUseCase: UnequipItemUseCase;
+  destroyBagItemUseCase: DestroyBagItemUseCase;
   allocateAttributePointsUseCase: AllocateAttributePointsUseCase;
   updatePlayerNameUseCase: UpdatePlayerNameUseCase;
+  getPlayerProfileUseCase: GetPlayerProfileUseCase;
 }
 
 function toPlayerItemSummary(playerItem: {
@@ -41,6 +47,11 @@ export function createPlayerController(
   deps: PlayerControllerDeps,
 ): Hono<{ Variables: AuthedVariables }> {
   const app = new Hono<{ Variables: AuthedVariables }>();
+
+  app.get("/player", async (c) => {
+    const result = await deps.getPlayerProfileUseCase.execute({ playerId: c.get("playerId") });
+    return c.json(result, 200);
+  });
 
   app.patch("/player", async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -109,6 +120,36 @@ export function createPlayerController(
       }
       if (err instanceof ItemNotEquippableError) {
         return c.json({ error: { code: "ITEM_NOT_EQUIPPABLE", message: err.message } }, 400);
+      }
+      throw err;
+    }
+  });
+
+  app.post("/player/bag/destroy", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = DestroyBagItemRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        { error: { code: "INVALID_REQUEST", message: "Malformed destroy request" } },
+        400,
+      );
+    }
+
+    try {
+      await deps.destroyBagItemUseCase.execute({
+        playerId: c.get("playerId"),
+        playerItemId: parsed.data.playerItemId,
+      });
+      return c.json({}, 200);
+    } catch (err) {
+      if (err instanceof PlayerItemNotFoundError) {
+        return c.json({ error: { code: "PLAYER_ITEM_NOT_FOUND", message: err.message } }, 404);
+      }
+      if (err instanceof CannotDestroyEquippedItemError) {
+        return c.json(
+          { error: { code: "CANNOT_DESTROY_EQUIPPED_ITEM", message: err.message } },
+          400,
+        );
       }
       throw err;
     }

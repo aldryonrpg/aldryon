@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 
 describe("battleConfig formulas", () => {
-  it("max HP = 100 + 10*Vitality + 1*Force", () => {
+  it("max HP = 100 + 10*Vitality + 1*Strength", () => {
     expect(maxHp(10, 5)).toBe(100 + 10 * 10 + 1 * 5);
   });
 

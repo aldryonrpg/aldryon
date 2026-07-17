@@ -1,6 +1,10 @@
 import type { Attack } from "@/domain/attack/Attack";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
-import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
+import {
+  addBattleEffect,
+  effectAppliedMessage,
+  STATUS_EFFECT_KINDS,
+} from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, CHARGE_WARNING_FLAVOR } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
@@ -14,9 +18,9 @@ import type { BattleEffectKind, MonsterAttack } from "@/domain/monster/MonsterAt
 import type { Attributes } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import { defaultPlayerAttack } from "@/usecase/battle/combatStance";
+import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { AttackResultOutput } from "@/usecase/battle/TurnReportOutput";
-import type { ItemRepository } from "@/usecase/item/ItemRepository";
 
 export interface MonsterTurnState {
   playerCurrentHp: number;
@@ -25,7 +29,14 @@ export interface MonsterTurnState {
   monsterChargingAttackId: string | null;
   chargeRoundsLeft: number;
   monsterAttackWeights: Record<string, number>;
-  stunCooldownRoundsLeft: number;
+  /** Rounds left before a Stun/Fear/Magic-Aura-Blast-applying special can be
+   * selected again — 0 means usable. One shared field for all three status-
+   * effect kinds: set to the configured cooldown whenever any of them
+   * unleashes, decrements by 1 every round regardless of what the monster
+   * does (plan2 §6a, extended to the stat-decay debuffs too — re-landing
+   * the same one back-to-back barely matters since addBattleEffect
+   * refreshes rather than stacks it). */
+  statusCooldownRoundsLeft: number;
 }
 
 export interface MonsterTurnResult extends MonsterTurnState {
@@ -53,11 +64,12 @@ export async function resolveMonsterTurn(params: {
   playerLevel: number;
   effectiveAttributes: Attributes;
   rng: Rng;
-  itemRepository: ItemRepository;
-  /** Rounds a Stun-applying special stays excluded from selection after it
-   * unleashes (env-configurable, plan2 §6a extension — "Stun must never
-   * chain"). */
-  stunCooldownRounds: number;
+  effectCounterRepository: EffectCounterRepository;
+  /** Rounds a Stun/Fear/Magic-Aura-Blast-applying special stays excluded
+   * from selection after it unleashes (env-configurable, plan2 §6a
+   * extension — "Stun must never chain", extended to cover the stat-decay
+   * debuffs since they don't stack either). */
+  statusCooldownRounds: number;
 }): Promise<MonsterTurnResult> {
   const {
     monster,
@@ -66,8 +78,8 @@ export async function resolveMonsterTurn(params: {
     playerLevel,
     effectiveAttributes,
     rng,
-    itemRepository,
-    stunCooldownRounds,
+    effectCounterRepository,
+    statusCooldownRounds,
   } = params;
   const monsterAttributes = monster.getAttributes();
   const messages: string[] = [];
@@ -78,7 +90,7 @@ export async function resolveMonsterTurn(params: {
     monsterChargingAttackId,
     chargeRoundsLeft,
     monsterAttackWeights,
-    stunCooldownRoundsLeft,
+    statusCooldownRoundsLeft,
   } = params.state;
   let monsterAttack: AttackResultOutput | null = null;
   let monsterStaminaRegen: number = BATTLE_CONFIG.passiveStaminaRegen;
@@ -105,32 +117,30 @@ export async function resolveMonsterTurn(params: {
       monsterCurrentStamina = Math.max(0, monsterCurrentStamina - special.staminaCost);
 
       const innateKind = monster.innateEffectKind;
-      const innateCounter = await resolveCounterItemId(innateKind, itemRepository);
-      playerEffects = [
-        ...playerEffects,
-        buildBattleEffect(innateKind, {
-          inflictorLevel: monster.level,
-          victimLevel: playerLevel,
-          counterItemId: innateCounter,
-        }),
-      ];
+      const innateCounter = await resolveCounterItemId(innateKind, effectCounterRepository);
+      playerEffects = addBattleEffect(playerEffects, innateKind, {
+        inflictorLevel: monster.level,
+        victimLevel: playerLevel,
+        counterItemId: innateCounter,
+      });
 
       if (special.appliesEffect && special.appliesEffect !== innateKind) {
-        playerEffects = [
-          ...playerEffects,
-          buildBattleEffect(special.appliesEffect, {
-            inflictorLevel: monster.level,
-            victimLevel: playerLevel,
-            counterItemId: special.counterItemId,
-          }),
-        ];
+        playerEffects = addBattleEffect(playerEffects, special.appliesEffect, {
+          inflictorLevel: monster.level,
+          victimLevel: playerLevel,
+          counterItemId: await resolveCounterItemId(special.appliesEffect, effectCounterRepository),
+        });
         const message = effectAppliedMessage(special.appliesEffect);
         if (message) messages.push(message);
 
-        // Stun must never chain: this special can't be selected again until
-        // the cooldown expires (plan2 §6a extension).
-        if (special.appliesEffect === "stun") {
-          stunCooldownRoundsLeft = stunCooldownRounds;
+        // None of Stun/Fear/Magic Aura Blast should chain: this special
+        // can't be selected again until the shared cooldown expires (plan2
+        // §6a extension — Fear/Magic Aura Blast don't stack anyway, so
+        // re-landing the same one back-to-back would barely matter). A
+        // damage-dealing special's own DoT (if any) isn't gated — bleed/
+        // poison/burn stack fine and don't need this protection.
+        if (STATUS_EFFECT_KINDS.has(special.appliesEffect)) {
+          statusCooldownRoundsLeft = statusCooldownRounds;
         }
       }
 
@@ -142,9 +152,14 @@ export async function resolveMonsterTurn(params: {
     const affordable = moveset.filter(
       (a) =>
         a.staminaCost <= monsterCurrentStamina &&
-        // Stun must never chain — excluded from selection entirely while on
-        // cooldown, not just de-prioritized (plan2 §6a extension).
-        !(a.appliesEffect === "stun" && stunCooldownRoundsLeft > 0),
+        // None of Stun/Fear/Magic Aura Blast must chain — excluded from
+        // selection entirely while the shared cooldown is running, not just
+        // de-prioritized (plan2 §6a extension).
+        !(
+          a.appliesEffect &&
+          STATUS_EFFECT_KINDS.has(a.appliesEffect) &&
+          statusCooldownRoundsLeft > 0
+        ),
     );
     const affordableSpecials = affordable.filter((a) => a.isSpecial);
     const affordableNormals = affordable.filter((a) => !a.isSpecial);
@@ -188,7 +203,7 @@ export async function resolveMonsterTurn(params: {
       const hit = rollHit(
         {
           attackerDexterity: monsterAttributes.dexterity,
-          defenderDexterity: effectiveAttributes.dexterity,
+          defenderAgility: effectiveAttributes.agility,
           attackerLuck: monsterAttributes.luck,
         },
         rng,
@@ -207,17 +222,12 @@ export async function resolveMonsterTurn(params: {
         );
         if (proced) {
           const kind: BattleEffectKind = picked.appliesEffect ?? monster.innateEffectKind;
-          const counterItemId = picked.appliesEffect
-            ? picked.counterItemId
-            : await resolveCounterItemId(kind, itemRepository);
-          playerEffects = [
-            ...playerEffects,
-            buildBattleEffect(kind, {
-              inflictorLevel: monster.level,
-              victimLevel: playerLevel,
-              counterItemId,
-            }),
-          ];
+          const counterItemId = await resolveCounterItemId(kind, effectCounterRepository);
+          playerEffects = addBattleEffect(playerEffects, kind, {
+            inflictorLevel: monster.level,
+            victimLevel: playerLevel,
+            counterItemId,
+          });
           effectApplied = kind;
           const message = effectAppliedMessage(kind);
           if (message) messages.push(message);
@@ -232,7 +242,7 @@ export async function resolveMonsterTurn(params: {
 
   monsterCurrentStamina = Math.min(monster.maxStamina, monsterCurrentStamina + monsterStaminaRegen);
   monsterAttackWeights = bumpAttackWeights(monsterAttackWeights, moveset, pickedNormalAttackId);
-  stunCooldownRoundsLeft = Math.max(0, stunCooldownRoundsLeft - 1);
+  statusCooldownRoundsLeft = Math.max(0, statusCooldownRoundsLeft - 1);
 
   return {
     playerCurrentHp,
@@ -241,7 +251,7 @@ export async function resolveMonsterTurn(params: {
     monsterChargingAttackId,
     chargeRoundsLeft,
     monsterAttackWeights,
-    stunCooldownRoundsLeft,
+    statusCooldownRoundsLeft,
     monsterAttack,
     messages,
   };

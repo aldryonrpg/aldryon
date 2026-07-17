@@ -1,6 +1,7 @@
 import type { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
+import type { AttributeKey } from "@/domain/shared/Attributes";
 import { parseJsonbColumn } from "@/infrastructure/persistence/jsonbColumn";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 
@@ -18,7 +19,10 @@ interface BattleRow {
   monster_charging_attack_id: string | null;
   charge_rounds_left: number;
   monster_attack_weights: unknown;
-  stun_cooldown_rounds_left: number;
+  status_cooldown_rounds_left: number;
+  dungeon_tier: 1 | 2 | 3 | null;
+  dungeon_is_boss_fight: boolean;
+  revealed_monster_attributes: unknown;
 }
 
 function toDomain(row: BattleRow): Battle {
@@ -36,7 +40,13 @@ function toDomain(row: BattleRow): Battle {
     monsterChargingAttackId: row.monster_charging_attack_id,
     chargeRoundsLeft: row.charge_rounds_left,
     monsterAttackWeights: parseJsonbColumn<Record<string, number>>(row.monster_attack_weights, {}),
-    stunCooldownRoundsLeft: row.stun_cooldown_rounds_left,
+    statusCooldownRoundsLeft: row.status_cooldown_rounds_left,
+    dungeonTier: row.dungeon_tier,
+    dungeonIsBossFight: row.dungeon_is_boss_fight,
+    revealedMonsterAttributes: parseJsonbColumn<AttributeKey[]>(
+      row.revealed_monster_attributes,
+      [],
+    ),
   });
 }
 
@@ -57,13 +67,16 @@ export class PostgresBattleRepository implements BattleRepository {
         id, player_id, monster_id, player_current_hp, player_current_stamina,
         monster_current_hp, monster_current_stamina, round,
         player_effects, monster_effects, monster_charging_attack_id, charge_rounds_left,
-        monster_attack_weights, stun_cooldown_rounds_left
+        monster_attack_weights, status_cooldown_rounds_left,
+        dungeon_tier, dungeon_is_boss_fight, revealed_monster_attributes
       ) values (
         ${props.id}, ${props.playerId}, ${props.monsterId}, ${props.playerCurrentHp}, ${props.playerCurrentStamina},
         ${props.monsterCurrentHp}, ${props.monsterCurrentStamina}, ${props.round},
-        ${JSON.stringify(props.playerEffects)}::jsonb, ${JSON.stringify(props.monsterEffects)}::jsonb,
+        ${props.playerEffects}::jsonb, ${props.monsterEffects}::jsonb,
         ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft},
-        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.stunCooldownRoundsLeft}
+        ${props.monsterAttackWeights}::jsonb, ${props.statusCooldownRoundsLeft},
+        ${props.dungeonTier}, ${props.dungeonIsBossFight},
+        ${props.revealedMonsterAttributes}::jsonb
       )
       returning *
     `;
@@ -76,17 +89,21 @@ export class PostgresBattleRepository implements BattleRepository {
     const props = battle.toProps();
     const rows = await this.sql<BattleRow[]>`
       update battles set
+        monster_id = ${props.monsterId},
         player_current_hp = ${props.playerCurrentHp},
         player_current_stamina = ${props.playerCurrentStamina},
         monster_current_hp = ${props.monsterCurrentHp},
         monster_current_stamina = ${props.monsterCurrentStamina},
         round = ${props.round},
-        player_effects = ${JSON.stringify(props.playerEffects)}::jsonb,
-        monster_effects = ${JSON.stringify(props.monsterEffects)}::jsonb,
+        player_effects = ${props.playerEffects}::jsonb,
+        monster_effects = ${props.monsterEffects}::jsonb,
         monster_charging_attack_id = ${props.monsterChargingAttackId},
         charge_rounds_left = ${props.chargeRoundsLeft},
-        monster_attack_weights = ${JSON.stringify(props.monsterAttackWeights)}::jsonb,
-        stun_cooldown_rounds_left = ${props.stunCooldownRoundsLeft}
+        monster_attack_weights = ${props.monsterAttackWeights}::jsonb,
+        status_cooldown_rounds_left = ${props.statusCooldownRoundsLeft},
+        dungeon_tier = ${props.dungeonTier},
+        dungeon_is_boss_fight = ${props.dungeonIsBossFight},
+        revealed_monster_attributes = ${props.revealedMonsterAttributes}::jsonb
       where id = ${props.id}
       returning *
     `;
