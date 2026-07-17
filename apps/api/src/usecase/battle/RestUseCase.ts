@@ -40,6 +40,7 @@ export class RestUseCase {
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: RestInput): Promise<TurnReportOutput> {
@@ -59,6 +60,7 @@ export class RestUseCase {
         player,
         this.playerItemRepository,
         this.itemRepository,
+        this.setAttributeBonus,
         battle.playerEffects,
       ),
     ]);

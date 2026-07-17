@@ -60,6 +60,10 @@ export interface GetPlayerProfileOutput {
   dungeonRun: DungeonRunStatusOutput | null;
   equipped: EquippedItemsOutput;
   bag: BagItemOutput[];
+  /** Flat per-attribute bonus a complete 6-piece equipment set grants
+   * (env-configurable, `SET_ATTRIBUTE_BONUS`) — surfaced so the client
+   * can render "+N" set-completion messaging without hardcoding the value. */
+  setAttributeBonus: number;
 }
 
 /**
@@ -74,6 +78,7 @@ export class GetPlayerProfileUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: GetPlayerProfileInput): Promise<GetPlayerProfileOutput> {
@@ -133,6 +138,7 @@ export class GetPlayerProfileUseCase {
       equippedItems
         .filter((item) => item.slot !== null)
         .map((item) => ({ slot: item.slot as string, setName: item.setName })),
+      this.setAttributeBonus,
     );
     const attributeBonuses = sumAttributeBonuses([itemBonuses, setBonus]);
 
@@ -162,6 +168,7 @@ export class GetPlayerProfileUseCase {
       dungeonRun,
       equipped,
       bag,
+      setAttributeBonus: this.setAttributeBonus,
     };
   }
 }

@@ -199,7 +199,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
     const expectedDamage = computeDamage({
       attackMultiplier: 1, // seeded HIT multiplier (combat-balance follow-up)
       attackerScalingValue: 10, // 20 halved by the active Fear debuff
-      staminaCost: 1, // seeded HIT costs 1
+      staminaCost: 5, // seeded HIT stamina cost (combat-balance follow-up)
       defenderLevel: 1,
       defenderScalingValue: 1,
     });

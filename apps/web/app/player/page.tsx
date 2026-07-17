@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BagPanel } from "@/components/battle/BagPanel";
 import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
+import { SetBonusStatus } from "@/components/battle/SetBonusStatus";
 import {
   allocateAttributePoints,
   equipItem,
@@ -61,10 +62,6 @@ export default function PlayerSheet() {
   function handleStage(key: AttributeKeyDto) {
     if (remaining <= 0) return;
     setStaged((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
-  }
-
-  function handleReset() {
-    setStaged({});
   }
 
   async function handleSave() {
@@ -224,11 +221,17 @@ export default function PlayerSheet() {
             })}
           </div>
 
-          <EquipmentPanel
-            equipped={profile.equipped}
-            onUnequip={handleUnequip}
-            disabled={actionLoading}
-          />
+          <div className="flex flex-col gap-1">
+            <EquipmentPanel
+              equipped={profile.equipped}
+              onUnequip={handleUnequip}
+              disabled={actionLoading}
+            />
+            <SetBonusStatus
+              equipped={profile.equipped}
+              setAttributeBonus={profile.setAttributeBonus}
+            />
+          </div>
 
           <BagPanel
             bag={profile.bag}
@@ -246,14 +249,6 @@ export default function PlayerSheet() {
             className="border border-white bg-white px-4 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={saving || stagedTotal === 0}
-            className="border border-white px-4 py-2 hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Reset
           </button>
         </div>
       </div>

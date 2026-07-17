@@ -195,7 +195,7 @@ describe("Store (integration)", () => {
         isVip: false,
         itemId: helmet.id,
       });
-      expect(purchase.gold).toBe(70);
+      expect(purchase.gold).toBe(50); // 100 - 50 (Basic/Leather set uniform price)
       expect(purchase.playerItem.equippedSlot).toBeNull();
 
       const equipped = await uc.equipItemUseCase.execute({

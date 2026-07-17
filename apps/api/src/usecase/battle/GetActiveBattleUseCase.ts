@@ -46,6 +46,7 @@ export class GetActiveBattleUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly attackRepository: AttackRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: GetActiveBattleInput): Promise<ActiveBattleOutput | null> {
@@ -62,6 +63,7 @@ export class GetActiveBattleUseCase {
       player,
       this.playerItemRepository,
       this.itemRepository,
+      this.setAttributeBonus,
       battle.playerEffects,
     );
     const playerAttacks = await this.attackRepository.findAll();

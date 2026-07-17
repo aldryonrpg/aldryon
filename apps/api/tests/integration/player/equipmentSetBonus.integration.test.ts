@@ -75,6 +75,7 @@ describe("Equipment set completion bonus (integration)", () => {
       player,
       uc.playerItemRepository,
       uc.itemRepository,
+      uc.setAttributeBonus,
     );
 
     // Each slot's own +1 plus the flat +2 set-completion bonus; helmet and
@@ -120,6 +121,7 @@ describe("Equipment set completion bonus (integration)", () => {
       player,
       uc.playerItemRepository,
       uc.itemRepository,
+      uc.setAttributeBonus,
     );
 
     expect(effective.strength).toBe(1);
@@ -157,6 +159,7 @@ describe("Equipment set completion bonus (integration)", () => {
       player,
       uc.playerItemRepository,
       uc.itemRepository,
+      uc.setAttributeBonus,
     );
 
     // Only individual bonuses apply — the body slot's different set name

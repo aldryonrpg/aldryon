@@ -22,12 +22,19 @@ export interface EquippedSetPiece {
 }
 
 /**
- * Flat +2 to every attribute when all 6 non-weapon slots are equipped with
- * items sharing the same `setName` — otherwise no bonus at all (no partial
- * credit for 5 of 6 pieces). Since each slot holds at most one item, at most
- * one set can ever be complete at a time.
+ * `attributeBonus` (env-configurable, `SET_ATTRIBUTE_BONUS`, default 2) to
+ * every attribute when all 6 non-weapon slots are equipped with items
+ * sharing the same `setName` — otherwise no bonus at all (no partial credit
+ * for 5 of 6 pieces). Since each slot holds at most one item, at most one
+ * set can ever be complete at a time. This completion bonus is the same
+ * flat value for every tier (Leather through Platinum) — only each set's
+ * *individual per-piece* attribute bonuses scale by tier (Iron/Silver 2x,
+ * Gold 3x, Platinum 4x the Leather baseline), not this one.
  */
-export function computeSetBonus(equipped: EquippedSetPiece[]): AttributeValues {
+export function computeSetBonus(
+  equipped: EquippedSetPiece[],
+  attributeBonus: number,
+): AttributeValues {
   const setNameBySlot = new Map(equipped.map((item) => [item.slot, item.setName]));
   const first = setNameBySlot.get(REQUIRED_SET_SLOTS[0] as string);
   const isComplete =
@@ -36,7 +43,7 @@ export function computeSetBonus(equipped: EquippedSetPiece[]): AttributeValues {
 
   const bonus = { ...ZERO_ATTRIBUTE_BONUSES };
   for (const key of ATTRIBUTE_KEYS) {
-    bonus[key] = 2;
+    bonus[key] = attributeBonus;
   }
   return bonus;
 }

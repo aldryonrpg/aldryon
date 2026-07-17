@@ -78,6 +78,7 @@ const startBattleUseCase = new StartBattleUseCase(
   levelRepository,
   rng,
   effectCounterRepository,
+  env.setAttributeBonus,
 );
 const attackUseCase = new AttackUseCase(
   playerRepository,
@@ -94,6 +95,7 @@ const attackUseCase = new AttackUseCase(
   dungeonSlayerRankingRepository,
   effectCounterRepository,
   uniqueItemOwnershipRepository,
+  env.setAttributeBonus,
 );
 const runFromBattleUseCase = new RunFromBattleUseCase(
   playerRepository,
@@ -110,6 +112,7 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   dungeonSlayerRankingRepository,
   effectCounterRepository,
   uniqueItemOwnershipRepository,
+  env.setAttributeBonus,
 );
 const useBagItemUseCase = new UseBagItemUseCase(
   playerRepository,
@@ -126,6 +129,7 @@ const useBagItemUseCase = new UseBagItemUseCase(
   dungeonSlayerRankingRepository,
   effectCounterRepository,
   uniqueItemOwnershipRepository,
+  env.setAttributeBonus,
 );
 const restUseCase = new RestUseCase(
   playerRepository,
@@ -142,6 +146,7 @@ const restUseCase = new RestUseCase(
   dungeonSlayerRankingRepository,
   effectCounterRepository,
   uniqueItemOwnershipRepository,
+  env.setAttributeBonus,
 );
 const claimLootUseCase = new ClaimLootUseCase(
   playerRepository,
@@ -164,12 +169,14 @@ const getActiveBattleUseCase = new GetActiveBattleUseCase(
   playerItemRepository,
   itemRepository,
   attackRepository,
+  env.setAttributeBonus,
 );
 const getPlayerProfileUseCase = new GetPlayerProfileUseCase(
   playerRepository,
   playerItemRepository,
   itemRepository,
   dungeonSlayerRankingRepository,
+  env.setAttributeBonus,
 );
 const listItemsUseCase = new ListItemsUseCase(itemRepository);
 const getItemRarityColorsUseCase = new GetItemRarityColorsUseCase();
@@ -184,6 +191,7 @@ const startDungeonUseCase = new StartDungeonUseCase(
   levelRepository,
   rng,
   effectCounterRepository,
+  env.setAttributeBonus,
 );
 const continueDungeonUseCase = new ContinueDungeonUseCase(
   playerRepository,
@@ -198,6 +206,7 @@ const continueDungeonUseCase = new ContinueDungeonUseCase(
   dungeonBossRepository,
   rng,
   effectCounterRepository,
+  env.setAttributeBonus,
 );
 const exitDungeonRunUseCase = new ExitDungeonRunUseCase(playerRepository);
 const getDungeonSlayerLeaderboardUseCase = new GetDungeonSlayerLeaderboardUseCase(

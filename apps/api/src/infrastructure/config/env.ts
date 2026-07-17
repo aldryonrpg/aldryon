@@ -25,6 +25,11 @@ export function loadEnv() {
     // (plan2 §6a extension) — kept as an ENV knob for the same reason as
     // levelUpAttributePoints: it's a balance number, not a code decision.
     stunCooldownRounds: Number(process.env.STUN_COOLDOWN_ROUNDS ?? 5),
+    // Flat per-attribute bonus for wearing a complete 6-piece equipment set
+    // (equipment-sets follow-up) — kept as an ENV knob for the same reason
+    // as the other balance numbers above: it's a tuning value, not a code
+    // decision.
+    setAttributeBonus: Number(process.env.SET_ATTRIBUTE_BONUS ?? 2),
   };
 }
 

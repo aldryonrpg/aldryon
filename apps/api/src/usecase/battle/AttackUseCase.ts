@@ -57,6 +57,7 @@ export class AttackUseCase {
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: AttackInput): Promise<TurnReportOutput> {
@@ -76,6 +77,7 @@ export class AttackUseCase {
         player,
         this.playerItemRepository,
         this.itemRepository,
+        this.setAttributeBonus,
         battle.playerEffects,
       ),
     ]);

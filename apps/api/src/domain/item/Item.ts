@@ -45,7 +45,8 @@ export interface ItemProps {
   revealsAllMonsterAttributes: boolean;
   /** Null for anything not part of an equipment set (weapons, consumables,
    * unique items). Equipping all 6 non-weapon slots from the same set name
-   * grants a flat +2-all-attributes bonus — see `computeSetBonus`. */
+   * grants a flat all-attributes bonus (env-configurable,
+   * `SET_ATTRIBUTE_BONUS`) — see `computeSetBonus`. */
   setName: string | null;
   /** Decoupled from `rarity` — the store lists basic/common/uncommon items
    * by default, but a set tier can be an uncommon-or-rarer rarity that's

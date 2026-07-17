@@ -20,6 +20,7 @@ import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
 import { LootScreen } from "@/components/battle/LootScreen";
 import { MonsterPanel } from "@/components/battle/MonsterPanel";
 import { PlayerStatusBar } from "@/components/battle/PlayerStatusBar";
+import { SetBonusStatus } from "@/components/battle/SetBonusStatus";
 import {
   attack,
   claimLoot,
@@ -364,11 +365,17 @@ export default function BattlePage() {
               attributes={player.attributes}
               attributeBonuses={player.attributeBonuses}
             />
-            <EquipmentPanel
-              equipped={player.equipped}
-              onUnequip={handleUnequip}
-              disabled={actionLoading}
-            />
+            <div className="flex flex-col gap-1">
+              <EquipmentPanel
+                equipped={player.equipped}
+                onUnequip={handleUnequip}
+                disabled={actionLoading}
+              />
+              <SetBonusStatus
+                equipped={player.equipped}
+                setAttributeBonus={player.setAttributeBonus}
+              />
+            </div>
             <div className="flex flex-col items-center gap-2">
               {battleOver ? (
                 <div className="flex flex-col items-center gap-3 border border-white bg-black p-4">

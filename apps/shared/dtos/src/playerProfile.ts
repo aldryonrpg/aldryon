@@ -68,5 +68,8 @@ export const PlayerProfileResponseSchema = z.object({
   dungeonRun: DungeonRunStatusSchema,
   equipped: EquippedItemsSchema,
   bag: z.array(BagItemSchema),
+  /** Flat per-attribute bonus a complete 6-piece equipment set grants
+   * (env-configurable, `SET_ATTRIBUTE_BONUS`, default 2). */
+  setAttributeBonus: z.number(),
 });
 export type PlayerProfileResponse = z.infer<typeof PlayerProfileResponseSchema>;

@@ -39,6 +39,7 @@ import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const LEVEL_UP_ATTRIBUTE_POINTS = 4;
 const STUN_COOLDOWN_ROUNDS = 5;
+const SET_ATTRIBUTE_BONUS = 2;
 
 /** Wires every repo + usecase against a live testcontainers Postgres, given an (often fake) Rng. */
 export function buildUseCases(sql: SQL, rng: Rng) {
@@ -70,6 +71,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
     dungeonSlayerRankingRepository,
     effectCounterRepository,
     uniqueItemOwnershipRepository,
+    setAttributeBonus: SET_ATTRIBUTE_BONUS,
     getOrCreatePlayerUseCase: new GetOrCreatePlayerUseCase(playerRepository),
     startBattleUseCase: new StartBattleUseCase(
       playerRepository,
@@ -82,6 +84,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       effectCounterRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     attackUseCase: new AttackUseCase(
       playerRepository,
@@ -98,6 +101,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     runFromBattleUseCase: new RunFromBattleUseCase(
       playerRepository,
@@ -114,6 +118,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     useBagItemUseCase: new UseBagItemUseCase(
       playerRepository,
@@ -130,6 +135,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     restUseCase: new RestUseCase(
       playerRepository,
@@ -146,6 +152,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     claimLootUseCase: new ClaimLootUseCase(playerRepository, playerItemRepository, itemRepository),
     equipItemUseCase: new EquipItemUseCase(playerItemRepository, itemRepository),
@@ -164,12 +171,14 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       playerItemRepository,
       itemRepository,
       attackRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     getPlayerProfileUseCase: new GetPlayerProfileUseCase(
       playerRepository,
       playerItemRepository,
       itemRepository,
       dungeonSlayerRankingRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     listItemsUseCase: new ListItemsUseCase(itemRepository),
     getItemRarityColorsUseCase: new GetItemRarityColorsUseCase(),
@@ -184,6 +193,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       effectCounterRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     continueDungeonUseCase: new ContinueDungeonUseCase(
       playerRepository,
@@ -198,6 +208,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       dungeonBossRepository,
       rng,
       effectCounterRepository,
+      SET_ATTRIBUTE_BONUS,
     ),
     exitDungeonRunUseCase: new ExitDungeonRunUseCase(playerRepository),
     getDungeonSlayerLeaderboardUseCase: new GetDungeonSlayerLeaderboardUseCase(

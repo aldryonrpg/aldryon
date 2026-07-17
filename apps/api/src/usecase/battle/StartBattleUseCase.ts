@@ -84,6 +84,7 @@ export class StartBattleUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: StartBattleInput): Promise<StartBattleOutput> {
@@ -116,6 +117,7 @@ export class StartBattleUseCase {
       player,
       this.playerItemRepository,
       this.itemRepository,
+      this.setAttributeBonus,
     );
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,

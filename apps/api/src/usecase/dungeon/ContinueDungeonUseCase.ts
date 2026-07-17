@@ -83,6 +83,7 @@ export class ContinueDungeonUseCase {
     private readonly dungeonBossRepository: DungeonBossRepository,
     private readonly rng: Rng,
     private readonly effectCounterRepository: EffectCounterRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: ContinueDungeonInput): Promise<ContinueDungeonOutput> {
@@ -102,6 +103,7 @@ export class ContinueDungeonUseCase {
       player,
       this.playerItemRepository,
       this.itemRepository,
+      this.setAttributeBonus,
     );
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,

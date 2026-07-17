@@ -48,6 +48,7 @@ export class UseBagItemUseCase {
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
+    private readonly setAttributeBonus: number,
   ) {}
 
   async execute(input: UseBagItemInput): Promise<TurnReportOutput> {
@@ -67,6 +68,7 @@ export class UseBagItemUseCase {
         player,
         this.playerItemRepository,
         this.itemRepository,
+        this.setAttributeBonus,
         battle.playerEffects,
       ),
     ]);

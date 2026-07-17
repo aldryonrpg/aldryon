@@ -77,8 +77,12 @@ Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
   it and excluding the defender's first level from the multiplier, plus
   this floor, keeps a landed hit meaningful at every level).
 - `stamina_cost` is **added**, not multiplied, so **`HIT`** — the nearly-free
-  fallback attack every player and monster always has, 1 Stamina cost,
-  ×1.0 multiplier, Strength-scaling — needs no special-casing. Every other
+  fallback attack every player and monster always has, 5 Stamina cost (the
+  same amount both sides passively regen every round), ×1.0 multiplier,
+  Strength-scaling — needs no special-casing. **`STRONG HIT`** is the
+  player-only, harder-hitting Strength option above it: 10 Stamina, ×1.5
+  multiplier, requires 20 Strength (no monster equivalent — monsters have
+  no requirement-gated attacks, same as `BURN SPELL`). Every other
   damage-dealing attack (`BURN SPELL` ×1.5, the Dragon's `Dragon Breath`
   ×1.2) sits above ×1 too. The pure-debuff monster specials (`Fear`,
   `Magic Aura Blast`, `Stun`) and `REVEAL SPELL` intentionally keep a ×0
@@ -231,6 +235,8 @@ LEVEL_UP_ATTRIBUTE_POINTS=4
 # (see "Monster attack selection" above). Optional, default 5.
 STUN_COOLDOWN_ROUNDS=5
 # Optional: PORT (default 3001), WEB_ORIGIN (default http://localhost:3000)
+SET_ATTRIBUTE_BONUS=2
+# This is the Set Completion Bonus for All Attributes 
 ```
 
 Create **`apps/web/.env.local`** (gitignored):

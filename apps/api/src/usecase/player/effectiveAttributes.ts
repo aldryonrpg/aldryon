@@ -18,6 +18,7 @@ export async function computeEffectiveAttributes(
   player: Player,
   playerItemRepository: PlayerItemRepository,
   itemRepository: ItemRepository,
+  setAttributeBonus: number,
   activeEffects: BattleEffect[] = [],
 ): Promise<Attributes> {
   const playerItems = await playerItemRepository.findByPlayerId(player.id);
@@ -33,6 +34,7 @@ export async function computeEffectiveAttributes(
       equippedItems
         .filter((item) => item.slot !== null)
         .map((item) => ({ slot: item.slot as string, setName: item.setName })),
+      setAttributeBonus,
     );
     base = player.effectiveAttributes(sumAttributeBonuses([itemBonuses, setBonus]));
   }

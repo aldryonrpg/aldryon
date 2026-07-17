@@ -96,7 +96,7 @@ describe("AttackUseCase (integration)", () => {
     const expectedPlayerDamage = computeDamage({
       attackMultiplier: 1, // seeded HIT multiplier (combat-balance follow-up)
       attackerScalingValue: 10,
-      staminaCost: 1, // HIT costs 1 stamina
+      staminaCost: 5, // seeded HIT stamina cost (combat-balance follow-up)
       defenderLevel: 1,
       defenderScalingValue: 1,
     });
@@ -108,7 +108,7 @@ describe("AttackUseCase (integration)", () => {
       effectApplied: null,
     });
     expect(result.outcome).toBe("ongoing");
-    expect(result.playerStatus.currentStamina).toBe(14); // 10 - 1 (HIT) + 5 passive
+    expect(result.playerStatus.currentStamina).toBe(10); // 10 - 5 (HIT) + 5 passive
     expect(result.monsterStatus.currentHp).toBe(100 - expectedPlayerDamage);
   });
 
@@ -151,6 +151,12 @@ describe("AttackUseCase (integration)", () => {
 
     const monsterBefore = await uc.monsterRepository.findById(monsterId);
     const playerBefore = await uc.playerRepository.findById(playerId);
+    console.log(
+      "DEBUG drops order:",
+      JSON.stringify(monsterBefore?.drops),
+      "expected itemId:",
+      itemId,
+    );
 
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
