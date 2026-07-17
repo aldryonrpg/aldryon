@@ -55,7 +55,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],
       dungeonTier: null,
@@ -118,7 +118,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],
       dungeonTier: null,
@@ -141,7 +141,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
 
     const afterUnleash = await uc.battleRepository.findByPlayerId(playerId);
     expect(afterUnleash?.playerEffects.some((e) => e.type === "stun")).toBe(true);
-    expect(afterUnleash?.stunCooldownRoundsLeft).toBeGreaterThan(0);
+    expect(afterUnleash?.statusCooldownRoundsLeft).toBeGreaterThan(0);
 
     const turn3 = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
     expect(turn3.playerAttack).toBeNull();
@@ -185,7 +185,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],
       dungeonTier: null,
@@ -241,7 +241,7 @@ describe("Fear / Magic Aura Blast / Stun specials (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],
       dungeonTier: null,

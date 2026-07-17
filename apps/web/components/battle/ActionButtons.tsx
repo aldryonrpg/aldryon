@@ -23,28 +23,22 @@ export function ActionButtons({
 }: ActionButtonsProps) {
   return (
     <div className="grid grid-cols-2 gap-2">
-      <div className="flex flex-col items-center gap-1">
-        <button
-          type="button"
-          onClick={onAttackClick}
-          disabled={disabled}
-          className={actionClass(openPanel === "attacks")}
-        >
-          Attack
-        </button>
-        <span className="border border-white bg-black px-2 text-[10px] text-stone-400">Opens</span>
-      </div>
-      <div className="flex flex-col items-center gap-1">
-        <button
-          type="button"
-          onClick={onBagClick}
-          disabled={disabled}
-          className={actionClass(openPanel === "bag")}
-        >
-          Bag
-        </button>
-        <span className="border border-white bg-black px-2 text-[10px] text-stone-400">Opens</span>
-      </div>
+      <button
+        type="button"
+        onClick={onAttackClick}
+        disabled={disabled}
+        className={actionClass(openPanel === "attacks")}
+      >
+        Attack
+      </button>
+      <button
+        type="button"
+        onClick={onBagClick}
+        disabled={disabled}
+        className={actionClass(openPanel === "bag")}
+      >
+        Bag
+      </button>
       <button type="button" onClick={onRest} disabled={disabled} className={actionClass(false)}>
         Rest
       </button>

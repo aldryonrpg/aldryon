@@ -1,4 +1,5 @@
 import type { BattleOutcome } from "@/domain/battle/Battle";
+import type { BattleEffectView } from "@/domain/battle/BattleEffect";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 
 export interface BattleStatusOutput {
@@ -38,4 +39,15 @@ export interface TurnReportOutput {
   monsterAttributes: Partial<AttributeValues>;
   outcome: BattleOutcome;
   lootOffer: string[] | null;
+  /** The player's active effects after this turn's ticks — bleed/poison/burn
+   * stack unlimited (see BattleEffect.ts), so the client groups by kind. */
+  playerEffects: BattleEffectView[];
+  /** Effects the player has inflicted on the monster (today, only BURN
+   * SPELL's burn — monsters have no defensive stat-debuff/stun to receive). */
+  monsterEffects: BattleEffectView[];
+  /** Item/set-bonus attributes before any Fear/Magic Aura Blast debuff. */
+  attributesBeforeDebuff: AttributeValues;
+  /** Same, with any active stat-decay debuff applied — equal to
+   * attributesBeforeDebuff whenever nothing is debuffed. */
+  attributesAfterDebuff: AttributeValues;
 }

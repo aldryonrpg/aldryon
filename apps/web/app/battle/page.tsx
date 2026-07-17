@@ -3,7 +3,9 @@
 import type {
   ActiveBattleResponse,
   AttackResultDto,
+  AttributeValuesDto,
   AvailableAttackDto,
+  BattleEffectDto,
   ItemCatalogResponse,
   PlayerProfileResponse,
   TurnReportDto,
@@ -16,6 +18,7 @@ import { AttacksPanel } from "@/components/battle/AttacksPanel";
 import { AttributesPanel } from "@/components/battle/AttributesPanel";
 import { BagPanel } from "@/components/battle/BagPanel";
 import { BattleLog } from "@/components/battle/BattleLog";
+import { EffectsPanel } from "@/components/battle/EffectsPanel";
 import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
 import { LootScreen } from "@/components/battle/LootScreen";
 import { MonsterPanel } from "@/components/battle/MonsterPanel";
@@ -46,6 +49,11 @@ type StatusView = NonNullable<ActiveBattleResponse>["playerStatus"];
 type MonsterStatusView = NonNullable<ActiveBattleResponse>["monsterStatus"];
 type Outcome = "ongoing" | "won" | "lost" | "fled" | null;
 
+// One shared background for every battle for now; swap to a per-region/
+// per-dungeon lookup once those art assets exist.
+const BATTLE_BACKGROUND_STYLE = { backgroundImage: "url('/background_montain.png')" };
+const BATTLE_BACKGROUND_CLASS = "bg-cover bg-center bg-no-repeat bg-black";
+
 function describeAttack(label: string, result: AttackResultDto): string {
   const outcome = result.hit ? `${result.damage} damage` : "missed";
   const effect = result.effectApplied ? ` (${result.effectApplied})` : "";
@@ -61,8 +69,14 @@ export default function BattlePage() {
   const [playerStatus, setPlayerStatus] = useState<StatusView | null>(null);
   const [monsterStatus, setMonsterStatus] = useState<MonsterStatusView | null>(null);
   const [availableAttacks, setAvailableAttacks] = useState<AvailableAttackDto[]>([]);
-  // The full battle log for this page visit — every turn's attacks and
-  // messages append here (never replaced), so the player can scroll back.
+  const [playerEffects, setPlayerEffects] = useState<BattleEffectDto[]>([]);
+  const [monsterEffects, setMonsterEffects] = useState<BattleEffectDto[]>([]);
+  const [attributesAfterDebuff, setAttributesAfterDebuff] = useState<AttributeValuesDto | null>(
+    null,
+  );
+  // The battle log for the current fight — every turn's attacks and
+  // messages append here, so the player can scroll back. Reset on
+  // Continue/Exit since those start a new battle.
   const [logLines, setLogLines] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [lootOffer, setLootOffer] = useState<string[] | null>(null);
@@ -97,6 +111,9 @@ export default function BattlePage() {
     setPlayerStatus(active.playerStatus);
     setMonsterStatus(active.monsterStatus);
     setAvailableAttacks(active.availableAttacks);
+    setPlayerEffects(active.playerEffects);
+    setMonsterEffects(active.monsterEffects);
+    setAttributesAfterDebuff(active.attributesAfterDebuff);
   }, []);
 
   useEffect(() => {
@@ -117,6 +134,9 @@ export default function BattlePage() {
           setPlayerStatus(active.playerStatus);
           setMonsterStatus(active.monsterStatus);
           setAvailableAttacks(active.availableAttacks);
+          setPlayerEffects(active.playerEffects);
+          setMonsterEffects(active.monsterEffects);
+          setAttributesAfterDebuff(active.attributesAfterDebuff);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
@@ -137,6 +157,9 @@ export default function BattlePage() {
       setPlayerStatus(report.playerStatus);
       setMonsterStatus(report.monsterStatus);
       setMonster((prev) => (prev ? { ...prev, attributes: report.monsterAttributes } : prev));
+      setPlayerEffects(report.playerEffects);
+      setMonsterEffects(report.monsterEffects);
+      setAttributesAfterDebuff(report.attributesAfterDebuff);
       const newLines: string[] = [];
       if (report.playerAttack) newLines.push(describeAttack("You", report.playerAttack));
       if (report.monsterAttack) newLines.push(describeAttack("The monster", report.monsterAttack));
@@ -196,7 +219,7 @@ export default function BattlePage() {
 
       setLootOffer(null);
       const message = response.message;
-      if (message) setLogLines((prev) => [...prev, message]);
+      setLogLines(message ? [message] : []);
       setAvailableAttacks(response.availableAttacks);
 
       if (response.monster && response.playerStatus && response.monsterStatus) {
@@ -205,9 +228,14 @@ export default function BattlePage() {
         setMonsterStatus(response.monsterStatus);
         setOutcome("ongoing");
         setEmptyMessage(null);
+        // Picks up any ambush effect the fresh battle started with.
+        await refreshBattle();
       } else {
         setMonster(null);
         setOutcome(null);
+        setPlayerEffects([]);
+        setMonsterEffects([]);
+        setAttributesAfterDebuff(null);
         setEmptyMessage(response.message ?? "You found nothing.");
       }
       await refreshPlayer();
@@ -225,6 +253,7 @@ export default function BattlePage() {
       if (player?.dungeonRun != null) {
         await exitDungeonRun();
       }
+      setLogLines([]);
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to exit");
@@ -281,7 +310,10 @@ export default function BattlePage() {
   // Continue/Exit choice is still offered rather than dead-ending.
   if (emptyMessage !== null) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black p-6 text-stone-100">
+      <main
+        className={`flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
+        style={BATTLE_BACKGROUND_STYLE}
+      >
         <p className="max-w-md text-center">{emptyMessage}</p>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <div className="flex gap-4">
@@ -308,7 +340,10 @@ export default function BattlePage() {
 
   if (!monster || !playerStatus || !monsterStatus) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black text-stone-100">
+      <main
+        className={`flex min-h-screen flex-col items-center justify-center gap-4 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
+        style={BATTLE_BACKGROUND_STYLE}
+      >
         <p>No battle in progress.</p>
         <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
           Return to Map
@@ -320,7 +355,10 @@ export default function BattlePage() {
   const battleOver = outcome !== null && outcome !== "ongoing";
 
   return (
-    <main className="min-h-screen bg-black p-6 text-stone-100">
+    <main
+      className={`min-h-screen p-6 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
+      style={BATTLE_BACKGROUND_STYLE}
+    >
       <div className="mx-auto flex max-w-5xl flex-col gap-4">
         <MonsterPanel
           name={monster.name}
@@ -340,6 +378,11 @@ export default function BattlePage() {
           currentStamina={playerStatus.currentStamina}
           maxStamina={playerStatus.maxStamina}
         />
+
+        <div className="flex flex-wrap gap-2">
+          <EffectsPanel label="Effects On You" effects={playerEffects} />
+          <EffectsPanel label="Effects On Monster" effects={monsterEffects} />
+        </div>
 
         <BattleLog lines={logLines} />
 
@@ -364,6 +407,7 @@ export default function BattlePage() {
             <AttributesPanel
               attributes={player.attributes}
               attributeBonuses={player.attributeBonuses}
+              attributesAfterDebuff={attributesAfterDebuff ?? undefined}
             />
             <div className="flex flex-col gap-1">
               <EquipmentPanel

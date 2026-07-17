@@ -12,6 +12,10 @@ These rules are **non-negotiable** and apply to every instance/session working h
 - **Every task runs the linter.** After making changes, run **Biome** to
   confirm the code is clean before considering the task done. Fix (or report)
   any lint/format issues you introduce.
+- **Never open a Browser to check UI/frontend changes.** Finish the code
+  change, run the linter, unit tests, and integration tests — that's the
+  full extent of verification. The developer reviews visual/UI results
+  themselves in their own browser.
 
 ## Architecture
 

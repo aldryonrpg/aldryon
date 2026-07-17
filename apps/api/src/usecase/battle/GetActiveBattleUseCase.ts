@@ -1,3 +1,5 @@
+import type { BattleEffectView } from "@/domain/battle/BattleEffect";
+import { toBattleEffectView } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import type { AttributeValues } from "@/domain/shared/Attributes";
@@ -10,7 +12,7 @@ import type {
 } from "@/usecase/battle/StartBattleUseCase";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -32,6 +34,10 @@ export interface ActiveBattleOutput {
   playerStatus: BattleStatusOutput;
   monsterStatus: MonsterStatusOutput;
   availableAttacks: AvailableAttackOutput[];
+  playerEffects: BattleEffectView[];
+  monsterEffects: BattleEffectView[];
+  attributesBeforeDebuff: AttributeValues;
+  attributesAfterDebuff: AttributeValues;
 }
 
 /**
@@ -59,13 +65,14 @@ export class GetActiveBattleUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const effectiveAttributes = await computeEffectiveAttributes(
-      player,
-      this.playerItemRepository,
-      this.itemRepository,
-      this.setAttributeBonus,
-      battle.playerEffects,
-    );
+    const { base: attributesBeforeDebuff, effective: effectiveAttributes } =
+      await computeEffectiveAttributesWithDebuff(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        this.setAttributeBonus,
+        battle.playerEffects,
+      );
     const playerAttacks = await this.attackRepository.findAll();
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
@@ -99,6 +106,10 @@ export class GetActiveBattleUseCase {
         maxHp: monster.hp,
       },
       availableAttacks,
+      playerEffects: battle.playerEffects.map(toBattleEffectView),
+      monsterEffects: battle.monsterEffects.map(toBattleEffectView),
+      attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+      attributesAfterDebuff: effectiveAttributes.toValues(),
     };
   }
 }

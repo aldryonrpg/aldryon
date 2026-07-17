@@ -190,32 +190,40 @@ export default function PlayerSheet() {
 
         <div className="flex flex-wrap items-start gap-6">
           <div className="border border-white bg-black">
-            <div className="grid grid-cols-3 border-b border-white text-xs text-stone-400">
+            <div className="grid grid-cols-4 border-b border-white text-xs text-stone-400">
               <div className="border-r border-white px-2 py-1">Attribute</div>
+              <div className="border-r border-white px-2 py-1">Item Bonus</div>
               <div className="border-r border-white px-2 py-1">Value</div>
               <div className="px-2 py-1">Add</div>
             </div>
             {ROWS.map((row) => {
               const base = profile.attributes[row.key];
+              const bonus = profile.attributeBonuses[row.key];
               const add = staged[row.key] ?? 0;
               return (
                 <div
                   key={row.key}
-                  className="grid grid-cols-3 border-b border-white last:border-b-0"
+                  className="grid grid-cols-4 border-b border-white last:border-b-0"
                 >
                   <div className="border-r border-white px-2 py-1">{row.label}</div>
+                  <div className="border-r border-white px-2 py-1">
+                    {bonus > 0 ? <span className="text-green-500">+{bonus}</span> : "—"}
+                  </div>
                   <div className="border-r border-white px-2 py-1">
                     {base}
                     {add > 0 && <span className="text-green-500"> (+{add})</span>}
                   </div>
-                  <button
-                    type="button"
-                    disabled={saving || remaining <= 0}
-                    onClick={() => handleStage(row.key)}
-                    className="px-2 py-1 text-center hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    +1
-                  </button>
+                  <div className="flex items-center justify-center px-1 py-1">
+                    <button
+                      type="button"
+                      aria-label={`Add 1 point to ${row.label}`}
+                      disabled={saving || remaining <= 0}
+                      onClick={() => handleStage(row.key)}
+                      className="wood-gold-button flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold leading-none disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               );
             })}

@@ -7,8 +7,15 @@ import type {
   StoreItemDto,
 } from "@aldryon/dtos";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getPlayerProfile, getStoreListing, purchaseItem, sellItem } from "@/lib/api";
+import {
+  getActiveBattle,
+  getPlayerProfile,
+  getStoreListing,
+  purchaseItem,
+  sellItem,
+} from "@/lib/api";
 import { formatAttributeBonuses } from "@/lib/formatAttributeBonuses";
 import { formatDisplayName } from "@/lib/formatDisplayName";
 import { getRarityColor, loadRarityColors } from "@/lib/rarityColors";
@@ -150,6 +157,7 @@ function StoreItemCard({
 }
 
 export default function StorePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [items, setItems] = useState<StoreItemDto[]>([]);
@@ -161,6 +169,17 @@ export default function StorePage() {
     let cancelled = false;
     (async () => {
       try {
+        // The Store is off-limits mid-battle — only Resume Battle/Player
+        // Sheet are offered while one is in progress (BattleEntryButtons).
+        // Stays on the loading screen (never flips to false) while the
+        // redirect is in flight, so the "failed to load" error never flashes.
+        const activeBattle = await getActiveBattle();
+        if (cancelled) return;
+        if (activeBattle) {
+          router.replace("/battle");
+          return;
+        }
+
         const [profileResult, listing] = await Promise.all([
           getPlayerProfile(),
           getStoreListing(),
@@ -169,16 +188,18 @@ export default function StorePage() {
         if (cancelled) return;
         setProfile(profileResult);
         setItems(listing);
+        setLoading(false);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load the store");
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load the store");
+          setLoading(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   async function handleBuy(item: StoreItemDto) {
     setBuyingId(item.id);

@@ -15,7 +15,7 @@ import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwn
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -36,7 +36,7 @@ export class RestUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
-    private readonly stunCooldownRounds: number,
+    private readonly statusCooldownRounds: number,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
@@ -53,10 +53,14 @@ export class RestUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+    const [
+      playerAttacks,
+      moveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+    ] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(
+      computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
         this.itemRepository,
@@ -75,6 +79,7 @@ export class RestUseCase {
         moveset,
         playerAttacks,
         effectiveAttributes,
+        attributesBeforeDebuff,
         playerMaxHp,
         rng: this.rng,
         effectCounterRepository: this.effectCounterRepository,
@@ -82,7 +87,7 @@ export class RestUseCase {
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
         dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
         itemRepository: this.itemRepository,
         uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
@@ -102,7 +107,7 @@ export class RestUseCase {
         monsterChargingAttackId: battle.monsterChargingAttackId,
         chargeRoundsLeft: battle.chargeRoundsLeft,
         monsterAttackWeights: battle.monsterAttackWeights,
-        stunCooldownRoundsLeft: battle.stunCooldownRoundsLeft,
+        statusCooldownRoundsLeft: battle.statusCooldownRoundsLeft,
       },
       monster,
       moveset,
@@ -111,7 +116,7 @@ export class RestUseCase {
       effectiveAttributes,
       rng: this.rng,
       effectCounterRepository: this.effectCounterRepository,
-      stunCooldownRounds: this.stunCooldownRounds,
+      statusCooldownRounds: this.statusCooldownRounds,
     });
 
     const playerTick = tickEffects(monsterTurn.playerEffects);
@@ -132,11 +137,12 @@ export class RestUseCase {
       monsterChargingAttackId: monsterTurn.monsterChargingAttackId,
       chargeRoundsLeft: monsterTurn.chargeRoundsLeft,
       monsterAttackWeights: monsterTurn.monsterAttackWeights,
-      stunCooldownRoundsLeft: monsterTurn.stunCooldownRoundsLeft,
+      statusCooldownRoundsLeft: monsterTurn.statusCooldownRoundsLeft,
       playerAttack: null,
       monsterAttack: monsterTurn.monsterAttack,
       messages: monsterTurn.messages,
       playerMaxHp,
+      attributesBeforeDebuff,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

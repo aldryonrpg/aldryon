@@ -1,7 +1,7 @@
 import type { Attack } from "@/domain/attack/Attack";
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
-import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
+import { addBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
 import { AMBUSH_FLAVOR, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
@@ -108,7 +108,7 @@ export async function beginDungeonFight(
     const hit = rollHit(
       {
         attackerDexterity: monster.getAttributes().dexterity,
-        defenderDexterity: effectiveAttributes.dexterity,
+        defenderAgility: effectiveAttributes.agility,
         attackerLuck: monster.getAttributes().luck,
       },
       rng,
@@ -132,14 +132,11 @@ export async function beginDungeonFight(
       if (proced) {
         const kind: BattleEffectKind = ambushAttack.appliesEffect ?? monster.innateEffectKind;
         const counterItemId = await resolveCounterItemId(kind, effectCounterRepository);
-        playerEffects = [
-          ...playerEffects,
-          buildBattleEffect(kind, {
-            inflictorLevel: monster.level,
-            victimLevel: player.level,
-            counterItemId,
-          }),
-        ];
+        playerEffects = addBattleEffect(playerEffects, kind, {
+          inflictorLevel: monster.level,
+          victimLevel: player.level,
+          counterItemId,
+        });
         ambushEffectMessage = effectAppliedMessage(kind);
       }
     }
@@ -171,7 +168,7 @@ export async function beginDungeonFight(
     monsterChargingAttackId: null,
     chargeRoundsLeft: 0,
     monsterAttackWeights: {},
-    stunCooldownRoundsLeft: 0,
+    statusCooldownRoundsLeft: 0,
     dungeonTier,
     dungeonIsBossFight: isBossFight,
     revealedMonsterAttributes: [],

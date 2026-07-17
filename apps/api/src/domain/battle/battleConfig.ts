@@ -7,9 +7,15 @@
 export const BATTLE_CONFIG = {
   /** 20% of /battle/start calls find nothing (plan2 §4 step 2). */
   emptyEncounterChance: 0.2,
-  /** Roll bounds shared by hit checks and effect procs (plan2 §6/§6a). */
-  rollMin: 10,
-  rollMax: 100,
+  /** Hit-check roll bounds (plan2 §6) — a hit chance below this floor is a
+   * guaranteed miss, since the roll can never come in low enough to match it. */
+  hitRollMin: 10,
+  hitRollMax: 100,
+  /** Effect-proc roll bounds (plan2 §6a) — separate from the hit-check
+   * bounds above so tuning one never silently changes the other. An effect
+   * can never land below this floor's Luck lead (attackerLuck - defenderLuck). */
+  effectProcRollMin: 5,
+  effectProcRollMax: 100,
   /** Both sides recover this passively at the end of every round. */
   passiveStaminaRegen: 5,
   /** Rest (and monster charge/rest turns) recover this instead. */

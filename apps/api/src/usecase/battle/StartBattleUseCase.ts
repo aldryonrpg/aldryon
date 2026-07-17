@@ -1,6 +1,6 @@
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
-import { buildBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
+import { addBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
 import {
   AMBUSH_FLAVOR,
   BATTLE_CONFIG,
@@ -177,7 +177,7 @@ export class StartBattleUseCase {
       const hit = rollHit(
         {
           attackerDexterity: monster.getAttributes().dexterity,
-          defenderDexterity: effectiveAttributes.dexterity,
+          defenderAgility: effectiveAttributes.agility,
           attackerLuck: monster.getAttributes().luck,
         },
         this.rng,
@@ -207,14 +207,11 @@ export class StartBattleUseCase {
         if (proced) {
           const kind: BattleEffectKind = ambushAttack.appliesEffect ?? monster.innateEffectKind;
           const counterItemId = await resolveCounterItemId(kind, this.effectCounterRepository);
-          playerEffects = [
-            ...playerEffects,
-            buildBattleEffect(kind, {
-              inflictorLevel: monster.level,
-              victimLevel: player.level,
-              counterItemId,
-            }),
-          ];
+          playerEffects = addBattleEffect(playerEffects, kind, {
+            inflictorLevel: monster.level,
+            victimLevel: player.level,
+            counterItemId,
+          });
           ambushEffectMessage = effectAppliedMessage(kind);
         }
       }
@@ -247,7 +244,7 @@ export class StartBattleUseCase {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonTier: null,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],

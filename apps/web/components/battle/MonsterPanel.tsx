@@ -1,15 +1,7 @@
-import type { AttributeKeyDto, AttributeValuesDto } from "@aldryon/dtos";
+import type { AttributeValuesDto } from "@aldryon/dtos";
 import { Bar } from "@/components/battle/Bar";
+import { ATTRIBUTE_FULL_NAMES, ATTRIBUTE_ORDER, ATTRIBUTE_TRIGRAMS } from "@/lib/attributeLabels";
 import { formatDisplayName } from "@/lib/formatDisplayName";
-
-const ROWS: { label: string; key: AttributeKeyDto }[] = [
-  { label: "Agi", key: "agility" },
-  { label: "Str", key: "strength" },
-  { label: "Int", key: "intelligence" },
-  { label: "Dex", key: "dexterity" },
-  { label: "Sor", key: "luck" },
-  { label: "Vit", key: "vitality" },
-];
 
 interface MonsterPanelProps {
   name: string;
@@ -35,36 +27,35 @@ export function MonsterPanel({
 
   return (
     <div className="flex flex-1 flex-col gap-2">
-      <div className="border border-white bg-black px-2 py-1 text-center text-sm">
+      <div className="border border-white bg-black/80 px-2 py-1 text-center text-sm">
         Monster HP ({currentHp}/{maxHp}) {percent}%
       </div>
       <Bar percent={percent} colorClass="bg-red-700" />
-      <div className="border border-white bg-black px-2 py-1 text-center font-bold">
+      <div className="border border-white bg-black/80 px-2 py-1 text-center font-bold">
         {displayName}
       </div>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white bg-black">
-          {/* biome-ignore lint/performance/noImgElement: tolerant of a missing/broken src (no real CDN yet), unlike next/image */}
-          <img
-            src={monsterImage}
-            alt={displayName}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-1">
-          {ROWS.map((row) => (
-            <div
-              key={row.key}
-              className="flex h-8 w-10 flex-col items-center justify-center border border-white bg-black text-xs leading-none"
-              title={row.label}
-            >
-              <span>{attributes[row.key] ?? "??"}</span>
-            </div>
-          ))}
-        </div>
+      <div className="flex h-[40vh] items-center justify-center py-2 sm:h-[48vh]">
+        {/* biome-ignore lint/performance/noImgElement: tolerant of a missing/broken src (no real CDN yet), unlike next/image */}
+        <img
+          src={monsterImage}
+          alt={displayName}
+          className="h-[90%] w-[90%] object-contain drop-shadow-[0_8px_12px_rgba(0,0,0,0.7)]"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      </div>
+      <div className="flex justify-center gap-1">
+        {ATTRIBUTE_ORDER.map((key) => (
+          <div
+            key={key}
+            className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 border border-white bg-black/80 leading-none"
+            title={ATTRIBUTE_FULL_NAMES[key]}
+          >
+            <span className="text-xs">{attributes[key] ?? "??"}</span>
+            <span className="text-[9px] text-stone-400">{ATTRIBUTE_TRIGRAMS[key]}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

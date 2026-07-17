@@ -47,18 +47,18 @@ items) in the database.
 ### Hit chance
 
 ```
-HitChance = (AttackerDexterity / DefenderDexterity) × 100 + AttackerLuck
+HitChance = (AttackerDexterity / DefenderAgility) × 100 + AttackerLuck
 ```
 
 - `HitChance >= 100` → guaranteed hit.
-- Otherwise roll a random integer in `[20, 100]`; the attack hits if
+- Otherwise roll a random integer in `[10, 100]`; the attack hits if
   `roll <= HitChance`, misses (0 damage) otherwise.
 
 ### Damage
 
 ```
 attack_value  = ceil(attack.multiplier × effective(attacker's scaling attribute))
-defense_value = ceil((defender_level − 1) × effective(defender's scaling attribute) / 2)
+defense_value = ceil(floor[(defender_level + 1) / 2] × effective(defender's scaling attribute) / 2)
 Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 ```
 
@@ -71,20 +71,12 @@ Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 - The attacker's own level never factors into their own damage output —
   only into their *defense* against the other side.
 - **A landed hit always deals at least 1 damage** — `Damage` floors at 1,
-  never 0 (combat-balance follow-up: the original `defender_level ×
-  attribute` defense term grew fast enough to stalemate both sides at 0
-  damage once either side reached a non-trivial level/attribute; halving
-  it and excluding the defender's first level from the multiplier, plus
-  this floor, keeps a landed hit meaningful at every level).
+  never 0.
 - `stamina_cost` is **added**, not multiplied, so **`HIT`** — the nearly-free
   fallback attack every player and monster always has, 5 Stamina cost (the
   same amount both sides passively regen every round), ×1.0 multiplier,
-  Strength-scaling — needs no special-casing. **`STRONG HIT`** is the
-  player-only, harder-hitting Strength option above it: 10 Stamina, ×1.5
-  multiplier, requires 20 Strength (no monster equivalent — monsters have
-  no requirement-gated attacks, same as `BURN SPELL`). Every other
-  damage-dealing attack (`BURN SPELL` ×1.5, the Dragon's `Dragon Breath`
-  ×1.2) sits above ×1 too. The pure-debuff monster specials (`Fear`,
+  Strength-scaling — needs no special-casing.
+- The pure-debuff monster specials (`Fear`,
   `Magic Aura Blast`, `Stun`) and `REVEAL SPELL` intentionally keep a ×0
   multiplier — their value is the status effect/reveal, not direct damage.
 - A side's defensive scaling attribute is fixed to its own `HIT` attack's
@@ -94,11 +86,13 @@ Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 ### Battle effects (bleed / poison / burn)
 
 ```
-roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [20, 100]
+roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [5, 100]
 ```
 
-- One unified proc roll, both directions. Because the roll floor is 20, an
-  effect can never land below a **20-point Luck lead**.
+- One unified proc roll, both directions, with its own roll bounds separate
+  from the hit-chance roll above (tuning one never silently changes the
+  other). Because the roll floor is 5, an effect can never land below a
+  **5-point Luck lead**.
 - **Monster → player**: rolled on every successful monster hit, using the
   monster's `monster_type` (`normal → bleed`, `poisonous → poison`).
 - **Player → monster**: only the `BURN SPELL` attack (the player's one DoT)
@@ -150,18 +144,23 @@ is the effect, not direct damage):
   Stamina regen happens) — while the monster keeps attacking normally.
   "2 turns" means 2 actual voided actions, not 2 rounds of calendar time,
   so nothing is lost if the player is slow to act. Re-applying Stun while
-  already stunned refreshes it back to 2 full turns. **Stun can never
-  chain**, though: the instant it unleashes, the attack that caused it is
-  excluded from the monster's attack selection for `STUN_COOLDOWN_ROUNDS`
-  rounds (env-configurable, default 5) regardless of Stamina — it isn't
-  just de-prioritized, it's off the table entirely until the cooldown hits
-  0. The cooldown ticks down every round regardless of what the monster
-  does that round.
+  already stunned refreshes it back to 2 full turns.
+
+**None of these three can chain**: the instant any of Stun/Fear/Magic Aura
+Blast unleashes, the attack that caused it is excluded from the monster's
+attack selection for `STATUS_COOLDOWN_ROUNDS` rounds (env-configurable,
+default 5, one shared cooldown for all three kinds — not one per kind)
+regardless of Stamina — it isn't just de-prioritized, it's off the table
+entirely until the cooldown hits 0. The cooldown ticks down every round
+regardless of what the monster does that round. Fear/Magic Aura Blast don't
+stack anyway (see above), so re-landing the same one back-to-back would
+barely matter without this.
 
 ### Monster attack selection (AI)
 
 On its turn, a monster picks from its moveset (excluding anything it can't
-afford, and excluding any Stun-applying attack still on cooldown) as follows:
+afford, and excluding any Stun/Fear/Magic-Aura-Blast-applying attack still
+on the shared cooldown) as follows:
 
 1. **A special always wins if one is affordable.** Any charge-ready special
    guarantees a hit and a 100% effect proc on unleash, so it's always the
@@ -231,9 +230,9 @@ SUPABASE_URL=https://<your-project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 # Attribute points granted per level-up (see "Combat math" above). Optional, default 4.
 LEVEL_UP_ATTRIBUTE_POINTS=4
-# Rounds a Stun-applying special is excluded from selection after it unleashes
-# (see "Monster attack selection" above). Optional, default 5.
-STUN_COOLDOWN_ROUNDS=5
+# Rounds a Stun/Fear/Magic-Aura-Blast-applying special is excluded from
+# selection after it unleashes (see "Monster attack selection" above). Optional, default 5.
+STATUS_COOLDOWN_ROUNDS=5
 # Optional: PORT (default 3001), WEB_ORIGIN (default http://localhost:3000)
 SET_ATTRIBUTE_BONUS=2
 # This is the Set Completion Bonus for All Attributes 

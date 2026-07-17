@@ -19,7 +19,7 @@ interface BattleRow {
   monster_charging_attack_id: string | null;
   charge_rounds_left: number;
   monster_attack_weights: unknown;
-  stun_cooldown_rounds_left: number;
+  status_cooldown_rounds_left: number;
   dungeon_tier: 1 | 2 | 3 | null;
   dungeon_is_boss_fight: boolean;
   revealed_monster_attributes: unknown;
@@ -40,7 +40,7 @@ function toDomain(row: BattleRow): Battle {
     monsterChargingAttackId: row.monster_charging_attack_id,
     chargeRoundsLeft: row.charge_rounds_left,
     monsterAttackWeights: parseJsonbColumn<Record<string, number>>(row.monster_attack_weights, {}),
-    stunCooldownRoundsLeft: row.stun_cooldown_rounds_left,
+    statusCooldownRoundsLeft: row.status_cooldown_rounds_left,
     dungeonTier: row.dungeon_tier,
     dungeonIsBossFight: row.dungeon_is_boss_fight,
     revealedMonsterAttributes: parseJsonbColumn<AttributeKey[]>(
@@ -67,14 +67,14 @@ export class PostgresBattleRepository implements BattleRepository {
         id, player_id, monster_id, player_current_hp, player_current_stamina,
         monster_current_hp, monster_current_stamina, round,
         player_effects, monster_effects, monster_charging_attack_id, charge_rounds_left,
-        monster_attack_weights, stun_cooldown_rounds_left,
+        monster_attack_weights, status_cooldown_rounds_left,
         dungeon_tier, dungeon_is_boss_fight, revealed_monster_attributes
       ) values (
         ${props.id}, ${props.playerId}, ${props.monsterId}, ${props.playerCurrentHp}, ${props.playerCurrentStamina},
         ${props.monsterCurrentHp}, ${props.monsterCurrentStamina}, ${props.round},
         ${JSON.stringify(props.playerEffects)}::jsonb, ${JSON.stringify(props.monsterEffects)}::jsonb,
         ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft},
-        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.stunCooldownRoundsLeft},
+        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.statusCooldownRoundsLeft},
         ${props.dungeonTier}, ${props.dungeonIsBossFight},
         ${JSON.stringify(props.revealedMonsterAttributes)}::jsonb
       )
@@ -100,7 +100,7 @@ export class PostgresBattleRepository implements BattleRepository {
         monster_charging_attack_id = ${props.monsterChargingAttackId},
         charge_rounds_left = ${props.chargeRoundsLeft},
         monster_attack_weights = ${JSON.stringify(props.monsterAttackWeights)}::jsonb,
-        stun_cooldown_rounds_left = ${props.stunCooldownRoundsLeft},
+        status_cooldown_rounds_left = ${props.statusCooldownRoundsLeft},
         dungeon_tier = ${props.dungeonTier},
         dungeon_is_boss_fight = ${props.dungeonIsBossFight},
         revealed_monster_attributes = ${JSON.stringify(props.revealedMonsterAttributes)}::jsonb

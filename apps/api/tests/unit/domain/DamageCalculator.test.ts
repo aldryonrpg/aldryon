@@ -4,7 +4,7 @@ import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 describe("DamageCalculator", () => {
   it("computes attack_value + stamina_cost - defense_value", () => {
     // attackValue = 1.5 * 20 = 30; +10 stamina = 40;
-    // defense = (2-1) * 10 / 2 = 5 -> damage 35
+    // defense = floor(3/2)=1 * 10 / 2 = 5 -> damage 35
     const damage = computeDamage({
       attackMultiplier: 1.5,
       attackerScalingValue: 20,
@@ -61,7 +61,7 @@ describe("DamageCalculator", () => {
   });
 
   it("rounds a fractional defense value up, never down (favors the defender less)", () => {
-    // attackValue = 1 * 10 = 10; defenseValue = (3-1) * 2.5 / 2 = 2.5 -> ceil to 3 -> damage 7
+    // attackValue = 1 * 10 = 10; defenseValue = floor(4/2)=2 * 2.5 / 2 = 2.5 -> ceil to 3 -> damage 7
     const damage = computeDamage({
       attackMultiplier: 1,
       attackerScalingValue: 10,
@@ -72,14 +72,27 @@ describe("DamageCalculator", () => {
     expect(damage).toBe(7);
   });
 
-  it("a level-1 defender has zero defense from this term (level - 1 == 0)", () => {
+  it("a level-1 defender still has a small defense term (floor[(1+1)/2] == 1)", () => {
+    // attackValue = 1 * 1000 = 1000; defenseValue = floor(2/2)=1 * 5 / 2 = 2.5 -> ceil to 3
     const damage = computeDamage({
       attackMultiplier: 1,
-      attackerScalingValue: 5,
+      attackerScalingValue: 1000,
       staminaCost: 0,
       defenderLevel: 1,
-      defenderScalingValue: 1000,
+      defenderScalingValue: 5,
     });
-    expect(damage).toBe(5);
+    expect(damage).toBe(1000 - 3);
+  });
+
+  it("level 1 and level 2 defenders share the same defense term (floor rounds both down to 1)", () => {
+    const base = {
+      attackMultiplier: 1,
+      attackerScalingValue: 1000,
+      staminaCost: 0,
+      defenderScalingValue: 10,
+    };
+    const level1 = computeDamage({ ...base, defenderLevel: 1 });
+    const level2 = computeDamage({ ...base, defenderLevel: 2 });
+    expect(level1).toBe(level2);
   });
 });

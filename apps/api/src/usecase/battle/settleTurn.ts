@@ -1,12 +1,13 @@
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
+import { applyStatDebuffs, toBattleEffectView } from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, maxStamina } from "@/domain/battle/battleConfig";
 import { applyXpGain } from "@/domain/level/LevelCurve";
 import { rollDropPool } from "@/domain/monster/dropRoll";
 import type { Monster } from "@/domain/monster/Monster";
 import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import { Player } from "@/domain/player/Player";
-import type { AttributeKey } from "@/domain/shared/Attributes";
+import type { AttributeKey, Attributes } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
@@ -31,11 +32,16 @@ export interface SettleTurnParams {
   monsterChargingAttackId: string | null;
   chargeRoundsLeft: number;
   monsterAttackWeights: Record<string, number>;
-  stunCooldownRoundsLeft: number;
+  statusCooldownRoundsLeft: number;
   playerAttack: AttackResultOutput | null;
   monsterAttack: AttackResultOutput | null;
   messages: string[];
   playerMaxHp: number;
+  /** Item/set-bonus attributes before any stat-decay debuff — doesn't
+   * change mid-turn (equipment can't change during a battle), so callers
+   * compute it once up front; settleTurn re-derives the after-debuff value
+   * from the turn's final `playerEffects` (a pure function, no extra I/O). */
+  attributesBeforeDebuff: Attributes;
   /** Omit to carry `battle.revealedMonsterAttributes` forward unchanged —
    * only AttackUseCase (REVEAL SPELL) and UseBagItemUseCase (Knowledge
    * Potion) ever pass a grown set. */
@@ -99,11 +105,12 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterChargingAttackId,
     chargeRoundsLeft,
     monsterAttackWeights,
-    stunCooldownRoundsLeft,
+    statusCooldownRoundsLeft,
     playerAttack,
     monsterAttack,
     messages,
     playerMaxHp,
+    attributesBeforeDebuff,
     rng,
     playerRepository,
     battleRepository,
@@ -113,6 +120,10 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     itemRepository,
     uniqueItemOwnershipRepository,
   } = params;
+
+  const attributesAfterDebuff = applyStatDebuffs(attributesBeforeDebuff, playerEffects);
+  const playerEffectsView = playerEffects.map(toBattleEffectView);
+  const monsterEffectsView = monsterEffects.map(toBattleEffectView);
 
   const revealedMonsterAttributes =
     params.revealedMonsterAttributes ?? battle.revealedMonsterAttributes;
@@ -174,6 +185,10 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterAttributes: monsterAttributesView,
       outcome: "won",
       lootOffer,
+      playerEffects: playerEffectsView,
+      monsterEffects: monsterEffectsView,
+      attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+      attributesAfterDebuff: attributesAfterDebuff.toValues(),
     };
   }
 
@@ -198,6 +213,10 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterAttributes: monsterAttributesView,
       outcome: "lost",
       lootOffer: null,
+      playerEffects: playerEffectsView,
+      monsterEffects: monsterEffectsView,
+      attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+      attributesAfterDebuff: attributesAfterDebuff.toValues(),
     };
   }
 
@@ -213,7 +232,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterChargingAttackId,
     chargeRoundsLeft,
     monsterAttackWeights,
-    stunCooldownRoundsLeft,
+    statusCooldownRoundsLeft,
     revealedMonsterAttributes,
   });
   await battleRepository.update(updatedBattle);
@@ -235,5 +254,9 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterAttributes: monsterAttributesView,
     outcome: "ongoing",
     lootOffer: null,
+    playerEffects: playerEffectsView,
+    monsterEffects: monsterEffectsView,
+    attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+    attributesAfterDebuff: attributesAfterDebuff.toValues(),
   };
 }

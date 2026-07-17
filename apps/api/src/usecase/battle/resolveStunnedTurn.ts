@@ -32,6 +32,7 @@ export async function resolveStunnedTurn(params: {
   moveset: MonsterAttack[];
   playerAttacks: Attack[];
   effectiveAttributes: Attributes;
+  attributesBeforeDebuff: Attributes;
   playerMaxHp: number;
   rng: Rng;
   effectCounterRepository: EffectCounterRepository;
@@ -39,7 +40,7 @@ export async function resolveStunnedTurn(params: {
   battleRepository: BattleRepository;
   levelRepository: LevelRepository;
   levelUpAttributePoints: number;
-  stunCooldownRounds: number;
+  statusCooldownRounds: number;
   dungeonSlayerRankingRepository: DungeonSlayerRankingRepository;
   itemRepository: ItemRepository;
   uniqueItemOwnershipRepository: UniqueItemOwnershipRepository;
@@ -59,7 +60,7 @@ export async function resolveStunnedTurn(params: {
       monsterChargingAttackId: battle.monsterChargingAttackId,
       chargeRoundsLeft: battle.chargeRoundsLeft,
       monsterAttackWeights: battle.monsterAttackWeights,
-      stunCooldownRoundsLeft: battle.stunCooldownRoundsLeft,
+      statusCooldownRoundsLeft: battle.statusCooldownRoundsLeft,
     },
     monster,
     moveset,
@@ -68,7 +69,7 @@ export async function resolveStunnedTurn(params: {
     effectiveAttributes,
     rng: params.rng,
     effectCounterRepository: params.effectCounterRepository,
-    stunCooldownRounds: params.stunCooldownRounds,
+    statusCooldownRounds: params.statusCooldownRounds,
   });
 
   const playerEffectsAfterStun = consumeStunTurn(monsterTurn.playerEffects);
@@ -90,11 +91,12 @@ export async function resolveStunnedTurn(params: {
     monsterChargingAttackId: monsterTurn.monsterChargingAttackId,
     chargeRoundsLeft: monsterTurn.chargeRoundsLeft,
     monsterAttackWeights: monsterTurn.monsterAttackWeights,
-    stunCooldownRoundsLeft: monsterTurn.stunCooldownRoundsLeft,
+    statusCooldownRoundsLeft: monsterTurn.statusCooldownRoundsLeft,
     playerAttack: null,
     monsterAttack: monsterTurn.monsterAttack,
     messages: ["You are stunned and cannot act!", ...monsterTurn.messages],
     playerMaxHp: params.playerMaxHp,
+    attributesBeforeDebuff: params.attributesBeforeDebuff,
     rng: params.rng,
     playerRepository: params.playerRepository,
     battleRepository: params.battleRepository,

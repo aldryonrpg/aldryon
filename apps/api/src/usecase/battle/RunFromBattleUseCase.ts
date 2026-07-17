@@ -1,4 +1,4 @@
-import { effectAppliedMessage, isStunned } from "@/domain/battle/BattleEffect";
+import { effectAppliedMessage, isStunned, toBattleEffectView } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
@@ -19,7 +19,7 @@ import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwn
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -44,7 +44,7 @@ export class RunFromBattleUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
-    private readonly stunCooldownRounds: number,
+    private readonly statusCooldownRounds: number,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
@@ -61,10 +61,14 @@ export class RunFromBattleUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+    const [
+      playerAttacks,
+      moveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+    ] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(
+      computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
         this.itemRepository,
@@ -85,6 +89,7 @@ export class RunFromBattleUseCase {
         moveset,
         playerAttacks,
         effectiveAttributes,
+        attributesBeforeDebuff,
         playerMaxHp,
         rng: this.rng,
         effectCounterRepository: this.effectCounterRepository,
@@ -92,7 +97,7 @@ export class RunFromBattleUseCase {
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
         dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
         itemRepository: this.itemRepository,
         uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
@@ -160,6 +165,10 @@ export class RunFromBattleUseCase {
         monsterAttributes: monsterAttributesView,
         outcome: "lost",
         lootOffer: null,
+        playerEffects: battle.playerEffects.map(toBattleEffectView),
+        monsterEffects: battle.monsterEffects.map(toBattleEffectView),
+        attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+        attributesAfterDebuff: effectiveAttributes.toValues(),
       };
     }
 
@@ -183,6 +192,10 @@ export class RunFromBattleUseCase {
       monsterAttributes: monsterAttributesView,
       outcome: "fled",
       lootOffer: null,
+      playerEffects: battle.playerEffects.map(toBattleEffectView),
+      monsterEffects: battle.monsterEffects.map(toBattleEffectView),
+      attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
+      attributesAfterDebuff: effectiveAttributes.toValues(),
     };
   }
 }

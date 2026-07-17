@@ -20,11 +20,13 @@ export function loadEnv() {
     // knob specifically because 4-vs-5 is still being playtested; the
     // domain never reads process.env directly, only this loader does.
     levelUpAttributePoints: Number(process.env.LEVEL_UP_ATTRIBUTE_POINTS ?? 4),
-    // Rounds a Stun-applying special is excluded from the AI's selection
-    // pool after it unleashes, so it can never be re-triggered back-to-back
-    // (plan2 §6a extension) — kept as an ENV knob for the same reason as
-    // levelUpAttributePoints: it's a balance number, not a code decision.
-    stunCooldownRounds: Number(process.env.STUN_COOLDOWN_ROUNDS ?? 5),
+    // Rounds a Stun/Fear/Magic-Aura-Blast-applying special is excluded from
+    // the AI's selection pool after it unleashes, so none of them can be
+    // re-triggered back-to-back (plan2 §6a extension, widened to cover the
+    // stat-decay debuffs too since they don't stack) — kept as an ENV knob
+    // for the same reason as levelUpAttributePoints: it's a balance number,
+    // not a code decision.
+    statusCooldownRounds: Number(process.env.STATUS_COOLDOWN_ROUNDS ?? 5),
     // Flat per-attribute bonus for wearing a complete 6-piece equipment set
     // (equipment-sets follow-up) — kept as an ENV knob for the same reason
     // as the other balance numbers above: it's a tuning value, not a code

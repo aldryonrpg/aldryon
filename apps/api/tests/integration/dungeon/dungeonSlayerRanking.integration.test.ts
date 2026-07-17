@@ -49,7 +49,7 @@ describe("Dungeon Slayer ranking (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight,
       dungeonTier,
       revealedMonsterAttributes: [],

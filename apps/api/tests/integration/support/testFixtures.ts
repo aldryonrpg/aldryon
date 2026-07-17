@@ -96,6 +96,19 @@ export async function createTestMonster(
       ${overrides.ambushChance ?? 0}
     )
   `;
+
+  // `monsters_seed_head_drop` (see the Monster Head migration) always appends
+  // one more "<Name> Head" entry to `drops`, after whatever was just
+  // inserted — strip it back off so `drops` matches `overrides.drops`
+  // exactly. Tests here seed exact RNG sequences against `drops`'s length
+  // and dropRates (tuple-roll-per-entry, then a winner-index roll among
+  // successes — see rollDropPool), so an uncontrolled extra entry breaks
+  // that determinism; the head-drop feature itself isn't what these tests
+  // are about; it has no dedicated test coverage of its own yet.
+  await sql`
+    update monsters set drops = drops - (jsonb_array_length(drops) - 1) where id = ${id}
+  `;
+
   return id;
 }
 

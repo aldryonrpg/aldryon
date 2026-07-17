@@ -1,4 +1,4 @@
-import { buildBattleEffect, isStunned, tickEffects } from "@/domain/battle/BattleEffect";
+import { addBattleEffect, isStunned, tickEffects } from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
@@ -25,7 +25,7 @@ import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwn
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
-import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
+import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
@@ -53,7 +53,7 @@ export class AttackUseCase {
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
-    private readonly stunCooldownRounds: number,
+    private readonly statusCooldownRounds: number,
     private readonly dungeonSlayerRankingRepository: DungeonSlayerRankingRepository,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly uniqueItemOwnershipRepository: UniqueItemOwnershipRepository,
@@ -70,10 +70,14 @@ export class AttackUseCase {
     const monster = await this.monsterRepository.findById(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
-    const [playerAttacks, moveset, effectiveAttributes] = await Promise.all([
+    const [
+      playerAttacks,
+      moveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+    ] = await Promise.all([
       this.attackRepository.findAll(),
       this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
-      computeEffectiveAttributes(
+      computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
         this.itemRepository,
@@ -92,6 +96,7 @@ export class AttackUseCase {
         moveset,
         playerAttacks,
         effectiveAttributes,
+        attributesBeforeDebuff,
         playerMaxHp,
         rng: this.rng,
         effectCounterRepository: this.effectCounterRepository,
@@ -99,7 +104,7 @@ export class AttackUseCase {
         battleRepository: this.battleRepository,
         levelRepository: this.levelRepository,
         levelUpAttributePoints: this.levelUpAttributePoints,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
         dungeonSlayerRankingRepository: this.dungeonSlayerRankingRepository,
         itemRepository: this.itemRepository,
         uniqueItemOwnershipRepository: this.uniqueItemOwnershipRepository,
@@ -127,14 +132,14 @@ export class AttackUseCase {
     let monsterChargingAttackId = battle.monsterChargingAttackId;
     let chargeRoundsLeft = battle.chargeRoundsLeft;
     let monsterAttackWeights = battle.monsterAttackWeights;
-    let stunCooldownRoundsLeft = battle.stunCooldownRoundsLeft;
+    let statusCooldownRoundsLeft = battle.statusCooldownRoundsLeft;
     let revealedMonsterAttributes = battle.revealedMonsterAttributes;
 
     // Step 1-3: resolve the player's strike (plan2 §6).
     const playerHit = rollHit(
       {
         attackerDexterity: effectiveAttributes.dexterity,
-        defenderDexterity: monsterAttributes.dexterity,
+        defenderAgility: monsterAttributes.agility,
         attackerLuck: effectiveAttributes.luck,
       },
       this.rng,
@@ -164,14 +169,11 @@ export class AttackUseCase {
             attack.appliesEffect,
             this.effectCounterRepository,
           );
-          monsterEffects = [
-            ...monsterEffects,
-            buildBattleEffect(attack.appliesEffect, {
-              inflictorLevel: player.level,
-              victimLevel: monster.level,
-              counterItemId,
-            }),
-          ];
+          monsterEffects = addBattleEffect(monsterEffects, attack.appliesEffect, {
+            inflictorLevel: player.level,
+            victimLevel: monster.level,
+            counterItemId,
+          });
           playerEffectApplied = attack.appliesEffect;
         }
       }
@@ -201,7 +203,7 @@ export class AttackUseCase {
           monsterChargingAttackId,
           chargeRoundsLeft,
           monsterAttackWeights,
-          stunCooldownRoundsLeft,
+          statusCooldownRoundsLeft,
         },
         monster,
         moveset,
@@ -210,7 +212,7 @@ export class AttackUseCase {
         effectiveAttributes,
         rng: this.rng,
         effectCounterRepository: this.effectCounterRepository,
-        stunCooldownRounds: this.stunCooldownRounds,
+        statusCooldownRounds: this.statusCooldownRounds,
       });
       playerCurrentHp = monsterTurn.playerCurrentHp;
       monsterCurrentStamina = monsterTurn.monsterCurrentStamina;
@@ -218,7 +220,7 @@ export class AttackUseCase {
       monsterChargingAttackId = monsterTurn.monsterChargingAttackId;
       chargeRoundsLeft = monsterTurn.chargeRoundsLeft;
       monsterAttackWeights = monsterTurn.monsterAttackWeights;
-      stunCooldownRoundsLeft = monsterTurn.stunCooldownRoundsLeft;
+      statusCooldownRoundsLeft = monsterTurn.statusCooldownRoundsLeft;
       monsterAttackResult = monsterTurn.monsterAttack;
       messages.push(...monsterTurn.messages);
     }
@@ -251,7 +253,7 @@ export class AttackUseCase {
       monsterChargingAttackId,
       chargeRoundsLeft,
       monsterAttackWeights,
-      stunCooldownRoundsLeft,
+      statusCooldownRoundsLeft,
       playerAttack: {
         attackName: attack.name,
         hit: playerHit,
@@ -261,6 +263,7 @@ export class AttackUseCase {
       monsterAttack: monsterAttackResult,
       messages,
       playerMaxHp,
+      attributesBeforeDebuff,
       revealedMonsterAttributes,
       rng: this.rng,
       playerRepository: this.playerRepository,

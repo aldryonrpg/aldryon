@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
 import {
+  addBattleEffect,
   applyStatDebuffs,
   buildBattleEffect,
   computeDotMagnitude,
@@ -9,6 +10,7 @@ import {
   removeDotByCounterItem,
   statDebuffPercent,
   tickEffects,
+  toBattleEffectView,
 } from "@/domain/battle/BattleEffect";
 import { Attributes } from "@/domain/shared/Attributes";
 
@@ -71,6 +73,85 @@ describe("buildBattleEffect", () => {
       counterItemId: null,
     });
     expect(effect).toEqual({ type: "stun", roundsLeft: 2 });
+  });
+});
+
+describe("addBattleEffect", () => {
+  const params = { inflictorLevel: 5, victimLevel: 3, counterItemId: null };
+
+  it("stacks a DoT — appends a new instance even if the same kind is already active", () => {
+    const effects: BattleEffect[] = [
+      { type: "dot", kind: "bleed", damagePerRound: 3, counterItemId: null },
+    ];
+    const result = addBattleEffect(effects, "bleed", params);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual(effects[0] as BattleEffect);
+  });
+
+  it("adds a fresh Fear debuff when none is active yet", () => {
+    const result = addBattleEffect([], "fear", params);
+    expect(result).toEqual([{ type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 }]);
+  });
+
+  it("refreshes an already-active Fear debuff back to roundsElapsed 0 instead of stacking", () => {
+    const effects: BattleEffect[] = [
+      { type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 4 },
+    ];
+    const result = addBattleEffect(effects, "fear", params);
+    expect(result).toHaveLength(1);
+    expect(result).toEqual([{ type: "debuff", kind: "fear", stat: "strength", roundsElapsed: 0 }]);
+  });
+
+  it("refreshes an already-active Magic Aura Blast debuff the same way", () => {
+    const effects: BattleEffect[] = [
+      { type: "debuff", kind: "magic_aura_blast", stat: "intelligence", roundsElapsed: 2 },
+    ];
+    const result = addBattleEffect(effects, "magic_aura_blast", params);
+    expect(result).toHaveLength(1);
+    expect(result).toEqual([
+      { type: "debuff", kind: "magic_aura_blast", stat: "intelligence", roundsElapsed: 0 },
+    ]);
+  });
+
+  it("doesn't refresh a Fear debuff when only a different-kind debuff is active", () => {
+    const effects: BattleEffect[] = [
+      { type: "debuff", kind: "magic_aura_blast", stat: "intelligence", roundsElapsed: 3 },
+    ];
+    const result = addBattleEffect(effects, "fear", params);
+    expect(result).toHaveLength(2);
+  });
+
+  it("appends Stun rather than refreshing (de-duplication isn't its job — the AI cooldown is)", () => {
+    const effects: BattleEffect[] = [{ type: "stun", roundsLeft: 1 }];
+    const result = addBattleEffect(effects, "stun", params);
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("toBattleEffectView", () => {
+  it("passes a DoT through unchanged", () => {
+    const effect: BattleEffect = {
+      type: "dot",
+      kind: "poison",
+      damagePerRound: 4,
+      counterItemId: null,
+    };
+    expect(toBattleEffectView(effect)).toEqual(effect);
+  });
+
+  it("passes a Stun through unchanged", () => {
+    const effect: BattleEffect = { type: "stun", roundsLeft: 2 };
+    expect(toBattleEffectView(effect)).toEqual(effect);
+  });
+
+  it("adds the current percent to a stat-debuff, computed from roundsElapsed", () => {
+    const effect: BattleEffect = {
+      type: "debuff",
+      kind: "fear",
+      stat: "strength",
+      roundsElapsed: 3,
+    };
+    expect(toBattleEffectView(effect)).toEqual({ ...effect, percent: 30 });
   });
 });
 

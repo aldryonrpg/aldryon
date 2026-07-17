@@ -53,7 +53,7 @@ describe("legendary_drops pool (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonIsBossFight: false,
       revealedMonsterAttributes: [],
       dungeonTier: null,

@@ -38,7 +38,7 @@ import { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
 import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const LEVEL_UP_ATTRIBUTE_POINTS = 4;
-const STUN_COOLDOWN_ROUNDS = 5;
+const STATUS_COOLDOWN_ROUNDS = 5;
 const SET_ATTRIBUTE_BONUS = 2;
 
 /** Wires every repo + usecase against a live testcontainers Postgres, given an (often fake) Rng. */
@@ -97,7 +97,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
-      STUN_COOLDOWN_ROUNDS,
+      STATUS_COOLDOWN_ROUNDS,
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
@@ -114,7 +114,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
-      STUN_COOLDOWN_ROUNDS,
+      STATUS_COOLDOWN_ROUNDS,
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
@@ -131,7 +131,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
-      STUN_COOLDOWN_ROUNDS,
+      STATUS_COOLDOWN_ROUNDS,
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,
@@ -148,7 +148,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       levelRepository,
       rng,
       LEVEL_UP_ATTRIBUTE_POINTS,
-      STUN_COOLDOWN_ROUNDS,
+      STATUS_COOLDOWN_ROUNDS,
       dungeonSlayerRankingRepository,
       effectCounterRepository,
       uniqueItemOwnershipRepository,

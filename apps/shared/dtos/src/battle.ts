@@ -25,6 +25,40 @@ export type BattleOutcomeDto = z.infer<typeof BattleOutcomeSchema>;
 export const AttackScalingSchema = z.enum(["strength", "intelligence"]);
 export type AttackScalingDto = z.infer<typeof AttackScalingSchema>;
 
+// --- Active battle effects (bleed/poison/burn, Fear/Magic Aura Blast, Stun) ---
+
+export const DotEffectSchema = z.object({
+  type: z.literal("dot"),
+  kind: z.enum(["bleed", "poison", "burn"]),
+  damagePerRound: z.number(),
+  counterItemId: z.string().nullable(),
+});
+export type DotEffectDto = z.infer<typeof DotEffectSchema>;
+
+export const StatDebuffEffectSchema = z.object({
+  type: z.literal("debuff"),
+  kind: z.enum(["fear", "magic_aura_blast"]),
+  stat: z.enum(["strength", "intelligence"]),
+  roundsElapsed: z.number(),
+  /** Current percent reduction on `stat`, precomputed server-side from
+   * roundsElapsed so the client never has to duplicate the decay schedule. */
+  percent: z.number(),
+});
+export type StatDebuffEffectDto = z.infer<typeof StatDebuffEffectSchema>;
+
+export const StunEffectSchema = z.object({
+  type: z.literal("stun"),
+  roundsLeft: z.number(),
+});
+export type StunEffectDto = z.infer<typeof StunEffectSchema>;
+
+export const BattleEffectSchema = z.discriminatedUnion("type", [
+  DotEffectSchema,
+  StatDebuffEffectSchema,
+  StunEffectSchema,
+]);
+export type BattleEffectDto = z.infer<typeof BattleEffectSchema>;
+
 export const AvailableAttackSchema = z.object({
   name: z.string(),
   staminaCost: z.number(),
@@ -81,6 +115,17 @@ export const TurnReportSchema = z.object({
   monsterAttributes: AttributeValuesSchema.partial(),
   outcome: BattleOutcomeSchema,
   lootOffer: z.array(z.string()).nullable(),
+  /** The player's active effects after this turn's ticks — bleed/poison/burn
+   * stack unlimited, so the client groups by kind (BattleEffect.ts). */
+  playerEffects: z.array(BattleEffectSchema),
+  /** Effects the player has inflicted on the monster (today, only BURN
+   * SPELL's burn). */
+  monsterEffects: z.array(BattleEffectSchema),
+  /** Item/set-bonus attributes before any Fear/Magic Aura Blast debuff. */
+  attributesBeforeDebuff: AttributeValuesSchema,
+  /** Same, with any active stat-decay debuff applied — equal to
+   * attributesBeforeDebuff whenever nothing is debuffed. */
+  attributesAfterDebuff: AttributeValuesSchema,
 });
 export type TurnReportDto = z.infer<typeof TurnReportSchema>;
 
@@ -113,6 +158,10 @@ export const ActiveBattleResponseSchema = z
     playerStatus: BattleStatusSchema,
     monsterStatus: MonsterStatusSchema,
     availableAttacks: z.array(AvailableAttackSchema),
+    playerEffects: z.array(BattleEffectSchema),
+    monsterEffects: z.array(BattleEffectSchema),
+    attributesBeforeDebuff: AttributeValuesSchema,
+    attributesAfterDebuff: AttributeValuesSchema,
   })
   .nullable();
 export type ActiveBattleResponse = z.infer<typeof ActiveBattleResponseSchema>;

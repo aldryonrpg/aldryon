@@ -12,15 +12,18 @@ import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository
  * a full-equipment-set completion bonus (plan2 §2, equipment-sets follow-
  * up), then any active Fear/Magic Aura Blast stat-decay debuff on top.
  * Joins player_items -> items to gather the currently equipped bonuses,
- * then delegates the >=1 floor to Player.effectiveAttributes.
+ * then delegates the >=1 floor to Player.effectiveAttributes. Returns both
+ * `base` (before any debuff — item/set bonuses only) and `effective` (after)
+ * so callers that need to show a debuff's before/after in the UI don't have
+ * to redo the equipped-items lookup — see AttributesPanel's strikethrough.
  */
-export async function computeEffectiveAttributes(
+export async function computeEffectiveAttributesWithDebuff(
   player: Player,
   playerItemRepository: PlayerItemRepository,
   itemRepository: ItemRepository,
   setAttributeBonus: number,
   activeEffects: BattleEffect[] = [],
-): Promise<Attributes> {
+): Promise<{ base: Attributes; effective: Attributes }> {
   const playerItems = await playerItemRepository.findByPlayerId(player.id);
   const equipped = playerItems.filter((item) => item.isEquipped);
 
@@ -39,5 +42,22 @@ export async function computeEffectiveAttributes(
     base = player.effectiveAttributes(sumAttributeBonuses([itemBonuses, setBonus]));
   }
 
-  return applyStatDebuffs(base, activeEffects);
+  return { base, effective: applyStatDebuffs(base, activeEffects) };
+}
+
+export async function computeEffectiveAttributes(
+  player: Player,
+  playerItemRepository: PlayerItemRepository,
+  itemRepository: ItemRepository,
+  setAttributeBonus: number,
+  activeEffects: BattleEffect[] = [],
+): Promise<Attributes> {
+  const { effective } = await computeEffectiveAttributesWithDebuff(
+    player,
+    playerItemRepository,
+    itemRepository,
+    setAttributeBonus,
+    activeEffects,
+  );
+  return effective;
 }

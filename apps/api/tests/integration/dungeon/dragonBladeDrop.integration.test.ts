@@ -55,7 +55,7 @@ describe("Dragon Blade unique drop (integration)", () => {
       monsterChargingAttackId: null,
       chargeRoundsLeft: 0,
       monsterAttackWeights: {},
-      stunCooldownRoundsLeft: 0,
+      statusCooldownRoundsLeft: 0,
       dungeonTier: 1,
       dungeonIsBossFight: true,
       revealedMonsterAttributes: [],
