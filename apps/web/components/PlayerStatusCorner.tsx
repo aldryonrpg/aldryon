@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getPlayerProfile } from "@/lib/api";
 
 interface CornerStats {
+  playerName: string | null;
   level: number;
   xp: number;
   lastDeathAt: string | null;
@@ -22,7 +23,12 @@ export function PlayerStatusCorner() {
   useEffect(() => {
     getPlayerProfile()
       .then((profile) =>
-        setStats({ level: profile.level, xp: profile.xp, lastDeathAt: profile.lastDeathAt }),
+        setStats({
+          playerName: profile.playerName,
+          level: profile.level,
+          xp: profile.xp,
+          lastDeathAt: profile.lastDeathAt,
+        }),
       )
       .catch(() => setStats(null));
   }, []);
@@ -31,6 +37,7 @@ export function PlayerStatusCorner() {
 
   return (
     <div className="fixed bottom-3 left-3 flex flex-col gap-0.5 text-xs text-stone-400">
+      {stats.playerName && <span>{stats.playerName}</span>}
       <span>Level: {stats.level}</span>
       <span>XP: {stats.xp}</span>
       <span>Last Death: {formatLastDeath(stats.lastDeathAt)}</span>

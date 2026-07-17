@@ -94,7 +94,7 @@ describe("AttackUseCase (integration)", () => {
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 
     const expectedPlayerDamage = computeDamage({
-      attackMultiplier: 0.4,
+      attackMultiplier: 1, // seeded HIT multiplier (combat-balance follow-up)
       attackerScalingValue: 10,
       staminaCost: 1, // HIT costs 1 stamina
       defenderLevel: 1,

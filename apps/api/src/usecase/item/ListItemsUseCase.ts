@@ -1,4 +1,5 @@
 import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
+import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 
 export interface ItemCatalogEntryOutput {
@@ -7,6 +8,7 @@ export interface ItemCatalogEntryOutput {
   slot: EquipmentSlot | null;
   rarity: ItemRarity;
   setName: string | null;
+  attributeBonuses: AttributeValues;
 }
 
 /**
@@ -27,6 +29,7 @@ export class ListItemsUseCase {
       slot: item.slot,
       rarity: item.rarity,
       setName: item.setName,
+      attributeBonuses: item.attributeBonuses,
     }));
   }
 }

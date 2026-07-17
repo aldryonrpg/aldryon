@@ -3,7 +3,6 @@
 import type {
   ActiveBattleResponse,
   AttackResultDto,
-  AttributeKeyDto,
   AvailableAttackDto,
   ItemCatalogResponse,
   PlayerProfileResponse,
@@ -22,7 +21,6 @@ import { LootScreen } from "@/components/battle/LootScreen";
 import { MonsterPanel } from "@/components/battle/MonsterPanel";
 import { PlayerStatusBar } from "@/components/battle/PlayerStatusBar";
 import {
-  allocateAttributePoints,
   attack,
   claimLoot,
   // Aliased: it's a plain fetch call (POST /battle/bag), not a React hook —
@@ -47,6 +45,12 @@ type StatusView = NonNullable<ActiveBattleResponse>["playerStatus"];
 type MonsterStatusView = NonNullable<ActiveBattleResponse>["monsterStatus"];
 type Outcome = "ongoing" | "won" | "lost" | "fled" | null;
 
+function describeAttack(label: string, result: AttackResultDto): string {
+  const outcome = result.hit ? `${result.damage} damage` : "missed";
+  const effect = result.effectApplied ? ` (${result.effectApplied})` : "";
+  return `${label} used ${result.attackName}: ${outcome}${effect}`;
+}
+
 export default function BattlePage() {
   const router = useRouter();
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -56,9 +60,9 @@ export default function BattlePage() {
   const [playerStatus, setPlayerStatus] = useState<StatusView | null>(null);
   const [monsterStatus, setMonsterStatus] = useState<MonsterStatusView | null>(null);
   const [availableAttacks, setAvailableAttacks] = useState<AvailableAttackDto[]>([]);
-  const [messages, setMessages] = useState<string[]>([]);
-  const [lastPlayerAttack, setLastPlayerAttack] = useState<AttackResultDto | null>(null);
-  const [lastMonsterAttack, setLastMonsterAttack] = useState<AttackResultDto | null>(null);
+  // The full battle log for this page visit — every turn's attacks and
+  // messages append here (never replaced), so the player can scroll back.
+  const [logLines, setLogLines] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [lootOffer, setLootOffer] = useState<string[] | null>(null);
   // Set when Continue rolls an empty encounter (wild miss) — distinct from
@@ -72,7 +76,12 @@ export default function BattlePage() {
   const itemDetailsById = new Map(
     itemCatalog.map((item) => [
       item.id,
-      { name: item.name, rarity: item.rarity, setName: item.setName },
+      {
+        name: item.name,
+        rarity: item.rarity,
+        setName: item.setName,
+        attributeBonuses: item.attributeBonuses,
+      },
     ]),
   );
 
@@ -127,9 +136,11 @@ export default function BattlePage() {
       setPlayerStatus(report.playerStatus);
       setMonsterStatus(report.monsterStatus);
       setMonster((prev) => (prev ? { ...prev, attributes: report.monsterAttributes } : prev));
-      setLastPlayerAttack(report.playerAttack);
-      setLastMonsterAttack(report.monsterAttack);
-      setMessages(report.messages);
+      const newLines: string[] = [];
+      if (report.playerAttack) newLines.push(describeAttack("You", report.playerAttack));
+      if (report.monsterAttack) newLines.push(describeAttack("The monster", report.monsterAttack));
+      newLines.push(...report.messages);
+      setLogLines((prev) => [...prev, ...newLines]);
       setOutcome(report.outcome);
       setOpenPanel(null);
       if (report.lootOffer && report.lootOffer.length > 0) {
@@ -183,9 +194,8 @@ export default function BattlePage() {
       const response = isDungeonRun ? await continueDungeon() : await startBattle("forest");
 
       setLootOffer(null);
-      setLastPlayerAttack(null);
-      setLastMonsterAttack(null);
-      setMessages(response.message ? [response.message] : []);
+      const message = response.message;
+      if (message) setLogLines((prev) => [...prev, message]);
       setAvailableAttacks(response.availableAttacks);
 
       if (response.monster && response.playerStatus && response.monsterStatus) {
@@ -242,24 +252,6 @@ export default function BattlePage() {
       await refreshPlayer();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to equip");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleAllocate(key: AttributeKeyDto) {
-    if (!player) return;
-    setActionLoading(true);
-    setError(null);
-    try {
-      const result = await allocateAttributePoints({ [key]: 1 });
-      setPlayer({
-        ...player,
-        attributes: result.attributes,
-        attributePoints: result.attributePoints,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to allocate point");
     } finally {
       setActionLoading(false);
     }
@@ -337,6 +329,10 @@ export default function BattlePage() {
           attributes={monster.attributes}
         />
 
+        <p className="border border-white bg-black p-3 text-sm text-stone-400 italic">
+          {monster.description}
+        </p>
+
         <PlayerStatusBar
           currentHp={playerStatus.currentHp}
           maxHp={playerStatus.maxHp}
@@ -344,11 +340,7 @@ export default function BattlePage() {
           maxStamina={playerStatus.maxStamina}
         />
 
-        <BattleLog
-          messages={messages}
-          playerAttack={lastPlayerAttack}
-          monsterAttack={lastMonsterAttack}
-        />
+        <BattleLog lines={logLines} />
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -370,9 +362,7 @@ export default function BattlePage() {
           <div className="flex flex-wrap items-start justify-between gap-6">
             <AttributesPanel
               attributes={player.attributes}
-              attributePoints={player.attributePoints}
-              onAllocate={handleAllocate}
-              disabled={actionLoading}
+              attributeBonuses={player.attributeBonuses}
             />
             <EquipmentPanel
               equipped={player.equipped}

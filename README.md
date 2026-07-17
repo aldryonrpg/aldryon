@@ -58,8 +58,8 @@ HitChance = (AttackerDexterity / DefenderDexterity) × 100 + AttackerLuck
 
 ```
 attack_value  = ceil(attack.multiplier × effective(attacker's scaling attribute))
-defense_value = ceil(defender_level × effective(defender's scaling attribute))
-Damage        = max(0, attack_value + attack.stamina_cost − defense_value)
+defense_value = ceil((defender_level − 1) × effective(defender's scaling attribute) / 2)
+Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 ```
 
 - Every attack has a `scaling_attribute` — **Strength** for physical attacks,
@@ -70,9 +70,19 @@ Damage        = max(0, attack_value + attack.stamina_cost − defense_value)
   favors the defender.
 - The attacker's own level never factors into their own damage output —
   only into their *defense* against the other side.
+- **A landed hit always deals at least 1 damage** — `Damage` floors at 1,
+  never 0 (combat-balance follow-up: the original `defender_level ×
+  attribute` defense term grew fast enough to stalemate both sides at 0
+  damage once either side reached a non-trivial level/attribute; halving
+  it and excluding the defender's first level from the multiplier, plus
+  this floor, keeps a landed hit meaningful at every level).
 - `stamina_cost` is **added**, not multiplied, so **`HIT`** — the nearly-free
   fallback attack every player and monster always has, 1 Stamina cost,
-  ×0.4 multiplier, Strength-scaling — needs no special-casing.
+  ×1.0 multiplier, Strength-scaling — needs no special-casing. Every other
+  damage-dealing attack (`BURN SPELL` ×1.5, the Dragon's `Dragon Breath`
+  ×1.2) sits above ×1 too. The pure-debuff monster specials (`Fear`,
+  `Magic Aura Blast`, `Stun`) and `REVEAL SPELL` intentionally keep a ×0
+  multiplier — their value is the status effect/reveal, not direct damage.
 - A side's defensive scaling attribute is fixed to its own `HIT` attack's
   scaling attribute for the whole battle (there's no "last attack used"
   state tracked on a battle).

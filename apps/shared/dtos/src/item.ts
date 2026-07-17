@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AttributeValuesSchema } from "./attributes";
 
 export const ItemRaritySchema = z.enum([
   "basic",
@@ -34,6 +35,9 @@ export const ItemCatalogEntrySchema = z.object({
    * client-side from `rarity` via GET /items/rarity-colors — never sent
    * per-item. */
   setName: z.string().nullable(),
+  /** Per-item flat bonuses (0 where an item grants nothing in that
+   * attribute) — the Bag/Store/Equipment UIs render only the nonzero ones. */
+  attributeBonuses: AttributeValuesSchema,
 });
 export type ItemCatalogEntryDto = z.infer<typeof ItemCatalogEntrySchema>;
 

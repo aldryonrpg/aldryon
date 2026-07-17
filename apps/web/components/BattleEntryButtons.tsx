@@ -16,6 +16,17 @@ function StoreLink() {
   );
 }
 
+function PlayerLink() {
+  return (
+    <Link
+      href="/player"
+      className="rounded-md border border-white px-6 py-3 font-medium text-stone-100 shadow-lg transition hover:bg-stone-800"
+    >
+      Player Sheet
+    </Link>
+  );
+}
+
 export function BattleEntryButtons() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +76,7 @@ export function BattleEntryButtons() {
           Resume Battle
         </button>
         <StoreLink />
+        <PlayerLink />
       </div>
     );
   }
@@ -89,6 +101,7 @@ export function BattleEntryButtons() {
           {loading === "dungeon" ? "Entering..." : "Dungeon"}
         </button>
         <StoreLink />
+        <PlayerLink />
       </div>
       {error && <p className="max-w-md text-center text-sm text-red-400">{error}</p>}
     </div>

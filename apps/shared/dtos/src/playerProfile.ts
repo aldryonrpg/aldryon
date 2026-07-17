@@ -8,6 +8,7 @@ const EquippedItemSchema = z.object({
   name: z.string(),
   rarity: ItemRaritySchema,
   setName: z.string().nullable(),
+  attributeBonuses: AttributeValuesSchema,
 });
 
 export const EquippedItemsSchema = z.object({
@@ -30,6 +31,10 @@ export const BagItemSchema = z.object({
   slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
   setName: z.string().nullable(),
+  attributeBonuses: AttributeValuesSchema,
+  /** The catalog's per-unit value — doubles as both the store's buy price
+   * and (Store-only) sell price. */
+  value: z.number(),
 });
 export type BagItemDto = z.infer<typeof BagItemSchema>;
 
@@ -55,6 +60,9 @@ export const PlayerProfileResponseSchema = z.object({
   lastDeathAt: z.string().nullable(),
   attributePoints: z.number(),
   attributes: AttributeValuesSchema,
+  /** Combined equipped-item + full-set-completion bonus per attribute —
+   * always present, 0 where nothing applies. */
+  attributeBonuses: AttributeValuesSchema,
   dungeonSlayerKills: z.number(),
   dungeonSlayerLastKillAt: z.string().nullable(),
   dungeonRun: DungeonRunStatusSchema,

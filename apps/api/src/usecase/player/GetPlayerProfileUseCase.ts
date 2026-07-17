@@ -1,6 +1,7 @@
-import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
+import type { EquipmentSlot, Item, ItemRarity } from "@/domain/item/Item";
+import { computeSetBonus } from "@/domain/player/equipmentSetBonus";
 import type { EquipmentPosition } from "@/domain/player/PlayerItem";
-import type { AttributeValues } from "@/domain/shared/Attributes";
+import { type AttributeValues, sumAttributeBonuses } from "@/domain/shared/Attributes";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
@@ -16,6 +17,7 @@ export interface EquippedItemOutput {
   name: string;
   rarity: ItemRarity;
   setName: string | null;
+  attributeBonuses: AttributeValues;
 }
 
 export type EquippedItemsOutput = Record<EquipmentPosition, EquippedItemOutput | null>;
@@ -28,6 +30,10 @@ export interface BagItemOutput {
   slot: EquipmentSlot | null;
   rarity: ItemRarity;
   setName: string | null;
+  attributeBonuses: AttributeValues;
+  /** The catalog's per-unit value — doubles as both the store's buy price
+   * and (Store-only) sell price. */
+  value: number;
 }
 
 export interface DungeonRunStatusOutput {
@@ -44,6 +50,11 @@ export interface GetPlayerProfileOutput {
   lastDeathAt: string | null;
   attributePoints: number;
   attributes: AttributeValues;
+  /** Combined equipped-item + full-set-completion bonus per attribute
+   * (equipment-sets/naming follow-up) — always present, 0 where nothing
+   * applies. `attributes[key] + attributeBonuses[key]` is the effective
+   * total shown on the Battle Screen. */
+  attributeBonuses: AttributeValues;
   dungeonSlayerKills: number;
   dungeonSlayerLastKillAt: string | null;
   dungeonRun: DungeonRunStatusOutput | null;
@@ -84,6 +95,7 @@ export class GetPlayerProfileUseCase {
       weapon_2: null,
     };
     const bag: BagItemOutput[] = [];
+    const equippedItems: Item[] = [];
 
     for (const playerItem of playerItems) {
       const item = itemById.get(playerItem.itemId);
@@ -98,7 +110,9 @@ export class GetPlayerProfileUseCase {
           name: item.name,
           rarity: item.rarity,
           setName: item.setName,
+          attributeBonuses: item.attributeBonuses,
         };
+        equippedItems.push(item);
       } else {
         bag.push({
           id: playerItem.id,
@@ -108,9 +122,19 @@ export class GetPlayerProfileUseCase {
           slot: item.slot,
           rarity: item.rarity,
           setName: item.setName,
+          attributeBonuses: item.attributeBonuses,
+          value: item.value,
         });
       }
     }
+
+    const itemBonuses = sumAttributeBonuses(equippedItems.map((item) => item.attributeBonuses));
+    const setBonus = computeSetBonus(
+      equippedItems
+        .filter((item) => item.slot !== null)
+        .map((item) => ({ slot: item.slot as string, setName: item.setName })),
+    );
+    const attributeBonuses = sumAttributeBonuses([itemBonuses, setBonus]);
 
     const ranking = await this.dungeonSlayerRankingRepository.findByPlayerId(player.id);
     const dungeonRun: DungeonRunStatusOutput | null =
@@ -132,6 +156,7 @@ export class GetPlayerProfileUseCase {
       lastDeathAt: player.lastDeathAt?.toISOString() ?? null,
       attributePoints: player.attributePoints,
       attributes: player.getAttributes().toValues(),
+      attributeBonuses,
       dungeonSlayerKills: ranking?.kills ?? 0,
       dungeonSlayerLastKillAt: ranking?.lastKillAt?.toISOString() ?? null,
       dungeonRun,

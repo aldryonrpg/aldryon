@@ -1,4 +1,5 @@
-import type { BagItemDto } from "@aldryon/dtos";
+import type { AttributeValuesDto, BagItemDto } from "@aldryon/dtos";
+import { formatAttributeBonuses } from "@/lib/formatAttributeBonuses";
 import { formatDisplayName } from "@/lib/formatDisplayName";
 import { getRarityColor } from "@/lib/rarityColors";
 
@@ -6,29 +7,47 @@ function ItemName({
   name,
   rarity,
   setName,
+  attributeBonuses,
 }: {
   name: string;
   rarity: string;
   setName: string | null;
+  attributeBonuses: AttributeValuesDto;
 }) {
+  const bonusText = formatAttributeBonuses(attributeBonuses);
   return (
-    <span className="flex items-center gap-1">
-      <span className="font-bold" style={{ color: getRarityColor(rarity) }}>
-        {formatDisplayName(name)}
+    <span className="flex flex-col">
+      <span className="flex items-center gap-1">
+        <span className="font-bold" style={{ color: getRarityColor(rarity) }}>
+          {formatDisplayName(name)}
+        </span>
+        {setName && (
+          <span className="text-xs text-stone-400">({formatDisplayName(setName)} Set)</span>
+        )}
       </span>
-      {setName && (
-        <span className="text-xs text-stone-400">({formatDisplayName(setName)} Set)</span>
-      )}
+      {bonusText && <span className="text-xs text-stone-400">{bonusText}</span>}
     </span>
   );
 }
+
+const ZERO_ATTRIBUTE_BONUSES: AttributeValuesDto = {
+  strength: 0,
+  dexterity: 0,
+  agility: 0,
+  intelligence: 0,
+  vitality: 0,
+  luck: 0,
+};
 
 interface LootScreenProps {
   bag: BagItemDto[];
   /** Item ids from the kill's lootOffer that haven't been claimed (or
    * rejected) yet. */
   lootOfferIds: string[];
-  itemDetailsById: Map<string, { name: string; rarity: string; setName: string | null }>;
+  itemDetailsById: Map<
+    string,
+    { name: string; rarity: string; setName: string | null; attributeBonuses: AttributeValuesDto }
+  >;
   busy: boolean;
   onDestroy: (playerItemId: string) => void;
   onClaim: (itemId: string) => void;
@@ -69,7 +88,12 @@ export function LootScreen({
               {bag.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
-                    <ItemName name={item.name} rarity={item.rarity} setName={item.setName} />
+                    <ItemName
+                      name={item.name}
+                      rarity={item.rarity}
+                      setName={item.setName}
+                      attributeBonuses={item.attributeBonuses}
+                    />
                     <span className="text-stone-400">x{item.quantity}</span>
                   </span>
                   <button
@@ -100,6 +124,7 @@ export function LootScreen({
                       name={detail?.name ?? itemId}
                       rarity={detail?.rarity ?? "basic"}
                       setName={detail?.setName ?? null}
+                      attributeBonuses={detail?.attributeBonuses ?? ZERO_ATTRIBUTE_BONUSES}
                     />
                     <button
                       type="button"

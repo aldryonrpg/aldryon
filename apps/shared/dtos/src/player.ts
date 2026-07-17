@@ -18,7 +18,10 @@ export type PatchPlayerResponse = z.infer<typeof PatchPlayerResponseSchema>;
 // --- POST /player/attributes ---
 
 export const AllocateAttributePointsRequestSchema = z.object({
-  allocations: z.record(AttributeKeySchema, z.number().int().min(0)),
+  // partialRecord, not record: a request only ever names the attributes the
+  // player is actually allocating to (often just 1-2 of the 6) — z.record
+  // with an enum key schema requires every key to be present in Zod 4.
+  allocations: z.partialRecord(AttributeKeySchema, z.number().int().min(0)),
 });
 export type AllocateAttributePointsRequest = z.infer<typeof AllocateAttributePointsRequestSchema>;
 

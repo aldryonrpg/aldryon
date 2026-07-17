@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
+import { ZERO_ATTRIBUTE_BONUSES } from "@/domain/shared/Attributes";
+import { PlayerItemNotFoundError } from "@/usecase/player/errors";
 import {
   BagFullError,
+  CannotSellEquippedItemError,
   InsufficientGoldError,
   ItemNotPurchasableError,
 } from "@/usecase/store/errors";
@@ -44,6 +47,8 @@ describe("Store (integration)", () => {
         hpRestore: 50,
         category: "consumable",
         setName: null,
+        itemImage: null,
+        attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
       });
     });
 
@@ -74,6 +79,22 @@ describe("Store (integration)", () => {
 
       expect(listing.some((entry) => entry.id === rareId)).toBe(false);
       expect(listing.some((entry) => entry.id === legendaryId)).toBe(false);
+    });
+
+    it("returns itemImage when the item has one, null otherwise", async () => {
+      const withImageId = await createTestItem(sql, {
+        name: "Store Test Item With Image",
+        itemImage: "https://example.com/sword.png",
+      });
+      const withoutImageId = await createTestItem(sql, { name: "Store Test Item No Image" });
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const listing = await uc.listStoreItemsUseCase.execute();
+
+      expect(listing.find((entry) => entry.id === withImageId)?.itemImage).toBe(
+        "https://example.com/sword.png",
+      );
+      expect(listing.find((entry) => entry.id === withoutImageId)?.itemImage).toBeNull();
     });
 
     it("excludes an otherwise store-eligible rarity when storePurchasable is false (e.g. a set tier)", async () => {
@@ -199,6 +220,94 @@ describe("Store (integration)", () => {
 
       const player = await uc.playerRepository.findById(playerId);
       expect(player?.gold).toBe(1000);
+    });
+  });
+
+  describe("SellItemUseCase", () => {
+    it("sells an item, crediting gold and removing it from the bag", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { gold: 0 });
+      const itemId = await createTestItem(sql, { name: "Sell Test Sword", value: 40 });
+      const playerItemId = await createTestPlayerItem(sql, playerId, itemId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const result = await uc.sellItemUseCase.execute({ playerId, playerItemId });
+
+      expect(result.gold).toBe(40);
+      const player = await uc.playerRepository.findById(playerId);
+      expect(player?.gold).toBe(40);
+      expect(await uc.playerItemRepository.findById(playerItemId)).toBeNull();
+    });
+
+    it("sells a stacked quantity for value * quantity", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { gold: 0 });
+      const itemId = await createTestItem(sql, { name: "Sell Test Potion", value: 25 });
+      const playerItemId = await createTestPlayerItem(sql, playerId, itemId, { quantity: 3 });
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const result = await uc.sellItemUseCase.execute({ playerId, playerItemId });
+
+      expect(result.gold).toBe(75);
+    });
+
+    it("rejects selling an equipped item, leaving gold untouched", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { gold: 0 });
+      const itemId = await createTestItem(sql, {
+        name: "Sell Test Helmet",
+        slot: "helmet",
+        value: 40,
+      });
+      const playerItemId = await createTestPlayerItem(sql, playerId, itemId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      await uc.equipItemUseCase.execute({ playerId, playerItemId });
+
+      await expectRejection(
+        uc.sellItemUseCase.execute({ playerId, playerItemId }),
+        CannotSellEquippedItemError,
+      );
+
+      const player = await uc.playerRepository.findById(playerId);
+      expect(player?.gold).toBe(0);
+    });
+
+    it("404s for a playerItemId that doesn't belong to the caller", async () => {
+      const ownerUserId = await createTestUser(sql);
+      const ownerId = await createTestPlayer(sql, ownerUserId);
+      const otherUserId = await createTestUser(sql);
+      const otherId = await createTestPlayer(sql, otherUserId);
+      const itemId = await createTestItem(sql, { name: "Sell Test Someone Else's Item" });
+      const playerItemId = await createTestPlayerItem(sql, ownerId, itemId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      await expectRejection(
+        uc.sellItemUseCase.execute({ playerId: otherId, playerItemId }),
+        PlayerItemNotFoundError,
+      );
+    });
+
+    it("releases global ownership when selling a unique item, so it can be dropped again", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { gold: 0 });
+      const itemId = await createTestItem(sql, {
+        name: "Sell Test Unique",
+        rarity: "unique",
+        value: 500,
+      });
+      await sql`
+        insert into unique_item_ownership (item_id, current_owner_player_id, owner_history)
+        values (${itemId}, ${playerId}, '[]'::jsonb)
+      `;
+      const playerItemId = await createTestPlayerItem(sql, playerId, itemId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      await uc.sellItemUseCase.execute({ playerId, playerItemId });
+
+      const ownership = await sql<
+        { current_owner_player_id: string | null }[]
+      >`select current_owner_player_id from unique_item_ownership where item_id = ${itemId}`;
+      expect(ownership[0]?.current_owner_player_id).toBeNull();
     });
   });
 });

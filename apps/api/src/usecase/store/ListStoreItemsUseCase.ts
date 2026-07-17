@@ -1,4 +1,5 @@
 import type { EquipmentSlot, ItemRarity } from "@/domain/item/Item";
+import type { AttributeValues } from "@/domain/shared/Attributes";
 import { TtlCache } from "@/domain/shared/TtlCache";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 
@@ -17,6 +18,12 @@ export interface StoreItemOutput {
   category: "consumable" | "gear";
   /** Null for anything not part of an equipment set. */
   setName: string | null;
+  /** Null until item artwork exists — the client falls back to a
+   * placeholder SVG circle. */
+  itemImage: string | null;
+  /** Per-item flat bonuses (0 where an item grants nothing in that
+   * attribute). */
+  attributeBonuses: AttributeValues;
 }
 
 /**
@@ -57,6 +64,8 @@ export class ListStoreItemsUseCase {
         // Potion) is exactly that; equipment always has a slot.
         category: (item.slot === null ? "consumable" : "gear") as "consumable" | "gear",
         setName: item.setName,
+        itemImage: item.itemImage,
+        attributeBonuses: item.attributeBonuses,
       }));
 
     this.cache.set(listing);

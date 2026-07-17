@@ -1,35 +1,31 @@
-import type { AttackResultDto } from "@aldryon/dtos";
+import { useEffect, useRef } from "react";
 
 interface BattleLogProps {
-  messages: string[];
-  playerAttack: AttackResultDto | null;
-  monsterAttack: AttackResultDto | null;
+  /** The full accumulated log for this page visit — every turn appends,
+   * never replaces, so the player can scroll back through earlier ones. */
+  lines: string[];
 }
 
-function describeAttack(label: string, result: AttackResultDto): string {
-  const outcome = result.hit ? `${result.damage} damage` : "missed";
-  const effect = result.effectApplied ? ` (${result.effectApplied})` : "";
-  return `${label} used ${result.attackName}: ${outcome}${effect}`;
-}
+export function BattleLog({ lines }: BattleLogProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
-/** The battle log / narration surface — the primary read of every action
- * response, including gatekeeper-defeat/boss-reveal/Growl narration during
- * a dungeon run (plan3 §2d/§2e). */
-export function BattleLog({ messages, playerAttack, monsterAttack }: BattleLogProps) {
-  const lines: string[] = [];
-  if (playerAttack) lines.push(describeAttack("You", playerAttack));
-  if (monsterAttack) lines.push(describeAttack("The monster", monsterAttack));
-  lines.push(...messages);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-runs only to scroll when a new line is appended, not because the value is read
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  }, [lines.length]);
 
   return (
-    <div className="min-h-32 border border-white bg-black p-3 text-sm">
-      <p className="mb-2 font-bold">Caixa de texto informativa: Dano, defesa e drops</p>
+    <div
+      ref={containerRef}
+      className="max-h-40 min-h-32 overflow-y-auto border border-white bg-black p-3 text-sm"
+    >
       {lines.length === 0 ? (
         <p className="text-stone-400">The battle begins...</p>
       ) : (
         <ul className="space-y-1">
           {lines.map((line, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the log is replaced wholesale every turn, never reordered
+            // biome-ignore lint/suspicious/noArrayIndexKey: the log only ever grows by appending, never reorders
             <li key={index}>{line}</li>
           ))}
         </ul>

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { AllocateAttributePointsRequestSchema } from "@aldryon/dtos";
 import { SQL } from "bun";
 import { InsufficientAttributePointsError, ItemNotEquippableError } from "@/usecase/player/errors";
 import { buildUseCases } from "../support/buildUseCases";
@@ -63,6 +64,26 @@ describe("Player management use cases (integration)", () => {
         uc.updatePlayerNameUseCase.execute({ playerId, playerName: "no" }),
         Error,
       );
+    });
+  });
+
+  describe("AllocateAttributePointsRequestSchema", () => {
+    it("accepts a partial allocations object naming only some of the 6 attributes", () => {
+      // Regression: z.record with an enum key schema requires every enum key
+      // to be present in Zod 4, which rejected the real client's partial
+      // {strength: 1} payloads with "Malformed allocation request" — fixed
+      // by switching to z.partialRecord.
+      const result = AllocateAttributePointsRequestSchema.safeParse({
+        allocations: { strength: 1 },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects a key that isn't a real attribute", () => {
+      const result = AllocateAttributePointsRequestSchema.safeParse({
+        allocations: { notAnAttribute: 1 },
+      });
+      expect(result.success).toBe(false);
     });
   });
 

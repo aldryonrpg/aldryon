@@ -41,6 +41,7 @@ import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
 import { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
+import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const env = loadEnv();
 const supabase = createSupabaseClient(env);
@@ -209,6 +210,12 @@ const purchaseItemUseCase = new PurchaseItemUseCase(
   playerItemRepository,
   itemRepository,
 );
+const sellItemUseCase = new SellItemUseCase(
+  playerRepository,
+  playerItemRepository,
+  itemRepository,
+  uniqueItemOwnershipRepository,
+);
 
 const app = createApp({
   authenticateUserUseCase,
@@ -236,6 +243,7 @@ const app = createApp({
   getDungeonSlayerLeaderboardUseCase,
   listStoreItemsUseCase,
   purchaseItemUseCase,
+  sellItemUseCase,
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
 });
 

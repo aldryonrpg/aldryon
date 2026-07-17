@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import { maxHp } from "@/domain/battle/battleConfig";
+import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import {
   InvalidBagItemError,
   InvalidLootPickError,
@@ -178,14 +179,23 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
 
       // Attack selection is deterministic (only one moveset entry), so the
       // single rng value below is the monster's effect-proc roll; 50 fails
-      // it (diff 0) so no fresh bleed lands and same-turn-ticks the HP back
-      // down below the just-healed max.
+      // it (diff 0) so no bleed lands — but the monster still lands its own
+      // direct attack this same turn, chipping the just-healed max back down
+      // (a landed hit always deals at least 1 damage — combat-balance
+      // follow-up).
       const uc = buildUseCases(sql, new FakeRng([50]));
       await uc.battleRepository.create(battle);
 
       const result = await uc.useBagItemUseCase.execute({ playerId, playerItemId });
 
-      expect(result.playerStatus.currentHp).toBe(playerMaxHp);
+      const expectedMonsterDamage = computeDamage({
+        attackMultiplier: 1, // the moveset's Test Attack
+        attackerScalingValue: 1, // monster strength
+        staminaCost: 0,
+        defenderLevel: 1, // player level
+        defenderScalingValue: 10, // player's HIT-scaling attribute (strength)
+      });
+      expect(result.playerStatus.currentHp).toBe(playerMaxHp - expectedMonsterDamage);
       expect(await uc.playerItemRepository.findById(playerItemId)).toBeNull();
     });
 

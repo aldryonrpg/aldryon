@@ -21,3 +21,10 @@ export class BagFullError extends Error {
     this.name = "BagFullError";
   }
 }
+
+export class CannotSellEquippedItemError extends Error {
+  constructor() {
+    super("Cannot sell an equipped item — unequip it first");
+    this.name = "CannotSellEquippedItemError";
+  }
+}

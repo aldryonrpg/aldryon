@@ -12,8 +12,10 @@ import type {
   ItemRarityColorsResponse,
   LoginResponse,
   MonsterRegionDto,
+  PatchPlayerResponse,
   PlayerProfileResponse,
   PurchaseItemResponse,
+  SellItemResponse,
   StartBattleResponse,
   StartDungeonResponse,
   StoreListResponse,
@@ -76,6 +78,10 @@ async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
 
 export function getPlayerProfile(): Promise<PlayerProfileResponse> {
   return authedFetch("/player");
+}
+
+export function updatePlayerName(playerName: string): Promise<PatchPlayerResponse> {
+  return authedFetch("/player", { method: "PATCH", body: JSON.stringify({ playerName }) });
 }
 
 export function getActiveBattle(): Promise<ActiveBattleResponse> {
@@ -166,4 +172,8 @@ export function getStoreListing(): Promise<StoreListResponse> {
 
 export function purchaseItem(itemId: string): Promise<PurchaseItemResponse> {
   return authedFetch("/store/purchase", { method: "POST", body: JSON.stringify({ itemId }) });
+}
+
+export function sellItem(playerItemId: string): Promise<SellItemResponse> {
+  return authedFetch("/store/sell", { method: "POST", body: JSON.stringify({ playerItemId }) });
 }

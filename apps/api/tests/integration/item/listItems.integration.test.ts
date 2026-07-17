@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
+import { ZERO_ATTRIBUTE_BONUSES } from "@/domain/shared/Attributes";
 import { buildUseCases } from "../support/buildUseCases";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
@@ -34,6 +35,7 @@ describe("ListItemsUseCase (integration)", () => {
       slot: "helmet",
       rarity: "rare",
       setName: null,
+      attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
     });
   });
 
@@ -49,6 +51,22 @@ describe("ListItemsUseCase (integration)", () => {
     const catalog = await uc.listItemsUseCase.execute();
 
     expect(catalog.find((item) => item.id === itemId)?.setName).toBe("iron");
+  });
+
+  it("returns the item's nonzero attribute bonuses", async () => {
+    const itemId = await createTestItem(sql, {
+      name: "Catalog Test Bonus Sword",
+      slot: "weapon",
+      strength: 3,
+      luck: -1,
+    });
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const catalog = await uc.listItemsUseCase.execute();
+
+    const entry = catalog.find((item) => item.id === itemId);
+    expect(entry?.attributeBonuses.strength).toBe(3);
+    expect(entry?.attributeBonuses.luck).toBe(-1);
   });
 });
 

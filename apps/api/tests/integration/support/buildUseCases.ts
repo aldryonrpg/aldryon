@@ -35,6 +35,7 @@ import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
 import { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
+import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const LEVEL_UP_ATTRIBUTE_POINTS = 4;
 const STUN_COOLDOWN_ROUNDS = 5;
@@ -208,6 +209,12 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       playerRepository,
       playerItemRepository,
       itemRepository,
+    ),
+    sellItemUseCase: new SellItemUseCase(
+      playerRepository,
+      playerItemRepository,
+      itemRepository,
+      uniqueItemOwnershipRepository,
     ),
   };
 }

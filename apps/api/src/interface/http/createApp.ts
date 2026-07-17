@@ -32,6 +32,7 @@ import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import type { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import type { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
 import type { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
+import type { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 import type { UserRepository } from "@/usecase/user/UserRepository";
 
 export interface AppDependencies {
@@ -60,6 +61,7 @@ export interface AppDependencies {
   getDungeonSlayerLeaderboardUseCase: GetDungeonSlayerLeaderboardUseCase;
   listStoreItemsUseCase: ListStoreItemsUseCase;
   purchaseItemUseCase: PurchaseItemUseCase;
+  sellItemUseCase: SellItemUseCase;
   webOrigin: string;
 }
 
@@ -123,6 +125,7 @@ export function createApp(deps: AppDependencies): Hono {
     createStoreController({
       listStoreItemsUseCase: deps.listStoreItemsUseCase,
       purchaseItemUseCase: deps.purchaseItemUseCase,
+      sellItemUseCase: deps.sellItemUseCase,
     }),
   );
   app.route("/", gameplay);

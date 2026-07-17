@@ -9,8 +9,8 @@ const CELLS: { label: string; position: EquipmentPositionDto }[] = [
   { label: "Bracelet", position: "bracelet" },
   { label: "Gloves", position: "gloves" },
   { label: "Boots", position: "boots" },
-  { label: "H", position: "weapon_1" },
-  { label: "OF", position: "weapon_2" },
+  { label: "Hand", position: "weapon_1" },
+  { label: "Off-Hand", position: "weapon_2" },
 ];
 
 interface EquipmentPanelProps {

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
+import { ZERO_ATTRIBUTE_BONUSES } from "@/domain/shared/Attributes";
 import { buildUseCases } from "../support/buildUseCases";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
@@ -50,6 +51,7 @@ describe("GetPlayerProfileUseCase (integration)", () => {
       name: "Profile Test Helm",
       rarity: "common",
       setName: null,
+      attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
     });
     expect(profile.equipped.bracelet).toEqual({
       playerItemId: ringPlayerItemId,
@@ -57,6 +59,7 @@ describe("GetPlayerProfileUseCase (integration)", () => {
       name: "Profile Test Ring",
       rarity: "common",
       setName: null,
+      attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
     });
     expect(profile.equipped.boots).toBeNull();
     expect(profile.bag).toEqual([
@@ -68,8 +71,63 @@ describe("GetPlayerProfileUseCase (integration)", () => {
         slot: null,
         rarity: "common",
         setName: null,
+        attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
+        value: 10,
       },
     ]);
+  });
+
+  it("reports attributeBonuses from equipped items, without touching base attributes", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { strength: 5, intelligence: 5 });
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const swordId = await createTestItem(sql, {
+      name: "Profile Test Sword",
+      slot: "weapon",
+      strength: 3,
+    });
+    const swordPlayerItemId = await createTestPlayerItem(sql, playerId, swordId);
+    await uc.equipItemUseCase.execute({ playerId, playerItemId: swordPlayerItemId });
+
+    const profile = await uc.getPlayerProfileUseCase.execute({ playerId });
+
+    expect(profile.attributes.strength).toBe(5);
+    expect(profile.attributeBonuses.strength).toBe(3);
+    expect(profile.attributeBonuses.intelligence).toBe(0);
+  });
+
+  it("adds the +2 all-attribute set bonus to attributeBonuses once a full set is equipped", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId);
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const pieces: {
+      slot: string;
+      attribute: "strength" | "vitality" | "agility" | "dexterity" | "luck";
+    }[] = [
+      { slot: "helmet", attribute: "vitality" },
+      { slot: "body", attribute: "vitality" },
+      { slot: "boots", attribute: "agility" },
+      { slot: "gloves", attribute: "dexterity" },
+      { slot: "necklace", attribute: "luck" },
+      { slot: "bracelet", attribute: "strength" },
+    ];
+    for (const piece of pieces) {
+      const itemId = await createTestItem(sql, {
+        name: `Profile Test Set ${piece.slot} ${Bun.randomUUIDv7()}`,
+        slot: piece.slot,
+        setName: "profileTestSet",
+        [piece.attribute]: 1,
+      });
+      const playerItemId = await createTestPlayerItem(sql, playerId, itemId);
+      await uc.equipItemUseCase.execute({ playerId, playerItemId });
+    }
+
+    const profile = await uc.getPlayerProfileUseCase.execute({ playerId });
+
+    expect(profile.attributeBonuses.strength).toBe(1 + 2);
+    expect(profile.attributeBonuses.intelligence).toBe(2);
   });
 
   it("surfaces the player's last death time when they have one", async () => {

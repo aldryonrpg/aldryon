@@ -51,6 +51,10 @@ export interface ItemProps {
    * by default, but a set tier can be an uncommon-or-rarer rarity that's
    * still drop-only (e.g. the Iron Set), never store stock. */
   storePurchasable: boolean;
+  /** Null until item artwork exists — the client falls back to a placeholder
+   * SVG circle rather than treating this as required, unlike Monster's
+   * `monsterImage`. */
+  itemImage: string | null;
 }
 
 /** Item catalog entry (plan2 §3b). Immutable — items are catalog data. */
@@ -99,6 +103,9 @@ export class Item {
   }
   get storePurchasable(): boolean {
     return this.props.storePurchasable;
+  }
+  get itemImage(): string | null {
+    return this.props.itemImage;
   }
 
   get isEquippable(): boolean {
