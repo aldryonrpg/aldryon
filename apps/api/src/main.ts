@@ -27,6 +27,7 @@ import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
@@ -193,6 +194,12 @@ const startDungeonUseCase = new StartDungeonUseCase(
   effectCounterRepository,
   env.setAttributeBonus,
 );
+const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
+  dungeonEncounterRepository,
+  dungeonBossRepository,
+  monsterRepository,
+  monsterAttackRepository,
+);
 const continueDungeonUseCase = new ContinueDungeonUseCase(
   playerRepository,
   playerItemRepository,
@@ -202,8 +209,7 @@ const continueDungeonUseCase = new ContinueDungeonUseCase(
   monsterAttackRepository,
   attackRepository,
   levelRepository,
-  dungeonEncounterRepository,
-  dungeonBossRepository,
+  dungeonBossOfTheDayUseCase,
   rng,
   effectCounterRepository,
   env.setAttributeBonus,

@@ -72,11 +72,11 @@ export class PostgresBattleRepository implements BattleRepository {
       ) values (
         ${props.id}, ${props.playerId}, ${props.monsterId}, ${props.playerCurrentHp}, ${props.playerCurrentStamina},
         ${props.monsterCurrentHp}, ${props.monsterCurrentStamina}, ${props.round},
-        ${JSON.stringify(props.playerEffects)}::jsonb, ${JSON.stringify(props.monsterEffects)}::jsonb,
+        ${props.playerEffects}::jsonb, ${props.monsterEffects}::jsonb,
         ${props.monsterChargingAttackId}, ${props.chargeRoundsLeft},
-        ${JSON.stringify(props.monsterAttackWeights)}::jsonb, ${props.statusCooldownRoundsLeft},
+        ${props.monsterAttackWeights}::jsonb, ${props.statusCooldownRoundsLeft},
         ${props.dungeonTier}, ${props.dungeonIsBossFight},
-        ${JSON.stringify(props.revealedMonsterAttributes)}::jsonb
+        ${props.revealedMonsterAttributes}::jsonb
       )
       returning *
     `;
@@ -95,15 +95,15 @@ export class PostgresBattleRepository implements BattleRepository {
         monster_current_hp = ${props.monsterCurrentHp},
         monster_current_stamina = ${props.monsterCurrentStamina},
         round = ${props.round},
-        player_effects = ${JSON.stringify(props.playerEffects)}::jsonb,
-        monster_effects = ${JSON.stringify(props.monsterEffects)}::jsonb,
+        player_effects = ${props.playerEffects}::jsonb,
+        monster_effects = ${props.monsterEffects}::jsonb,
         monster_charging_attack_id = ${props.monsterChargingAttackId},
         charge_rounds_left = ${props.chargeRoundsLeft},
-        monster_attack_weights = ${JSON.stringify(props.monsterAttackWeights)}::jsonb,
+        monster_attack_weights = ${props.monsterAttackWeights}::jsonb,
         status_cooldown_rounds_left = ${props.statusCooldownRoundsLeft},
         dungeon_tier = ${props.dungeonTier},
         dungeon_is_boss_fight = ${props.dungeonIsBossFight},
-        revealed_monster_attributes = ${JSON.stringify(props.revealedMonsterAttributes)}::jsonb
+        revealed_monster_attributes = ${props.revealedMonsterAttributes}::jsonb
       where id = ${props.id}
       returning *
     `;

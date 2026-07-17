@@ -21,6 +21,7 @@ import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
@@ -41,8 +42,10 @@ const LEVEL_UP_ATTRIBUTE_POINTS = 4;
 const STATUS_COOLDOWN_ROUNDS = 5;
 const SET_ATTRIBUTE_BONUS = 2;
 
-/** Wires every repo + usecase against a live testcontainers Postgres, given an (often fake) Rng. */
-export function buildUseCases(sql: SQL, rng: Rng) {
+/** Wires every repo + usecase against a live testcontainers Postgres, given
+ * an (often fake) Rng. `now` defaults to the real clock — pass a fake one to
+ * drive DungeonBossOfTheDayUseCase's day-boundary cache in tests. */
+export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) {
   const playerRepository = new PostgresPlayerRepository(sql);
   const playerItemRepository = new PostgresPlayerItemRepository(sql);
   const itemRepository = new PostgresItemRepository(sql);
@@ -56,6 +59,13 @@ export function buildUseCases(sql: SQL, rng: Rng) {
   const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
   const effectCounterRepository = new PostgresEffectCounterRepository(sql);
   const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
+  const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
+    dungeonEncounterRepository,
+    dungeonBossRepository,
+    monsterRepository,
+    monsterAttackRepository,
+    now,
+  );
 
   return {
     playerRepository,
@@ -71,6 +81,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
     dungeonSlayerRankingRepository,
     effectCounterRepository,
     uniqueItemOwnershipRepository,
+    dungeonBossOfTheDayUseCase,
     setAttributeBonus: SET_ATTRIBUTE_BONUS,
     getOrCreatePlayerUseCase: new GetOrCreatePlayerUseCase(playerRepository),
     startBattleUseCase: new StartBattleUseCase(
@@ -204,8 +215,7 @@ export function buildUseCases(sql: SQL, rng: Rng) {
       monsterAttackRepository,
       attackRepository,
       levelRepository,
-      dungeonEncounterRepository,
-      dungeonBossRepository,
+      dungeonBossOfTheDayUseCase,
       rng,
       effectCounterRepository,
       SET_ATTRIBUTE_BONUS,

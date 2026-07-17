@@ -291,7 +291,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Claimable Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [itemId] });
@@ -307,7 +307,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Overflow Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 20; i++) {
         const fillerId = await createTestItem(sql, { name: `Filler ${i}-${playerId}` });
@@ -328,7 +328,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql, { isVip: true });
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "VIP Overflow Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 20; i++) {
         const fillerId = await createTestItem(sql, { name: `VIP Filler ${i}-${playerId}` });
@@ -349,7 +349,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql, { isVip: true });
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "VIP Full Bag Item" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       for (let i = 0; i < 25; i++) {
         const fillerId = await createTestItem(sql, { name: `VIP Full Filler ${i}-${playerId}` });
@@ -382,7 +382,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       const itemId = await createTestItem(sql, { name: "Offered Item" });
       const otherItemId = await createTestItem(sql, { name: "Not Offered" });
-      await sql`update players set pending_loot = ${JSON.stringify([itemId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
 
@@ -411,7 +411,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       const picks = [smallId, smallId, mediumId, mediumId, bigId];
-      await sql`update players set pending_loot = ${JSON.stringify(picks)}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${picks}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks });
@@ -433,7 +433,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const userId = await createTestUser(sql);
       const playerId = await createTestPlayer(sql, userId);
       await createTestPlayerItem(sql, playerId, smallId, { quantity: 5 });
-      await sql`update players set pending_loot = ${JSON.stringify([mediumId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[mediumId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({
@@ -454,7 +454,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const playerId = await createTestPlayer(sql, userId);
       await createTestPlayerItem(sql, playerId, smallId, { quantity: 3 });
       await createTestPlayerItem(sql, playerId, mediumId, { quantity: 2 });
-      await sql`update players set pending_loot = ${JSON.stringify([bigId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[bigId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [bigId] });
@@ -471,7 +471,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
         const fillerId = await createTestItem(sql, { name: `POT-test Filler ${i}-${playerId}` });
         await createTestPlayerItem(sql, playerId, fillerId, { quantity: 1 });
       }
-      await sql`update players set pending_loot = ${JSON.stringify([smallId])}::jsonb where id = ${playerId}`;
+      await sql`update players set pending_loot = ${[smallId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({

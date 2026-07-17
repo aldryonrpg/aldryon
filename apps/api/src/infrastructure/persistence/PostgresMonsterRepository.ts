@@ -97,8 +97,8 @@ export class PostgresMonsterRepository implements MonsterRepository {
         ${props.hp}, ${props.xpGain}, ${props.level}, ${props.maxStamina},
         ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
         ${props.monsterType},
-        ${JSON.stringify(props.drops)}::jsonb, ${JSON.stringify(props.exclusiveDrops)}::jsonb,
-        ${JSON.stringify(props.legendaryDrops)}::jsonb, ${props.ambushChance}
+        ${props.drops}::jsonb, ${props.exclusiveDrops}::jsonb,
+        ${props.legendaryDrops}::jsonb, ${props.ambushChance}
       )
       returning *
     `;

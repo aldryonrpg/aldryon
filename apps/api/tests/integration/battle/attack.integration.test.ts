@@ -151,12 +151,6 @@ describe("AttackUseCase (integration)", () => {
 
     const monsterBefore = await uc.monsterRepository.findById(monsterId);
     const playerBefore = await uc.playerRepository.findById(playerId);
-    console.log(
-      "DEBUG drops order:",
-      JSON.stringify(monsterBefore?.drops),
-      "expected itemId:",
-      itemId,
-    );
 
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });
 

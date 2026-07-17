@@ -1,8 +1,6 @@
-import { DUNGEON_CONFIG } from "@/domain/dungeon/dungeonConfig";
 import { rollGrowlBreakPercent } from "@/domain/dungeon/growlRoll";
-import { scaleDungeonBossStats } from "@/domain/dungeon/scaleDungeonBossStats";
 import { scaleMonsterForDungeonStep } from "@/domain/dungeon/scaleMonsterForDungeonStep";
-import { Monster } from "@/domain/monster/Monster";
+import type { Monster } from "@/domain/monster/Monster";
 import { POT_ITEM_NAMES, planGrowlPotBreak } from "@/domain/player/Bag";
 import { Player } from "@/domain/player/Player";
 import { PlayerItem } from "@/domain/player/PlayerItem";
@@ -18,8 +16,7 @@ import type {
   MonsterStatusOutput,
 } from "@/usecase/battle/StartBattleUseCase";
 import { beginDungeonFight } from "@/usecase/dungeon/beginDungeonFight";
-import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
-import type { DungeonEncounterRepository } from "@/usecase/dungeon/DungeonEncounterRepository";
+import type { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { NoDungeonRunInProgressError } from "@/usecase/dungeon/errors";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
@@ -28,12 +25,6 @@ import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
-
-// Materialized dungeon-boss monsters rows need a region to satisfy the
-// monsters table's NOT NULL constraint, even though they're never reached
-// via an ordinary /battle/start region roll. Picked once, arbitrarily;
-// thematically fits a Dragon.
-const MATERIALIZED_BOSS_REGION = "mountain" as const;
 
 function pick<T>(items: T[], rng: Rng): T {
   const item = items[rng.int(0, items.length - 1)];
@@ -79,8 +70,7 @@ export class ContinueDungeonUseCase {
     private readonly monsterAttackRepository: MonsterAttackRepository,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
-    private readonly dungeonEncounterRepository: DungeonEncounterRepository,
-    private readonly dungeonBossRepository: DungeonBossRepository,
+    private readonly dungeonBossOfTheDayUseCase: DungeonBossOfTheDayUseCase,
     private readonly rng: Rng,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly setAttributeBonus: number,
@@ -114,7 +104,7 @@ export class ContinueDungeonUseCase {
 
     const isBossFight = step >= totalSteps;
     const monster = isBossFight
-      ? await this.materializeOrReuseBoss(tier)
+      ? await this.dungeonBossOfTheDayUseCase.getBossForTier(tier)
       : await this.pickScaledStepMonster(tier);
 
     const result = await beginDungeonFight({
@@ -169,49 +159,6 @@ export class ContinueDungeonUseCase {
     if (candidates.length === 0) throw new Error("No monsters available for the dungeon");
     const rawMonster = pick(candidates, this.rng);
     return scaleMonsterForDungeonStep(rawMonster, tier);
-  }
-
-  private async materializeOrReuseBoss(tier: 1 | 2 | 3): Promise<Monster> {
-    const encounter = await this.dungeonEncounterRepository.findOne();
-    if (!encounter) throw new Error("No dungeon encounter configured");
-
-    const dungeonBoss = await this.dungeonBossRepository.findById(encounter.dungeonBossId);
-    if (!dungeonBoss) throw new Error("Dungeon boss not found");
-
-    // Materialize-or-reuse: idempotent by name, one row ever per tier (plan3 §2c).
-    const materializedName = `${dungeonBoss.name} — Tier ${tier}`;
-    const existing = await this.monsterRepository.findByName(materializedName);
-    if (existing) return existing;
-
-    const scaled = scaleDungeonBossStats(
-      {
-        hp: dungeonBoss.baseHp,
-        xpGain: dungeonBoss.baseXpGain,
-        attributes: dungeonBoss.baseAttributes,
-      },
-      tier,
-    );
-    const bossMonster = await this.monsterRepository.create(
-      Monster.create({
-        id: Bun.randomUUIDv7(),
-        name: materializedName,
-        description: dungeonBoss.description,
-        region: MATERIALIZED_BOSS_REGION,
-        monsterImage: dungeonBoss.monsterImage,
-        hp: scaled.hp,
-        xpGain: scaled.xpGain,
-        level: DUNGEON_CONFIG.tierBossLevel[tier],
-        maxStamina: dungeonBoss.baseMaxStamina,
-        attributes: scaled.attributes,
-        monsterType: dungeonBoss.monsterType,
-        drops: dungeonBoss.drops,
-        exclusiveDrops: dungeonBoss.exclusiveDrops,
-        legendaryDrops: dungeonBoss.legendaryDrops,
-        ambushChance: 0,
-      }),
-    );
-    await this.monsterAttackRepository.copyDungeonBossMoveset(dungeonBoss.id, bossMonster.id);
-    return bossMonster;
   }
 
   private async applyGrowl(playerId: string): Promise<string> {

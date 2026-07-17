@@ -88,7 +88,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
       ) values (
         ${props.id}, ${props.userId}, ${props.playerName}, ${props.gold}, ${props.level}, ${props.xp}, ${props.attributePoints},
         ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
-        ${props.lastDeathAt}, ${props.lastRunAt}, ${JSON.stringify(props.pendingLoot)}::jsonb,
+        ${props.lastDeathAt}, ${props.lastRunAt}, ${props.pendingLoot}::jsonb,
         ${props.dungeonAttempt1}, ${props.dungeonAttempt2},
         ${props.dungeonRunTier}, ${props.dungeonRunStep}, ${props.dungeonRunTotalSteps}, now()
       )
@@ -119,7 +119,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
         luck = ${attrs.luck},
         last_death_at = ${props.lastDeathAt},
         last_run_at = ${props.lastRunAt},
-        pending_loot = ${JSON.stringify(props.pendingLoot)}::jsonb,
+        pending_loot = ${props.pendingLoot}::jsonb,
         dungeon_attempt_1 = ${props.dungeonAttempt1},
         dungeon_attempt_2 = ${props.dungeonAttempt2},
         dungeon_run_tier = ${props.dungeonRunTier},

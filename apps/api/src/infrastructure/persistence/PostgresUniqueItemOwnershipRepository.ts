@@ -56,7 +56,7 @@ export class PostgresUniqueItemOwnershipRepository implements UniqueItemOwnershi
     await this.sql`
       update unique_item_ownership set
         current_owner_player_id = null,
-        owner_history = ${JSON.stringify(newHistory)}::jsonb,
+        owner_history = ${newHistory}::jsonb,
         updated_at = ${now}
       where item_id = ${itemId} and current_owner_player_id = ${playerId}
     `;

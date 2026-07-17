@@ -91,8 +91,8 @@ export async function createTestMonster(
       ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
       ${overrides.monsterType ?? "normal"},
-      ${JSON.stringify(overrides.drops ?? [])}::jsonb, ${JSON.stringify(overrides.exclusiveDrops ?? [])}::jsonb,
-      ${JSON.stringify(overrides.legendaryDrops ?? [])}::jsonb,
+      ${overrides.drops ?? []}::jsonb, ${overrides.exclusiveDrops ?? []}::jsonb,
+      ${overrides.legendaryDrops ?? []}::jsonb,
       ${overrides.ambushChance ?? 0}
     )
   `;
