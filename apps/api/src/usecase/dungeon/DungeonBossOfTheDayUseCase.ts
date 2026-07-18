@@ -14,20 +14,18 @@ import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 // thematically fits a Dragon.
 const MATERIALIZED_BOSS_REGION = "mountain" as const;
 
-/** Extra buffer past UTC midnight before the day's boss cache refreshes —
- * keeps a refresh from racing exactly at the day boundary against anything
- * else that might also fire right at 00:00:00. */
-const REFRESH_BUFFER_MS = 30_000;
-
 type TierBosses = Record<1 | 2 | 3, Monster>;
 
 /**
  * Picks the single dungeon boss active "today" and materializes all 3
  * tier-scaled monster rows for it up front, caching the full set in memory
- * until just past the next UTC midnight (00:00:30) — every dungeon-boss
- * reveal for the rest of the day, across every player and every tier,
- * reuses the same cached rows instead of re-querying/re-materializing per
- * request.
+ * until exactly the next UTC midnight — every dungeon-boss reveal for the
+ * rest of the day, across every player and every tier, reuses the same
+ * cached rows instead of re-querying/re-materializing per request. There's
+ * no scheduler driving the refresh — it's purely lazy: whichever request
+ * happens to land first after midnight pays the one-time cost of
+ * re-materializing (idempotent — see materializeOrReuseTier) and re-caches
+ * for the rest of the new day.
  *
  * "Choosing" today's boss is currently just `dungeonEncounterRepository
  * .findOne()` (plan3 §2c's one pairing row, which never rotates on its
@@ -47,7 +45,7 @@ export class DungeonBossOfTheDayUseCase {
     private readonly now: () => number = Date.now,
   ) {
     // The 24h ctor arg is just a fallback default; every real `.set()`
-    // below passes its own end-of-day-plus-buffer override.
+    // below passes its own end-of-day override.
     this.cache = new TtlCache<TierBosses>(24 * 60 * 60 * 1000, now);
   }
 
@@ -56,7 +54,7 @@ export class DungeonBossOfTheDayUseCase {
     if (cached) return cached[tier];
 
     const bosses = await this.materializeAllTiers();
-    this.cache.set(bosses, msUntilNextUtcMidnight(this.now) + REFRESH_BUFFER_MS);
+    this.cache.set(bosses, msUntilNextUtcMidnight(this.now));
     return bosses[tier];
   }
 

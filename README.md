@@ -200,6 +200,69 @@ since rule 1 already decides them unconditionally.
   rolls its own `ambush_chance` for one unrolled free strike before the
   player ever acts (a special attack can never be used for an ambush).
 
+## Dungeons
+
+Dungeons are a separate, level-gated game mode from ordinary battles — a
+short gauntlet of fights capped off by a boss, once per day.
+
+- Unlocked at player **level 10**; `/dungeon/start` rejects anyone below it.
+- **Tier is derived purely from the player's own level**, not a shared daily
+  rotation: **10–14 → Tier 1, 15–19 → Tier 2, 20+ → Tier 3** (no Tier 4 to
+  grow into). Two players at the same level always face the identical
+  (materialized) boss row for their tier.
+- Every tier scales a dungeon monster's `hp`, attributes, and `maxStamina`
+  by a flat multiplier — **1.0× / 1.5× / 2.0×** for Tier 1/2/3 — always
+  rounded with `Math.ceil`, the same "never round in the defender's favor"
+  convention as the damage formula. The monster's `level` is also forced to
+  the tier's fixed value (**10/15/20**) for the fight, regardless of its
+  catalog level.
+- **Daily attempts**: 1 per day normally, **2 for VIP**, tracked via two
+  nullable timestamps on the player row and compared by UTC calendar day —
+  a slot from a previous UTC day simply doesn't count today, no explicit
+  reset job runs. Hitting the limit reports the next UTC midnight as the
+  reset time.
+
+### Run structure
+
+- `/dungeon/start` always finds a monster — no 20% empty-encounter roll like
+  a normal battle start — but the ambush roll still applies as usual.
+- A run is `stepsPerTier` regular fights, then the boss: **1 fight for Tier
+  1, 3 for Tier 2, 5 for Tier 3**.
+- Each step, the monster is a random catalog monster "Dungeon Enhanced" live
+  for the tier (stats scaled and level forced, as above) — nothing is
+  written to the `monsters` table for a regular step, so any catalog monster
+  can fill any step at any tier.
+- Killing a step's monster fully settles that battle; the player must
+  explicitly call `/dungeon/continue` to advance to the next step or reveal
+  the boss.
+- Dying at any point clears the run (tier/step/progress reset) on top of the
+  normal death settlement — no separate dungeon cooldown. `/dungeon/exit`
+  lets the player abandon a run that's awaiting that Continue/Exit decision
+  without dying first.
+
+### Boss of the day
+
+- One boss is active for the whole day, chosen from a single seeded
+  encounter pairing (today there's only ever one boss configured, so this
+  always resolves to it — the lookup is a seam for a future rotating pool).
+  All 3 tier-scaled versions are materialized as real `monsters` rows on
+  first request, idempotent by name, then cached in memory until the next
+  UTC midnight — every reveal for the rest of the day, across every player
+  and tier, reuses the same cached rows.
+- Unlike a regular step monster, **the boss's own `xpGain` is scaled by the
+  tier multiplier** too.
+- Revealing the boss always triggers the **Growl**: a roll of **0–50%
+  (inclusive)** of the player's total remaining POTs (small/medium/big)
+  break — `ceil(total × percent / 100)` units, smallest-stack-first,
+  spilling into the next stack once one is fully drained. A roll of 0 still
+  narrates the Growl, just breaks nothing.
+
+### Leaderboard
+
+- `GET /dungeon/leaderboard` — top 50 players by boss kills descending,
+  ties broken by last-kill time ascending. Cached in-process for **5
+  minutes**, since it's rendered on every logged-in player's Main Page.
+
 ## Tech stack
 
 - **Front-end** (`apps/web`) — [Next.js](https://nextjs.org/) (TypeScript),

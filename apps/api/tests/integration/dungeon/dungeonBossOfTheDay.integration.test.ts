@@ -92,7 +92,7 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
     expect(tier3.name).toBe("Dragon — Tier 3");
   });
 
-  it("refreshes just past the next UTC midnight, not a moment before", async () => {
+  it("refreshes exactly at the next UTC midnight, not a moment before", async () => {
     const base = buildUseCases(sql, new FakeRng([0]));
     const countingEncounterRepo = new CountingDungeonEncounterRepository(
       base.dungeonEncounterRepository,
@@ -111,14 +111,14 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
     await uc.getBossForTier(1);
     expect(countingEncounterRepo.calls).toBe(1);
 
-    // 1 ms before the 00:00:30 refresh boundary — still cached.
-    now = Date.UTC(2026, 0, 16, 0, 0, 29, 999);
+    // 1 ms before midnight — still cached.
+    now = Date.UTC(2026, 0, 15, 23, 59, 59, 999);
     await uc.getBossForTier(2);
     expect(countingEncounterRepo.calls).toBe(1);
 
-    // Exactly at the refresh boundary — cache has expired, re-fetches
-    // (idempotent materialize-or-reuse still returns the same DB row).
-    now = Date.UTC(2026, 0, 16, 0, 0, 30, 0);
+    // Exactly at midnight — cache has expired, re-fetches (idempotent
+    // materialize-or-reuse still returns the same DB row).
+    now = Date.UTC(2026, 0, 16, 0, 0, 0, 0);
     const refreshed = await uc.getBossForTier(3);
     expect(countingEncounterRepo.calls).toBe(2);
     expect(countingBossRepo.calls).toBe(2);
