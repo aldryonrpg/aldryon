@@ -28,7 +28,6 @@ export function createDungeonController(
     try {
       const result = await deps.startDungeonUseCase.execute({
         playerId: c.get("playerId"),
-        isVip: c.get("isVip"),
       });
       return c.json(result, 200);
     } catch (err) {

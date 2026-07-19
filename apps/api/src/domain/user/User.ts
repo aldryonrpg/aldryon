@@ -4,7 +4,6 @@ export interface UserProps {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
-  isVip: boolean;
 }
 
 /**
@@ -41,10 +40,6 @@ export class User {
 
   get avatarUrl(): string | null {
     return this.props.avatarUrl;
-  }
-
-  get isVip(): boolean {
-    return this.props.isVip;
   }
 
   toProps(): UserProps {

@@ -7,6 +7,5 @@ export function mapUserToProfile(user: User): UserProfile {
     email: user.email,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
-    isVip: user.isVip,
   };
 }

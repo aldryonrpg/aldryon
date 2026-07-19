@@ -62,8 +62,10 @@ export type BattleEffectDto = z.infer<typeof BattleEffectSchema>;
 export const AvailableAttackSchema = z.object({
   name: z.string(),
   staminaCost: z.number(),
+  multiplier: z.number(),
   scalingAttribute: AttackScalingSchema,
   meetsRequirements: z.boolean(),
+  revealsRandomMonsterAttribute: z.boolean(),
 });
 export type AvailableAttackDto = z.infer<typeof AvailableAttackSchema>;
 

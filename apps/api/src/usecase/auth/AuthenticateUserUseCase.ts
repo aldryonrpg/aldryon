@@ -32,9 +32,6 @@ export class AuthenticateUserUseCase {
       email: identity.email,
       displayName: identity.displayName,
       avatarUrl: identity.avatarUrl,
-      // isVip is player-owned profile state, not an auth claim — preserve
-      // it across logins instead of resetting on every sync.
-      isVip: existing?.isVip ?? false,
     });
 
     const saved = await this.userRepository.upsert(user);

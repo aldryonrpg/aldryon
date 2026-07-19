@@ -12,7 +12,6 @@ import {
 
 export interface PurchaseItemInput {
   playerId: string;
-  isVip: boolean;
   itemId: string;
 }
 
@@ -55,7 +54,7 @@ export class PurchaseItemUseCase {
     const placement = await placeItemInBag(
       player.id,
       item.id,
-      input.isVip,
+      player.isVip,
       potLimitForLevel(player.level),
       this.playerItemRepository,
       this.itemRepository,

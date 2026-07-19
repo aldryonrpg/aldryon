@@ -1,4 +1,3 @@
-import type { Attack } from "@/domain/attack/Attack";
 import { Battle } from "@/domain/battle/Battle";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
 import { addBattleEffect, effectAppliedMessage } from "@/domain/battle/BattleEffect";
@@ -13,7 +12,7 @@ import type { Player } from "@/domain/player/Player";
 import type { Attributes, AttributeValues } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
+import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
@@ -33,7 +32,6 @@ export interface BeginDungeonFightParams {
   monster: Monster;
   dungeonTier: DungeonTier;
   isBossFight: boolean;
-  playerAttacks: Attack[];
   effectiveAttributes: Attributes;
   monsterCatalogCache: MonsterCatalogCache;
   effectCounterRepository: EffectCounterRepository;
@@ -76,7 +74,6 @@ export async function beginDungeonFight(
     monster,
     dungeonTier,
     isBossFight,
-    playerAttacks,
     effectiveAttributes,
     monsterCatalogCache,
     effectCounterRepository,
@@ -115,13 +112,12 @@ export async function beginDungeonFight(
     );
 
     if (hit) {
-      const defenderStance = defaultPlayerAttack(playerAttacks);
       const damage = computeDamage({
         attackMultiplier: ambushAttack.multiplier,
         attackerScalingValue: monster.getAttributes().get(ambushAttack.scalingAttribute),
         staminaCost: ambushAttack.staminaCost,
         defenderLevel: player.level,
-        defenderScalingValue: effectiveAttributes.get(defenderStance.scalingAttribute),
+        defenderScalingValue: effectiveAttributes.get(ambushAttack.scalingAttribute),
       });
       playerCurrentHp = Math.max(0, playerCurrentHp - damage);
 

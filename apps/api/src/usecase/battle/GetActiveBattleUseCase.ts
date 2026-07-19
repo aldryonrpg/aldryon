@@ -77,8 +77,10 @@ export class GetActiveBattleUseCase {
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
+      multiplier: attack.multiplier,
       scalingAttribute: attack.scalingAttribute,
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
     }));
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);

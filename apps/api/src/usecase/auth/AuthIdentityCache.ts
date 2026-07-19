@@ -5,9 +5,9 @@ import type {
 } from "@/usecase/auth/AuthIdentityResolver";
 
 // Short on purpose: authMiddleware runs on every request, so this cache is
-// what actually keeps the DB off the hot path — but isVip is real profile
-// state an admin can toggle, so a short TTL bounds how stale that can get
-// instead of caching it indefinitely.
+// what actually keeps the DB off the hot path — but playerId, while
+// effectively permanent once created, is still a real DB fact, so a short
+// TTL is a cheap safety margin rather than caching indefinitely.
 const CACHE_TTL_MS = 60_000;
 
 /**

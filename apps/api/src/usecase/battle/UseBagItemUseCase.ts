@@ -8,7 +8,6 @@ import { maxHp } from "@/domain/battle/battleConfig";
 import { PlayerItem } from "@/domain/player/PlayerItem";
 import { ATTRIBUTE_KEYS } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
-import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { InvalidBagItemError, NoActiveBattleError } from "@/usecase/battle/errors";
@@ -38,7 +37,6 @@ export class UseBagItemUseCase {
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
     private readonly monsterCatalogCache: MonsterCatalogCache,
-    private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
@@ -56,21 +54,17 @@ export class UseBagItemUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const [
-      playerAttacks,
-      monsterWithMoveset,
-      { base: attributesBeforeDebuff, effective: effectiveAttributes },
-    ] = await Promise.all([
-      this.attackRepository.findAll(),
-      this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
-      computeEffectiveAttributesWithDebuff(
-        player,
-        this.playerItemRepository,
-        this.itemRepository,
-        this.setAttributeBonus,
-        battle.playerEffects,
-      ),
-    ]);
+    const [monsterWithMoveset, { base: attributesBeforeDebuff, effective: effectiveAttributes }] =
+      await Promise.all([
+        this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
+        computeEffectiveAttributesWithDebuff(
+          player,
+          this.playerItemRepository,
+          this.itemRepository,
+          this.setAttributeBonus,
+          battle.playerEffects,
+        ),
+      ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
     const { monster, moveset } = monsterWithMoveset;
 
@@ -82,7 +76,6 @@ export class UseBagItemUseCase {
         player,
         monster,
         moveset,
-        playerAttacks,
         effectiveAttributes,
         attributesBeforeDebuff,
         playerMaxHp,
@@ -149,7 +142,6 @@ export class UseBagItemUseCase {
       },
       monster,
       moveset,
-      playerAttacks,
       playerLevel: player.level,
       effectiveAttributes,
       rng: this.rng,

@@ -7,7 +7,6 @@ import { pickUnrevealedAttribute } from "@/domain/monster/monsterAttributeReveal
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import {
   AttackNotUsableError,
@@ -91,7 +90,6 @@ export class AttackUseCase {
         player,
         monster,
         moveset,
-        playerAttacks,
         effectiveAttributes,
         attributesBeforeDebuff,
         playerMaxHp,
@@ -146,13 +144,12 @@ export class AttackUseCase {
     let playerEffectApplied: string | null = null;
 
     if (playerHit) {
-      const monsterStance = defaultMonsterAttack(moveset);
       playerDamage = computeDamage({
         attackMultiplier: attack.multiplier,
         attackerScalingValue: effectiveAttributes.get(attack.scalingAttribute),
         staminaCost: attack.staminaCost,
         defenderLevel: monster.level,
-        defenderScalingValue: monsterAttributes.get(monsterStance.scalingAttribute),
+        defenderScalingValue: monsterAttributes.get(attack.scalingAttribute),
       });
       monsterCurrentHp = Math.max(0, monsterCurrentHp - playerDamage);
 
@@ -204,7 +201,6 @@ export class AttackUseCase {
         },
         monster,
         moveset,
-        playerAttacks,
         playerLevel: player.level,
         effectiveAttributes,
         rng: this.rng,

@@ -1,4 +1,3 @@
-import type { Attack } from "@/domain/attack/Attack";
 import type { Battle } from "@/domain/battle/Battle";
 import { consumeStunTurn, tickEffects } from "@/domain/battle/BattleEffect";
 import { BATTLE_CONFIG, maxStamina } from "@/domain/battle/battleConfig";
@@ -30,7 +29,6 @@ export async function resolveStunnedTurn(params: {
   player: Player;
   monster: Monster;
   moveset: MonsterAttack[];
-  playerAttacks: Attack[];
   effectiveAttributes: Attributes;
   attributesBeforeDebuff: Attributes;
   playerMaxHp: number;
@@ -45,7 +43,7 @@ export async function resolveStunnedTurn(params: {
   itemRepository: ItemRepository;
   uniqueItemOwnershipRepository: UniqueItemOwnershipRepository;
 }): Promise<TurnReportOutput> {
-  const { battle, player, monster, moveset, playerAttacks, effectiveAttributes } = params;
+  const { battle, player, monster, moveset, effectiveAttributes } = params;
 
   const playerCurrentStamina = Math.min(
     maxStamina(player.level),
@@ -64,7 +62,6 @@ export async function resolveStunnedTurn(params: {
     },
     monster,
     moveset,
-    playerAttacks,
     playerLevel: player.level,
     effectiveAttributes,
     rng: params.rng,

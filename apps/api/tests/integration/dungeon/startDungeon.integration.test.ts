@@ -45,7 +45,7 @@ describe("StartDungeonUseCase (integration)", () => {
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
     await expectRejection(
-      uc.startDungeonUseCase.execute({ playerId, isVip: false }),
+      uc.startDungeonUseCase.execute({ playerId }),
       BelowMinimumDungeonLevelError,
     );
   });
@@ -57,7 +57,7 @@ describe("StartDungeonUseCase (integration)", () => {
 
     const monstersBefore = await sql<{ n: number }[]>`select count(*)::int as n from monsters`;
 
-    const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    const result = await uc.startDungeonUseCase.execute({ playerId });
 
     expect(result.outcome).toBe("ongoing");
     expect(result.monster).not.toBeNull();
@@ -91,7 +91,7 @@ describe("StartDungeonUseCase (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 15 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
-    const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    const result = await uc.startDungeonUseCase.execute({ playerId });
 
     const rawMonster = await uc.monsterRepository.findById(result.monster?.id as string);
     expect(result.monster?.hp).toBe(Math.ceil((rawMonster?.hp ?? 0) * 1.5));
@@ -106,7 +106,7 @@ describe("StartDungeonUseCase (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 20 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
-    await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    await uc.startDungeonUseCase.execute({ playerId });
 
     const player = await uc.playerRepository.findById(playerId);
     expect(player?.dungeonRunTier).toBe(3);
@@ -141,7 +141,7 @@ describe("StartDungeonUseCase (integration)", () => {
     );
 
     await expectRejection(
-      uc.startDungeonUseCase.execute({ playerId, isVip: false }),
+      uc.startDungeonUseCase.execute({ playerId }),
       BattleAlreadyInProgressError,
     );
   });
@@ -151,14 +151,14 @@ describe("StartDungeonUseCase (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 12 });
     const uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
-    await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    await uc.startDungeonUseCase.execute({ playerId });
     // The kill hasn't happened yet, but simulate "the battle already ended
     // and the player hasn't clicked Continue/Exit" by clearing just the
     // battle row (dungeon_run_* stays set, exactly like after a real kill).
     await uc.battleRepository.deleteByPlayerId(playerId);
 
     await expectRejection(
-      uc.startDungeonUseCase.execute({ playerId, isVip: false }),
+      uc.startDungeonUseCase.execute({ playerId }),
       DungeonRunAlreadyInProgressError,
     );
   });
@@ -168,7 +168,7 @@ describe("StartDungeonUseCase (integration)", () => {
     const playerId = await createTestPlayer(sql, userId, { level: 12 });
     let uc = buildUseCases(sql, NO_AMBUSH_RNG());
 
-    await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    await uc.startDungeonUseCase.execute({ playerId });
     await uc.battleRepository.deleteByPlayerId(playerId);
     // Close out the run (Exit) so the daily-limit check is what rejects the
     // next attempt, not the "run already in progress" guard.
@@ -179,24 +179,24 @@ describe("StartDungeonUseCase (integration)", () => {
     // next pick's index in bounds instead of falling back to FakeRng's
     // "repeat the last queued value forever" behavior.
     await expectRejection(
-      uc.startDungeonUseCase.execute({ playerId, isVip: false }),
+      uc.startDungeonUseCase.execute({ playerId }),
       DailyDungeonLimitReachedError,
     );
 
-    const vipUserId = await createTestUser(sql, { isVip: true });
-    const vipPlayerId = await createTestPlayer(sql, vipUserId, { level: 12 });
+    const vipUserId = await createTestUser(sql);
+    const vipPlayerId = await createTestPlayer(sql, vipUserId, { level: 12, isVip: true });
 
     uc = buildUseCases(sql, NO_AMBUSH_RNG());
-    await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
+    await uc.startDungeonUseCase.execute({ playerId: vipPlayerId });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
     await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
     uc = buildUseCases(sql, NO_AMBUSH_RNG());
-    await uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true });
+    await uc.startDungeonUseCase.execute({ playerId: vipPlayerId });
     await uc.battleRepository.deleteByPlayerId(vipPlayerId);
     await uc.exitDungeonRunUseCase.execute({ playerId: vipPlayerId });
 
     await expectRejection(
-      uc.startDungeonUseCase.execute({ playerId: vipPlayerId, isVip: true }),
+      uc.startDungeonUseCase.execute({ playerId: vipPlayerId }),
       DailyDungeonLimitReachedError,
     );
 
@@ -204,7 +204,7 @@ describe("StartDungeonUseCase (integration)", () => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await setPlayerDungeonAttempts(sql, playerId, yesterday, null);
     uc = buildUseCases(sql, NO_AMBUSH_RNG());
-    const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    const result = await uc.startDungeonUseCase.execute({ playerId });
     expect(result.outcome).toBe("ongoing");
   });
 });

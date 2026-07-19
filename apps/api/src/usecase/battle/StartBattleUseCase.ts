@@ -18,7 +18,7 @@ import type { AttributeValues } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
+import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
@@ -34,7 +34,6 @@ import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 export interface StartBattleInput {
   playerId: string;
-  isVip: boolean;
   region: MonsterRegion;
 }
 
@@ -43,8 +42,10 @@ export type { BattleStatusOutput, MonsterStatusOutput };
 export interface AvailableAttackOutput {
   name: string;
   staminaCost: number;
+  multiplier: number;
   scalingAttribute: AttackScaling;
   meetsRequirements: boolean;
+  revealsRandomMonsterAttribute: boolean;
 }
 
 export interface StartBattleOutput {
@@ -103,7 +104,7 @@ export class StartBattleUseCase {
 
     // Run cooldown (plan2 §4 step 1a) — dying has no cooldown, only fleeing does.
     if (player.lastRunAt) {
-      const cooldownSeconds = input.isVip
+      const cooldownSeconds = player.isVip
         ? BATTLE_CONFIG.runCooldownSecondsVip
         : BATTLE_CONFIG.runCooldownSeconds;
       const elapsedSeconds = (Date.now() - player.lastRunAt.getTime()) / 1000;
@@ -122,8 +123,10 @@ export class StartBattleUseCase {
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
+      multiplier: attack.multiplier,
       scalingAttribute: attack.scalingAttribute,
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
     }));
 
     // 20% of the time: find nothing (plan2 §4 step 2).
@@ -184,13 +187,12 @@ export class StartBattleUseCase {
       );
 
       if (hit) {
-        const defenderStance = defaultPlayerAttack(playerAttacks);
         const damage = computeDamage({
           attackMultiplier: ambushAttack.multiplier,
           attackerScalingValue: monster.getAttributes().get(ambushAttack.scalingAttribute),
           staminaCost: ambushAttack.staminaCost,
           defenderLevel: player.level,
-          defenderScalingValue: effectiveAttributes.get(defenderStance.scalingAttribute),
+          defenderScalingValue: effectiveAttributes.get(ambushAttack.scalingAttribute),
         });
         playerCurrentHp = Math.max(0, playerCurrentHp - damage);
 

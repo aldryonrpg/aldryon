@@ -19,26 +19,26 @@ class CountingAuthIdentityResolver implements AuthIdentityResolver {
 describe("AuthIdentityCache", () => {
   it("delegates to the resolver on a cold cache", async () => {
     const resolver = new CountingAuthIdentityResolver(
-      new Map([["ext-1", { playerId: "player-1", isVip: false }]]),
+      new Map([["ext-1", { playerId: "player-1" }]]),
     );
     const cache = new AuthIdentityCache(resolver);
 
     const result = await cache.resolve("ext-1");
 
-    expect(result).toEqual({ playerId: "player-1", isVip: false });
+    expect(result).toEqual({ playerId: "player-1" });
     expect(resolver.calls).toBe(1);
   });
 
   it("serves a repeat lookup from the cache without calling the resolver again", async () => {
     const resolver = new CountingAuthIdentityResolver(
-      new Map([["ext-1", { playerId: "player-1", isVip: false }]]),
+      new Map([["ext-1", { playerId: "player-1" }]]),
     );
     const cache = new AuthIdentityCache(resolver);
 
     await cache.resolve("ext-1");
     const result = await cache.resolve("ext-1");
 
-    expect(result).toEqual({ playerId: "player-1", isVip: false });
+    expect(result).toEqual({ playerId: "player-1" });
     expect(resolver.calls).toBe(1);
   });
 
@@ -58,18 +58,18 @@ describe("AuthIdentityCache", () => {
     const resolver = new CountingAuthIdentityResolver(new Map());
     const cache = new AuthIdentityCache(resolver);
 
-    cache.remember("ext-1", { playerId: "player-1", isVip: true });
+    cache.remember("ext-1", { playerId: "player-1" });
     const result = await cache.resolve("ext-1");
 
-    expect(result).toEqual({ playerId: "player-1", isVip: true });
+    expect(result).toEqual({ playerId: "player-1" });
     expect(resolver.calls).toBe(0);
   });
 
   it("keys different identities independently", async () => {
     const resolver = new CountingAuthIdentityResolver(
       new Map([
-        ["ext-1", { playerId: "player-1", isVip: false }],
-        ["ext-2", { playerId: "player-2", isVip: true }],
+        ["ext-1", { playerId: "player-1" }],
+        ["ext-2", { playerId: "player-2" }],
       ]),
     );
     const cache = new AuthIdentityCache(resolver);
@@ -77,8 +77,8 @@ describe("AuthIdentityCache", () => {
     const first = await cache.resolve("ext-1");
     const second = await cache.resolve("ext-2");
 
-    expect(first).toEqual({ playerId: "player-1", isVip: false });
-    expect(second).toEqual({ playerId: "player-2", isVip: true });
+    expect(first).toEqual({ playerId: "player-1" });
+    expect(second).toEqual({ playerId: "player-2" });
     expect(resolver.calls).toBe(2);
   });
 });

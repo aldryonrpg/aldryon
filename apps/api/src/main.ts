@@ -16,10 +16,10 @@ import { PostgresUniqueItemOwnershipRepository } from "@/infrastructure/persiste
 import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUserRepository";
 import { createPostgresClient } from "@/infrastructure/persistence/postgresClient";
 import { RandomRng } from "@/infrastructure/random/RandomRng";
-import { createSupabaseClient } from "@/infrastructure/supabase/supabaseClient";
 import { createApp } from "@/interface/http/createApp";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
+import { CachedAuthGateway } from "@/usecase/auth/CachedAuthGateway";
 import { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
@@ -48,14 +48,13 @@ import { PurchaseItemUseCase } from "@/usecase/store/PurchaseItemUseCase";
 import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const env = loadEnv();
-const supabase = createSupabaseClient(env);
 const sql = createPostgresClient(env.databaseUrl, {
   max: env.databasePoolMax,
   idleTimeoutSeconds: env.databasePoolIdleTimeoutSeconds,
   maxLifetimeSeconds: env.databasePoolMaxLifetimeSeconds,
   prepare: env.databasePoolPrepareStatements,
 });
-const authGateway = new SupabaseAuthGateway(supabase);
+const authGateway = new CachedAuthGateway(SupabaseAuthGateway.forProject(env.supabaseUrl));
 const authIdentityResolver = new PostgresAuthIdentityResolver(sql);
 const authIdentityCache = new AuthIdentityCache(authIdentityResolver);
 const rng = new RandomRng();
@@ -115,7 +114,6 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   itemRepository,
   battleRepository,
   monsterCatalogCache,
-  attackRepository,
   levelRepository,
   rng,
   env.levelUpAttributePoints,
@@ -131,7 +129,6 @@ const useBagItemUseCase = new UseBagItemUseCase(
   itemRepository,
   battleRepository,
   monsterCatalogCache,
-  attackRepository,
   levelRepository,
   rng,
   env.levelUpAttributePoints,
@@ -147,7 +144,6 @@ const restUseCase = new RestUseCase(
   itemRepository,
   battleRepository,
   monsterCatalogCache,
-  attackRepository,
   levelRepository,
   rng,
   env.levelUpAttributePoints,

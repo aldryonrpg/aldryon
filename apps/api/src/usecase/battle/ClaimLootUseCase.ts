@@ -15,7 +15,6 @@ import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 export interface ClaimLootInput {
   playerId: string;
-  isVip: boolean;
   picks: string[];
 }
 
@@ -149,7 +148,7 @@ export class ClaimLootUseCase {
         continue;
       }
 
-      const plan = planAddNormalItem({ slots: normalSlots, isVip: input.isVip }, pick);
+      const plan = planAddNormalItem({ slots: normalSlots, isVip: player.isVip }, pick);
       if (!plan.fits) {
         rejected.push({ itemId: pick, reason: plan.reason ?? "Bag is full" });
         continue;

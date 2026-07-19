@@ -6,14 +6,11 @@ import type { SQL } from "bun";
  * specific charge state) without depending on the seeded catalog's numbers.
  */
 
-export async function createTestUser(
-  sql: SQL,
-  overrides: { isVip?: boolean } = {},
-): Promise<string> {
+export async function createTestUser(sql: SQL): Promise<string> {
   const id = Bun.randomUUIDv7();
   await sql`
-    insert into users (id, external_auth_id, email, is_vip)
-    values (${id}, ${`test-auth-${id}`}, ${`${id}@example.com`}, ${overrides.isVip ?? false})
+    insert into users (id, external_auth_id, email)
+    values (${id}, ${`test-auth-${id}`}, ${`${id}@example.com`})
   `;
   return id;
 }
@@ -31,6 +28,7 @@ export interface TestPlayerOverrides {
   luck?: number;
   lastRunAt?: Date | null;
   lastDeathAt?: Date | null;
+  isVip?: boolean;
 }
 
 export async function createTestPlayer(
@@ -43,13 +41,13 @@ export async function createTestPlayer(
     insert into players (
       id, user_id, gold, level, xp, attribute_points,
       strength, dexterity, agility, intelligence, vitality, luck,
-      last_run_at, last_death_at
+      last_run_at, last_death_at, is_vip
     ) values (
       ${id}, ${userId}, ${overrides.gold ?? 0}, ${overrides.level ?? 1}, ${overrides.xp ?? 0},
       ${overrides.attributePoints ?? 10},
       ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
-      ${overrides.lastRunAt ?? null}, ${overrides.lastDeathAt ?? null}
+      ${overrides.lastRunAt ?? null}, ${overrides.lastDeathAt ?? null}, ${overrides.isVip ?? false}
     )
   `;
   return id;

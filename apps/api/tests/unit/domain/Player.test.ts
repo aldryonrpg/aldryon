@@ -17,6 +17,7 @@ const BASE_PROPS = {
   dungeonRunTier: null,
   dungeonRunStep: null,
   dungeonRunTotalSteps: null,
+  isVip: false,
 };
 
 describe("Player playerName", () => {

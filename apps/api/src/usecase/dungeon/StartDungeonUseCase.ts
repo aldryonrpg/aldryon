@@ -34,7 +34,6 @@ import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 export interface StartDungeonInput {
   playerId: string;
-  isVip: boolean;
 }
 
 export interface StartDungeonOutput {
@@ -99,7 +98,7 @@ export class StartDungeonUseCase {
     }
 
     const now = new Date();
-    if (!canAttemptDungeon(player.dungeonAttempt1, player.dungeonAttempt2, input.isVip, now)) {
+    if (!canAttemptDungeon(player.dungeonAttempt1, player.dungeonAttempt2, player.isVip, now)) {
       throw new DailyDungeonLimitReachedError(nextUtcMidnight(now));
     }
 
@@ -142,8 +141,10 @@ export class StartDungeonUseCase {
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
+      multiplier: attack.multiplier,
       scalingAttribute: attack.scalingAttribute,
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
     }));
 
     const result = await beginDungeonFight({
@@ -151,7 +152,6 @@ export class StartDungeonUseCase {
       monster,
       dungeonTier: tier,
       isBossFight: false,
-      playerAttacks,
       effectiveAttributes,
       monsterCatalogCache: this.monsterCatalogCache,
       effectCounterRepository: this.effectCounterRepository,

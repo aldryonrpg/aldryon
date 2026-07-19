@@ -15,7 +15,6 @@ export const UserProfileSchema = z.object({
   email: z.string().email(),
   displayName: z.string().nullable(),
   avatarUrl: z.string().url().nullable(),
-  isVip: z.boolean(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 

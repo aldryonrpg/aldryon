@@ -9,9 +9,14 @@ function requireEnv(name: string): string {
 export function loadEnv() {
   return {
     port: Number(process.env.PORT ?? 3001),
-    // Used only to verify Supabase Auth (GoTrue) tokens — see SupabaseAuthGateway.
+    // The project's public URL, used only to build the JWKS endpoint
+    // (`${supabaseUrl}/auth/v1/.well-known/jwks.json`) SupabaseAuthGateway
+    // verifies access tokens against locally — no GoTrue round trip, no
+    // Supabase SDK client needed in apps/api at all. Not a secret (it's the
+    // same value exposed client-side as NEXT_PUBLIC_SUPABASE_URL) — this
+    // project signs tokens with an asymmetric ECC/P-256 key, so there's no
+    // shared secret to hold at all, only this public URL.
     supabaseUrl: requireEnv("SUPABASE_URL"),
-    supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     // Direct Postgres connection (Supabase's connection string) for data
     // access — apps/api is a trusted service, so it skips PostgREST/RLS
     // entirely and talks to Postgres directly. See PostgresUserRepository.

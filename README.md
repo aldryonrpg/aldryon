@@ -79,9 +79,13 @@ Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 - The pure-debuff monster specials (`Fear`,
   `Magic Aura Blast`, `Stun`) and `REVEAL SPELL` intentionally keep a ×0
   multiplier — their value is the status effect/reveal, not direct damage.
-- A side's defensive scaling attribute is fixed to its own `HIT` attack's
-  scaling attribute for the whole battle (there's no "last attack used"
-  state tracked on a battle).
+- **Defense always matches whatever attribute the incoming attack is itself
+  scaled on** — a Strength attack is defended against with the defender's
+  own effective Strength, an Intelligence attack (e.g. **`BURN SPELL`**,
+  **`FIREBALL SPELL`**) with the defender's own effective Intelligence.
+  There's no fixed per-side "stance": defense is re-derived from the
+  attack in play every single time, not from either side's `HIT` attack or
+  the last attack either side happened to use.
 
 ### Battle effects (bleed / poison / burn)
 
@@ -368,9 +372,12 @@ Create **`apps/api/.env`** (gitignored):
 
 ```bash
 DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
-# Supabase Auth (GoTrue) — used only to verify Google login tokens.
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+# Supabase Auth (GoTrue) — the project's public URL, used to build the JWKS
+# endpoint access tokens are verified against locally
+# (SupabaseAuthGateway.forProject) — no network call to Supabase on the
+# request path, no Supabase SDK client in apps/api at all, and no secret to
+# hold (this project signs tokens with an asymmetric ECC/P-256 key).
+SUPABASE_URL=<https://your-project.supabase.co>
 # Attribute points granted per level-up (see "Combat math" above). Optional, default 4.
 LEVEL_UP_ATTRIBUTE_POINTS=4
 # Rounds a Stun/Fear/Magic-Aura-Blast-applying special is excluded from

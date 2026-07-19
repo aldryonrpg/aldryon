@@ -20,6 +20,11 @@ export interface PlayerProps {
   lastRunAt: Date | null;
   /** Item ids awaiting the player's pick from the last kill (plan2 §5e). */
   pendingLoot: string[];
+  /** Player-owned profile state, not an auth claim — never re-synced from
+   * the identity provider (plan4 §8). Gates bag capacity, dungeon daily
+   * attempts, and the run cooldown; usecases read this directly off the
+   * already-loaded Player instead of a separately-threaded request param. */
+  isVip: boolean;
   /** Daily dungeon attempt slots (plan3 §2f) — a slot from a previous UTC day
    * simply doesn't count today; see domain/dungeon/dungeonAttempts.ts. */
   dungeonAttempt1: Date | null;
@@ -90,6 +95,9 @@ export class Player {
   }
   get pendingLoot(): string[] {
     return [...this.props.pendingLoot];
+  }
+  get isVip(): boolean {
+    return this.props.isVip;
   }
   get dungeonAttempt1(): Date | null {
     return this.props.dungeonAttempt1;
