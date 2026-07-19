@@ -19,7 +19,7 @@ import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepo
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/StartBattleUseCase";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
+import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 function pick<T>(items: T[], rng: Rng): T {
@@ -35,7 +35,7 @@ export interface BeginDungeonFightParams {
   isBossFight: boolean;
   playerAttacks: Attack[];
   effectiveAttributes: Attributes;
-  monsterAttackRepository: MonsterAttackRepository;
+  monsterCatalogCache: MonsterCatalogCache;
   effectCounterRepository: EffectCounterRepository;
   levelRepository: LevelRepository;
   playerRepository: PlayerRepository;
@@ -78,7 +78,7 @@ export async function beginDungeonFight(
     isBossFight,
     playerAttacks,
     effectiveAttributes,
-    monsterAttackRepository,
+    monsterCatalogCache,
     effectCounterRepository,
     levelRepository,
     playerRepository,
@@ -86,7 +86,7 @@ export async function beginDungeonFight(
     rng,
   } = params;
 
-  const moveset = await monsterAttackRepository.findMovesetByMonsterId(monster.id);
+  const moveset = await monsterCatalogCache.getMoveset(monster.id);
   const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
   const playerMaxStamina = maxStamina(player.level);
   const monsterMaxStamina = monster.maxStamina;

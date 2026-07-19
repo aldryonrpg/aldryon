@@ -169,12 +169,16 @@ on the shared cooldown) as follows:
    simultaneously-affordable specials are broken randomly.
 2. **Otherwise, normal attacks are scored `damage + weight`.** `damage` is
    what that attack would deal if it hits (the same formula as "Damage"
-   above); `weight` is how many consecutive turns that attack has gone
-   unpicked, starting at 0 and resetting to 0 the turn it's picked. The
-   highest score wins, ties broken by moveset order. A long-unused weaker
-   attack can eventually outscore a frequently-picked stronger one, so the
-   monster rotates through its moveset instead of always repeating the
-   single highest-damage hit.
+   above); `weight` starts at 0, resets to 0 the turn it's picked, and
+   otherwise grows by the **monster's own level** every turn it's passed
+   over — including turns it wasn't even affordable, and turns the monster
+   rested or charged a special instead (nothing was "picked" among the
+   normals either way). The highest score wins, ties broken by moveset
+   order. A long-unused weaker attack can eventually outscore a
+   frequently-picked stronger one, so the monster rotates through its
+   moveset instead of always repeating the single highest-damage hit — and
+   a higher-level monster closes that gap and rotates faster than a
+   low-level one facing the identical score difference.
 3. **If nothing is affordable, the monster rests** (Stamina regenerates at
    the Rest rate instead of the passive rate).
 

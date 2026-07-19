@@ -1,6 +1,7 @@
-import type { SQL } from "bun";
+import { SQL } from "bun";
 import { Player } from "@/domain/player/Player";
 import { parseJsonbColumn } from "@/infrastructure/persistence/jsonbColumn";
+import { PlayerNameTakenError } from "@/usecase/player/errors";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
 
 interface PlayerRow {
@@ -75,6 +76,20 @@ export class PostgresPlayerRepository implements PlayerRepository {
     return rows[0] ? toDomain(rows[0]) : null;
   }
 
+  async findByName(name: string): Promise<Player | null> {
+    const rows = await this.sql<
+      PlayerRow[]
+    >`select * from players where lower(player_name) = lower(${name}) limit 1`;
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
+  async listPlayerNames(): Promise<string[]> {
+    const rows = await this.sql<
+      { player_name: string }[]
+    >`select player_name from players where player_name is not null`;
+    return rows.map((row) => row.player_name);
+  }
+
   async create(player: Player): Promise<Player> {
     const props = player.toProps();
     const attrs = player.getAttributes();
@@ -104,31 +119,43 @@ export class PostgresPlayerRepository implements PlayerRepository {
     const props = player.toProps();
     const attrs = player.getAttributes();
 
-    const rows = await this.sql<PlayerRow[]>`
-      update players set
-        player_name = ${props.playerName},
-        gold = ${props.gold},
-        level = ${props.level},
-        xp = ${props.xp},
-        attribute_points = ${props.attributePoints},
-        strength = ${attrs.strength},
-        dexterity = ${attrs.dexterity},
-        agility = ${attrs.agility},
-        intelligence = ${attrs.intelligence},
-        vitality = ${attrs.vitality},
-        luck = ${attrs.luck},
-        last_death_at = ${props.lastDeathAt},
-        last_run_at = ${props.lastRunAt},
-        pending_loot = ${props.pendingLoot}::jsonb,
-        dungeon_attempt_1 = ${props.dungeonAttempt1},
-        dungeon_attempt_2 = ${props.dungeonAttempt2},
-        dungeon_run_tier = ${props.dungeonRunTier},
-        dungeon_run_step = ${props.dungeonRunStep},
-        dungeon_run_total_steps = ${props.dungeonRunTotalSteps},
-        updated_at = now()
-      where id = ${props.id}
-      returning *
-    `;
+    let rows: PlayerRow[];
+    try {
+      rows = await this.sql<PlayerRow[]>`
+        update players set
+          player_name = ${props.playerName},
+          gold = ${props.gold},
+          level = ${props.level},
+          xp = ${props.xp},
+          attribute_points = ${props.attributePoints},
+          strength = ${attrs.strength},
+          dexterity = ${attrs.dexterity},
+          agility = ${attrs.agility},
+          intelligence = ${attrs.intelligence},
+          vitality = ${attrs.vitality},
+          luck = ${attrs.luck},
+          last_death_at = ${props.lastDeathAt},
+          last_run_at = ${props.lastRunAt},
+          pending_loot = ${props.pendingLoot}::jsonb,
+          dungeon_attempt_1 = ${props.dungeonAttempt1},
+          dungeon_attempt_2 = ${props.dungeonAttempt2},
+          dungeon_run_tier = ${props.dungeonRunTier},
+          dungeon_run_step = ${props.dungeonRunStep},
+          dungeon_run_total_steps = ${props.dungeonRunTotalSteps},
+          updated_at = now()
+        where id = ${props.id}
+        returning *
+      `;
+    } catch (err) {
+      // Race-condition backstop: two concurrent renames can both pass the
+      // Bloom-filter/findByName pre-check before either commits (see
+      // UpdatePlayerNameUseCase) — the unique index on lower(player_name) is
+      // what actually decides the race, surfaced here as a 23505.
+      if (err instanceof SQL.PostgresError && err.errno === "23505") {
+        throw new PlayerNameTakenError();
+      }
+      throw err;
+    }
 
     const saved = rows[0];
     if (!saved) throw new Error("Failed to update player: no row returned");

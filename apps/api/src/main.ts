@@ -33,11 +33,13 @@ import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeon
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
+import { PlayerNameCache } from "@/usecase/player/PlayerNameCache";
 import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
@@ -64,6 +66,9 @@ const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
 const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
 const effectCounterRepository = new PostgresEffectCounterRepository(sql);
 const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
+const monsterCatalogCache = new MonsterCatalogCache(monsterRepository, monsterAttackRepository);
+const playerNameCache = new PlayerNameCache();
+playerNameCache.load(await playerRepository.listPlayerNames());
 
 const authenticateUserUseCase = new AuthenticateUserUseCase(authGateway, userRepository);
 const getOrCreatePlayerUseCase = new GetOrCreatePlayerUseCase(playerRepository);
@@ -74,7 +79,7 @@ const startBattleUseCase = new StartBattleUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -86,8 +91,7 @@ const attackUseCase = new AttackUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -103,8 +107,7 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -120,8 +123,7 @@ const useBagItemUseCase = new UseBagItemUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -137,8 +139,7 @@ const restUseCase = new RestUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -162,10 +163,10 @@ const destroyBagItemUseCase = new DestroyBagItemUseCase(
   uniqueItemOwnershipRepository,
 );
 const allocateAttributePointsUseCase = new AllocateAttributePointsUseCase(playerRepository);
-const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository);
+const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository, playerNameCache);
 const getActiveBattleUseCase = new GetActiveBattleUseCase(
   battleRepository,
-  monsterRepository,
+  monsterCatalogCache,
   playerRepository,
   playerItemRepository,
   itemRepository,
@@ -187,7 +188,7 @@ const startDungeonUseCase = new StartDungeonUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -206,7 +207,7 @@ const continueDungeonUseCase = new ContinueDungeonUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   dungeonBossOfTheDayUseCase,

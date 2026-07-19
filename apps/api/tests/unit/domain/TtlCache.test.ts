@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { msUntilNextUtcMidnight, TtlCache } from "@/domain/shared/TtlCache";
+import { KeyedTtlCache, msUntilNextUtcMidnight, TtlCache } from "@/domain/shared/TtlCache";
 
 describe("TtlCache", () => {
   it("returns null before anything is set", () => {
@@ -41,6 +41,45 @@ describe("TtlCache", () => {
     expect(cache.get()).toBe(42);
     now = 500;
     expect(cache.get()).toBeNull();
+  });
+});
+
+describe("KeyedTtlCache", () => {
+  it("returns null for a key that was never set", () => {
+    const cache = new KeyedTtlCache<string, number>(1000);
+    expect(cache.get("a")).toBeNull();
+  });
+
+  it("caches each key independently within the TTL window", () => {
+    let now = 0;
+    const cache = new KeyedTtlCache<string, number>(1000, () => now);
+    cache.set("a", 1);
+    cache.set("b", 2);
+    now = 999;
+    expect(cache.get("a")).toBe(1);
+    expect(cache.get("b")).toBe(2);
+    expect(cache.get("c")).toBeNull();
+  });
+
+  it("expires each key on its own schedule", () => {
+    let now = 0;
+    const cache = new KeyedTtlCache<string, number>(1000, () => now);
+    cache.set("a", 1);
+    now = 500;
+    cache.set("b", 2);
+    now = 1000;
+    expect(cache.get("a")).toBeNull();
+    expect(cache.get("b")).toBe(2);
+  });
+
+  it("overwrites an existing key's value and resets its expiry", () => {
+    let now = 0;
+    const cache = new KeyedTtlCache<string, number>(1000, () => now);
+    cache.set("a", 1);
+    now = 999;
+    cache.set("a", 2);
+    now = 1998;
+    expect(cache.get("a")).toBe(2);
   });
 });
 

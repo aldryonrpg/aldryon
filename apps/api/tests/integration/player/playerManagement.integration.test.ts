@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { AllocateAttributePointsRequestSchema } from "@aldryon/dtos";
 import { SQL } from "bun";
-import { InsufficientAttributePointsError, ItemNotEquippableError } from "@/usecase/player/errors";
+import {
+  InsufficientAttributePointsError,
+  ItemNotEquippableError,
+  PlayerNameTakenError,
+} from "@/usecase/player/errors";
 import { buildUseCases } from "../support/buildUseCases";
 import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
@@ -64,6 +68,61 @@ describe("Player management use cases (integration)", () => {
         uc.updatePlayerNameUseCase.execute({ playerId, playerName: "no" }),
         Error,
       );
+    });
+
+    it("rejects a name already taken by another player, case-insensitively", async () => {
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const firstUserId = await createTestUser(sql);
+      const firstPlayerId = await createTestPlayer(sql, firstUserId);
+      await uc.updatePlayerNameUseCase.execute({
+        playerId: firstPlayerId,
+        playerName: "TakenNameHero",
+      });
+
+      const secondUserId = await createTestUser(sql);
+      const secondPlayerId = await createTestPlayer(sql, secondUserId);
+
+      await expectRejection(
+        uc.updatePlayerNameUseCase.execute({
+          playerId: secondPlayerId,
+          playerName: "takennamehero",
+        }),
+        PlayerNameTakenError,
+      );
+    });
+
+    it("allows a player to re-save their own current name", async () => {
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId);
+      const uc = buildUseCases(sql, new FakeRng([1]));
+      await uc.updatePlayerNameUseCase.execute({ playerId, playerName: "SameNameHero" });
+
+      const result = await uc.updatePlayerNameUseCase.execute({
+        playerId,
+        playerName: "SameNameHero",
+      });
+
+      expect(result.playerName).toBe("SameNameHero");
+    });
+
+    it("frees a name immediately so another player can claim it after a rename", async () => {
+      const uc = buildUseCases(sql, new FakeRng([1]));
+
+      const firstUserId = await createTestUser(sql);
+      const firstPlayerId = await createTestPlayer(sql, firstUserId);
+      await uc.updatePlayerNameUseCase.execute({ playerId: firstPlayerId, playerName: "OldName1" });
+      await uc.updatePlayerNameUseCase.execute({ playerId: firstPlayerId, playerName: "NewName1" });
+
+      const secondUserId = await createTestUser(sql);
+      const secondPlayerId = await createTestPlayer(sql, secondUserId);
+
+      const result = await uc.updatePlayerNameUseCase.execute({
+        playerId: secondPlayerId,
+        playerName: "OldName1",
+      });
+
+      expect(result.playerName).toBe("OldName1");
     });
   });
 
