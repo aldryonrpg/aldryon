@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
+import type { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
 import type { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import type { UserRepository } from "@/usecase/user/UserRepository";
 
@@ -11,14 +12,18 @@ export interface AuthedVariables {
 
 /**
  * Verifies the `Authorization: Bearer <supabaseAccessToken>` header via the
- * existing AuthGateway (plan1), resolves the User (must already exist — you
- * log in before playing), and gets-or-creates the 1:1 Player. Downstream
- * gameplay controllers read `c.get("playerId")` / `c.get("isVip")`.
+ * existing AuthGateway (plan1), then resolves playerId/isVip for downstream
+ * gameplay controllers. This runs on every authenticated request, so the
+ * common case goes through authIdentityCache first (in-memory hit, or its
+ * single joined DB query) — the User-then-get-or-create-Player path below is
+ * only the fallback for a cache/resolver miss, which is just the true
+ * first-ever-login case (must create the Player row) or a cold cache.
  */
 export function createAuthMiddleware(
   authGateway: AuthGateway,
   userRepository: UserRepository,
   getOrCreatePlayerUseCase: GetOrCreatePlayerUseCase,
+  authIdentityCache: AuthIdentityCache,
 ): MiddlewareHandler<{ Variables: AuthedVariables }> {
   return async (c: Context<{ Variables: AuthedVariables }>, next) => {
     const header = c.req.header("authorization");
@@ -30,6 +35,15 @@ export function createAuthMiddleware(
 
     try {
       const identity = await authGateway.verifyAccessToken(token);
+
+      const cached = await authIdentityCache.resolve(identity.externalAuthId);
+      if (cached) {
+        c.set("playerId", cached.playerId);
+        c.set("isVip", cached.isVip);
+        await next();
+        return;
+      }
+
       const user = await userRepository.findByExternalAuthId(identity.externalAuthId);
       if (!user) {
         return c.json(
@@ -41,6 +55,10 @@ export function createAuthMiddleware(
       }
 
       const { player } = await getOrCreatePlayerUseCase.execute({ userId: user.id });
+      authIdentityCache.remember(identity.externalAuthId, {
+        playerId: player.id,
+        isVip: user.isVip,
+      });
       c.set("playerId", player.id);
       c.set("isVip", user.isVip);
       await next();

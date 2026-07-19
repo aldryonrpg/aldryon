@@ -1,16 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-// Recomputed on every tick — matches the CSS transition duration below so
-// the icon glides continuously between ticks instead of visibly jumping.
-const UPDATE_INTERVAL_MS = 15_000;
+import { DEFAULT_TIME_OF_DAY_UPDATE_INTERVAL_MS, useTimeOfDay } from "@/lib/useTimeOfDay";
 
 // A simple fixed day/night split (no geolocation, no real sunrise/sunset
 // math) — good enough for a decorative clock, not meant to be astronomically
 // accurate.
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 18;
+
+// A shallow arc (a flattened rainbow, not a full semicircle) — the icon
+// rises from one edge, peaks at the midpoint, and settles at the other
+// edge, rather than sliding along a hard horizontal line. These are an
+// internal SVG coordinate space, not real pixels — the container is sized
+// with CSS (width: 90%, aspect-ratio), and the SVG's viewBox scales this
+// arc to fit whatever width that resolves to.
+const ARC_VIEWBOX_WIDTH = 1000;
+const ARC_BASELINE_Y = 80;
+const ARC_PEAK_RISE = 50;
+
+/** Point at t (0-1) along the quadratic Bezier baseline->peak->baseline, as
+ * a fraction (0-1) of the viewBox's width/height — used for both the drawn
+ * track (which takes raw viewBox units) and the icon (which is a plain HTML
+ * element positioned by percentage, so it scales with the container). */
+function pointOnArc(t: number): { xPercent: number; yPercent: number } {
+  const controlX = ARC_VIEWBOX_WIDTH / 2;
+  const controlY = ARC_BASELINE_Y - ARC_PEAK_RISE;
+  const x = (1 - t) ** 2 * 0 + 2 * (1 - t) * t * controlX + t ** 2 * ARC_VIEWBOX_WIDTH;
+  const y = (1 - t) ** 2 * ARC_BASELINE_Y + 2 * (1 - t) * t * controlY + t ** 2 * ARC_BASELINE_Y;
+  return { xPercent: (x / ARC_VIEWBOX_WIDTH) * 100, yPercent: (y / ARC_BASELINE_Y) * 100 };
+}
 
 function SunIcon() {
   return (
@@ -42,35 +60,68 @@ function MoonIcon() {
  * A thin 24-hour timeline showing the player's own local time of day — a
  * Sun/Moon icon slides left to right across it and snaps back to the left
  * edge at local midnight. Self-contained (reads the browser clock directly,
- * no props), so any page can drop it in; currently only rendered on the
- * main page.
+ * no props), so any page can drop it in as a fixed overlay layer; currently
+ * rendered on the main page and the player sheet.
  */
 export function DayNightTimeline() {
-  const [now, setNow] = useState(() => new Date());
+  const timeOfDay = useTimeOfDay();
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), UPDATE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, []);
+  // The outer layer is `fixed`, not `relative` — it's pinned to the
+  // viewport and pulled out of normal document flow entirely, so it can
+  // never push page content around or reflow oddly at narrower breakpoints
+  // (mobile/tablet). Flexbox centers the 90%-wide arc within that full-width
+  // fixed strip. `relative` still appears one level down, on the arc box
+  // itself — that's a different, required use of it: an anchor for its own
+  // absolutely-positioned children (the SVG track and the icon), not for
+  // placing the component on the page.
+  const arcStyle = { aspectRatio: `${ARC_VIEWBOX_WIDTH} / ${ARC_BASELINE_Y}` };
 
-  const secondsIntoDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  const percentOfDay = (secondsIntoDay / 86400) * 100;
+  if (!timeOfDay) {
+    return (
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-20 flex justify-center">
+        <div className="relative w-[90%]" style={arcStyle} />
+      </div>
+    );
+  }
+
+  const { now, dayFraction } = timeOfDay;
   const isDaytime = now.getHours() >= DAY_START_HOUR && now.getHours() < DAY_END_HOUR;
+  const iconPos = pointOnArc(dayFraction);
+  const controlX = ARC_VIEWBOX_WIDTH / 2;
+  const controlY = ARC_BASELINE_Y - ARC_PEAK_RISE;
 
   return (
-    <div className="relative h-8 w-full border-b border-white bg-black">
-      <div
-        className="absolute top-1/2 h-5 w-5"
-        style={{
-          left: `${percentOfDay}%`,
-          transform: "translate(-50%, -50%)",
-          transitionProperty: "left",
-          transitionDuration: `${UPDATE_INTERVAL_MS}ms`,
-          transitionTimingFunction: "linear",
-        }}
-        title={now.toLocaleTimeString()}
-      >
-        {isDaytime ? <SunIcon /> : <MoonIcon />}
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-20 flex justify-center">
+      <div className="relative w-[90%]" style={arcStyle}>
+        <svg
+          viewBox={`0 0 ${ARC_VIEWBOX_WIDTH} ${ARC_BASELINE_Y}`}
+          className="absolute inset-0 h-full w-full"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d={`M 0 ${ARC_BASELINE_Y} Q ${controlX} ${controlY} ${ARC_VIEWBOX_WIDTH} ${ARC_BASELINE_Y}`}
+            fill="none"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth={1}
+            strokeDasharray="4 8"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        <div
+          className="pointer-events-auto absolute h-5 w-5"
+          style={{
+            left: `${iconPos.xPercent}%`,
+            top: `${iconPos.yPercent}%`,
+            transform: "translate(-50%, -50%)",
+            transitionProperty: "left, top",
+            transitionDuration: `${DEFAULT_TIME_OF_DAY_UPDATE_INTERVAL_MS}ms`,
+            transitionTimingFunction: "linear",
+          }}
+          title={now.toLocaleTimeString()}
+        >
+          {isDaytime ? <SunIcon /> : <MoonIcon />}
+        </div>
       </div>
     </div>
   );

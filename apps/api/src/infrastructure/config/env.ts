@@ -16,6 +16,22 @@ export function loadEnv() {
     // access — apps/api is a trusted service, so it skips PostgREST/RLS
     // entirely and talks to Postgres directly. See PostgresUserRepository.
     databaseUrl: requireEnv("DATABASE_URL"),
+    // Explicit Postgres connection-pool sizing instead of relying on
+    // Bun.SQL's implicit defaults (max=10, idleTimeout=0/never expires,
+    // prepare=true) — see createPostgresClient. Kept as ENV knobs, not
+    // hardcoded, so Render can be retuned without a code deploy: today
+    // DATABASE_URL is Supabase's *direct* connection (no pooler in front),
+    // where every pool connection is a real, scarce backend connection
+    // against Supabase's own max_connections — idleTimeout matters here
+    // specifically so idle connections get released. When testing
+    // Supabase's transaction-mode pooler (port 6543) later, set
+    // DATABASE_POOL_PREPARE=false — prepared statements can land on a
+    // different backend connection than the one that created them under
+    // transaction-mode pooling.
+    databasePoolMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
+    databasePoolIdleTimeoutSeconds: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? 30),
+    databasePoolMaxLifetimeSeconds: Number(process.env.DATABASE_POOL_MAX_LIFETIME ?? 1800),
+    databasePoolPrepareStatements: (process.env.DATABASE_POOL_PREPARE ?? "true") === "true",
     // Attribute points granted per level-up (plan2 §6b) — kept as an ENV
     // knob specifically because 4-vs-5 is still being playtested; the
     // domain never reads process.env directly, only this loader does.

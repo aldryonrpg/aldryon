@@ -1,6 +1,7 @@
 import { SupabaseAuthGateway } from "@/infrastructure/auth/SupabaseAuthGateway";
 import { loadEnv } from "@/infrastructure/config/env";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
+import { PostgresAuthIdentityResolver } from "@/infrastructure/persistence/PostgresAuthIdentityResolver";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
 import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
@@ -19,6 +20,7 @@ import { RandomRng } from "@/infrastructure/random/RandomRng";
 import { createSupabaseClient } from "@/infrastructure/supabase/supabaseClient";
 import { createApp } from "@/interface/http/createApp";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
+import { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
 import { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
@@ -48,8 +50,15 @@ import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const env = loadEnv();
 const supabase = createSupabaseClient(env);
-const sql = createPostgresClient(env.databaseUrl);
+const sql = createPostgresClient(env.databaseUrl, {
+  max: env.databasePoolMax,
+  idleTimeoutSeconds: env.databasePoolIdleTimeoutSeconds,
+  maxLifetimeSeconds: env.databasePoolMaxLifetimeSeconds,
+  prepare: env.databasePoolPrepareStatements,
+});
 const authGateway = new SupabaseAuthGateway(supabase);
+const authIdentityResolver = new PostgresAuthIdentityResolver(sql);
+const authIdentityCache = new AuthIdentityCache(authIdentityResolver);
 const rng = new RandomRng();
 
 const userRepository = new PostgresUserRepository(sql);
@@ -238,6 +247,7 @@ const app = createApp({
   authGateway,
   userRepository,
   getOrCreatePlayerUseCase,
+  authIdentityCache,
   startBattleUseCase,
   attackUseCase,
   runFromBattleUseCase,
