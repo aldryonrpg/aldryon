@@ -6,4 +6,8 @@ import type { DungeonBoss } from "@/domain/dungeon/DungeonBoss";
  * moveset here first. */
 export interface DungeonBossRepository {
   findById(id: string): Promise<DungeonBoss | null>;
+  /** The full boss catalog, in a stable order — DungeonBossOfTheDayUseCase
+   * indexes into this deterministically by date, so the order must be
+   * consistent across calls/replicas (name ASC in the Postgres impl). */
+  findAll(): Promise<DungeonBoss[]>;
 }

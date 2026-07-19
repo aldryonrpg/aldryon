@@ -3,7 +3,6 @@ import type { Rng } from "@/domain/shared/Rng";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
-import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
 import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
 import { PostgresEffectCounterRepository } from "@/infrastructure/persistence/PostgresEffectCounterRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
@@ -56,7 +55,6 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
   const monsterAttackRepository = new PostgresMonsterAttackRepository(sql);
   const attackRepository = new PostgresAttackRepository(sql);
   const levelRepository = new PostgresLevelRepository(sql);
-  const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
   const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
   const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
   const effectCounterRepository = new PostgresEffectCounterRepository(sql);
@@ -64,7 +62,6 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
   const monsterCatalogCache = new MonsterCatalogCache(monsterRepository, monsterAttackRepository);
   const playerNameCache = new PlayerNameCache();
   const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
-    dungeonEncounterRepository,
     dungeonBossRepository,
     monsterRepository,
     monsterAttackRepository,
@@ -80,7 +77,6 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
     monsterAttackRepository,
     attackRepository,
     levelRepository,
-    dungeonEncounterRepository,
     dungeonBossRepository,
     dungeonSlayerRankingRepository,
     effectCounterRepository,

@@ -106,4 +106,17 @@ export class PostgresMonsterRepository implements MonsterRepository {
     if (!saved) throw new Error("Failed to create monster: no row returned");
     return toDomain(saved);
   }
+
+  async deleteStaleDungeonBossRows(currentBossName: string): Promise<void> {
+    // Every materialized tier row is named "${bossName} — Tier N" — a LIKE
+    // prefix match on the current boss's own name avoids ever having to pass
+    // an array parameter through Bun.SQL for this (sql.array() mishandles
+    // multi-byte characters like "—" in this Bun version, corrupting the
+    // comparison — see git history for the array-based approach this
+    // replaced). % and _ are escaped since a boss name could contain either.
+    const likePattern = `${currentBossName.replace(/[%_]/g, "\\$&")} — Tier %`;
+    await this.sql`
+      delete from monsters where region = 'dungeon' and name not like ${likePattern}
+    `;
+  }
 }

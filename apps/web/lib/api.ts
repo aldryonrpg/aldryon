@@ -25,6 +25,20 @@ import { createClient } from "@/lib/supabase/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
+/** Thrown by authedFetch on any non-OK response — carries the backend's
+ * structured `error.code` (e.g. "BATTLE_IN_PROGRESS") alongside the
+ * human-readable message, so callers can branch on the code instead of
+ * matching against message text. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string | undefined,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function loginWithSupabaseToken(supabaseAccessToken: string): Promise<LoginResponse> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -69,7 +83,7 @@ async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const message = body?.error?.message ?? `Request to ${path} failed with status ${res.status}`;
-    throw new Error(message);
+    throw new ApiError(message, body?.error?.code);
   }
 
   if (res.status === 204) return undefined as T;

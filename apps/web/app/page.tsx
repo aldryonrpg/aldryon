@@ -3,6 +3,7 @@ import { BattleEntryButtons } from "@/components/BattleEntryButtons";
 import { DayNightTimeline } from "@/components/DayNightTimeline";
 import { DungeonSlayerRanking } from "@/components/DungeonSlayerRanking";
 import { MapNightOverlay } from "@/components/MapNightOverlay";
+import { MapRegionHotspots } from "@/components/MapRegionHotspots";
 import { PlayerStatusCorner } from "@/components/PlayerStatusCorner";
 
 export default function MainPage() {
@@ -20,6 +21,7 @@ export default function MainPage() {
             className="h-auto w-full"
           />
           <MapNightOverlay />
+          <MapRegionHotspots />
         </div>
         <BattleEntryButtons />
         <PlayerStatusCorner />

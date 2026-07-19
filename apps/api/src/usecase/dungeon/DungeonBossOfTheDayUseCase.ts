@@ -4,15 +4,16 @@ import { scaleDungeonBossStats } from "@/domain/dungeon/scaleDungeonBossStats";
 import { Monster } from "@/domain/monster/Monster";
 import { msUntilNextUtcMidnight, TtlCache } from "@/domain/shared/TtlCache";
 import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
-import type { DungeonEncounterRepository } from "@/usecase/dungeon/DungeonEncounterRepository";
 import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 
-// Materialized dungeon-boss monster rows need a region to satisfy the
-// monsters table's NOT NULL constraint, even though they're never reached
-// via an ordinary /battle/start region roll. Picked once, arbitrarily;
-// thematically fits a Dragon.
-const MATERIALIZED_BOSS_REGION = "mountain" as const;
+// A dedicated region, excluded from MonsterRegionSchema (the wild-battle-
+// selectable set) specifically so materialized boss rows can never be
+// rolled into an ordinary /battle/start region encounter — see
+// domain/monster/Monster.ts's MonsterRegion doc comment.
+const MATERIALIZED_BOSS_REGION = "dungeon" as const;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 type TierBosses = Record<1 | 2 | 3, Monster>;
 
@@ -27,18 +28,21 @@ type TierBosses = Record<1 | 2 | 3, Monster>;
  * re-materializing (idempotent — see materializeOrReuseTier) and re-caches
  * for the rest of the new day.
  *
- * "Choosing" today's boss is currently just `dungeonEncounterRepository
- * .findOne()` (plan3 §2c's one pairing row, which never rotates on its
- * own) — there's only ever been one seeded boss, so this always resolves
- * to the same one. The seam lives here specifically so a future daily
- * rotation across a pool of bosses only has to change this one lookup,
- * without touching any battle/turn usecase that consumes the result.
+ * "Choosing" today's boss is a deterministic function of the date, not
+ * random or cached state: `daysSinceEpoch(now) % bosses.length` indexes into
+ * `dungeonBossRepository.findAll()`'s stable (name-ordered) list. Every
+ * process/replica computes this independently and always agrees — no
+ * coordination needed, and with more than one boss it never repeats two
+ * days in a row (a fixed cycle through all of them). The in-memory cache
+ * here is purely a per-process perf optimization on top of that — it is
+ * never the source of truth for which boss is active, so it doesn't matter
+ * that different replicas' caches aren't shared or that they don't survive
+ * a restart.
  */
 export class DungeonBossOfTheDayUseCase {
   private readonly cache: TtlCache<TierBosses>;
 
   constructor(
-    private readonly dungeonEncounterRepository: DungeonEncounterRepository,
     private readonly dungeonBossRepository: DungeonBossRepository,
     private readonly monsterRepository: MonsterRepository,
     private readonly monsterAttackRepository: MonsterAttackRepository,
@@ -59,17 +63,24 @@ export class DungeonBossOfTheDayUseCase {
   }
 
   private async materializeAllTiers(): Promise<TierBosses> {
-    const encounter = await this.dungeonEncounterRepository.findOne();
-    if (!encounter) throw new Error("No dungeon encounter configured");
+    const bosses = await this.dungeonBossRepository.findAll();
+    if (bosses.length === 0) throw new Error("No dungeon bosses configured");
 
-    const dungeonBoss = await this.dungeonBossRepository.findById(encounter.dungeonBossId);
-    if (!dungeonBoss) throw new Error("Dungeon boss not found");
+    const dayIndex = Math.floor(this.now() / MS_PER_DAY) % bosses.length;
+    const dungeonBoss = bosses[dayIndex];
+    if (!dungeonBoss) throw new Error("Dungeon boss rotation index out of range");
 
     const [tier1, tier2, tier3] = await Promise.all([
       this.materializeOrReuseTier(dungeonBoss, 1),
       this.materializeOrReuseTier(dungeonBoss, 2),
       this.materializeOrReuseTier(dungeonBoss, 3),
     ]);
+
+    // Retire any previous day's (or previous boss's) materialized rows now
+    // that today's three are confirmed to exist — safe under concurrent
+    // replicas since this never touches the current boss's own rows.
+    await this.monsterRepository.deleteStaleDungeonBossRows(dungeonBoss.name);
+
     return { 1: tier1, 2: tier2, 3: tier3 };
   }
 

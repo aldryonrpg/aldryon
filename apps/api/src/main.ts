@@ -4,7 +4,6 @@ import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresA
 import { PostgresAuthIdentityResolver } from "@/infrastructure/persistence/PostgresAuthIdentityResolver";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
-import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
 import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
 import { PostgresEffectCounterRepository } from "@/infrastructure/persistence/PostgresEffectCounterRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
@@ -71,7 +70,6 @@ const attackRepository = new PostgresAttackRepository(sql);
 const levelRepository = new PostgresLevelRepository(sql);
 const battleRepository = new PostgresBattleRepository(sql);
 const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
-const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
 const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
 const effectCounterRepository = new PostgresEffectCounterRepository(sql);
 const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
@@ -205,7 +203,6 @@ const startDungeonUseCase = new StartDungeonUseCase(
   env.setAttributeBonus,
 );
 const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
-  dungeonEncounterRepository,
   dungeonBossRepository,
   monsterRepository,
   monsterAttackRepository,

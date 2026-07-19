@@ -57,4 +57,9 @@ export class PostgresDungeonBossRepository implements DungeonBossRepository {
     >`select * from dungeon_bosses where id = ${id} limit 1`;
     return rows[0] ? toDomain(rows[0]) : null;
   }
+
+  async findAll(): Promise<DungeonBoss[]> {
+    const rows = await this.sql<DungeonBossRow[]>`select * from dungeon_bosses order by name asc`;
+    return rows.map(toDomain);
+  }
 }
