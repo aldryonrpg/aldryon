@@ -16,8 +16,7 @@ interface BagPanelProps {
  * error state. */
 export function BagPanel({ bag, onUse, onEquip, disabled }: BagPanelProps) {
   return (
-    <div className="w-60 border border-white bg-black">
-      <div className="border-b border-white px-2 py-1 text-center font-bold">Bag</div>
+    <div>
       {bag.length === 0 ? (
         <p className="p-3 text-center text-xs text-stone-400">Empty</p>
       ) : (

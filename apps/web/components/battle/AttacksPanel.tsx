@@ -51,7 +51,7 @@ export function AttacksPanel({ attacks, onSelect, disabled }: AttacksPanelProps)
     .sort(byStaminaCostAscending);
 
   return (
-    <div className="w-60 border border-white bg-black">
+    <div>
       {strengthAttacks.length > 0 && (
         <>
           <div className="border-b border-white px-2 py-1 text-center font-bold text-red-500">

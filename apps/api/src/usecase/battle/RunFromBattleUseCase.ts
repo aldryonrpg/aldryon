@@ -158,6 +158,10 @@ export class RunFromBattleUseCase {
         monsterEffects: battle.monsterEffects.map(toBattleEffectView),
         attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
         attributesAfterDebuff: effectiveAttributes.toValues(),
+        // A flee never ticks effects — the battle ends this same turn
+        // either way (fled or dead), so there's no DoT-tick step here.
+        playerEffectDamage: 0,
+        monsterEffectDamage: 0,
       };
     }
 
@@ -185,6 +189,8 @@ export class RunFromBattleUseCase {
       monsterEffects: battle.monsterEffects.map(toBattleEffectView),
       attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
       attributesAfterDebuff: effectiveAttributes.toValues(),
+      playerEffectDamage: 0,
+      monsterEffectDamage: 0,
     };
   }
 }

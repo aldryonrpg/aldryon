@@ -7,9 +7,11 @@ import type {
   AvailableAttackDto,
   BattleEffectDto,
   ItemCatalogResponse,
+  MonsterRegionDto,
   PlayerProfileResponse,
   TurnReportDto,
 } from "@aldryon/dtos";
+import { MonsterRegionSchema } from "@aldryon/dtos";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +23,7 @@ import { BattleLog } from "@/components/battle/BattleLog";
 import { EffectsPanel } from "@/components/battle/EffectsPanel";
 import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
 import { LootScreen } from "@/components/battle/LootScreen";
+import { Modal } from "@/components/battle/Modal";
 import { MonsterPanel } from "@/components/battle/MonsterPanel";
 import { PlayerStatusBar } from "@/components/battle/PlayerStatusBar";
 import { SetBonusStatus } from "@/components/battle/SetBonusStatus";
@@ -43,6 +46,9 @@ import {
   unequipItem,
 } from "@/lib/api";
 import { loadRarityColors } from "@/lib/rarityColors";
+import { EMPTY_ENCOUNTER_STORAGE_KEY, WILD_REGION_STORAGE_KEY } from "@/lib/useBattleEntry";
+
+const DEFAULT_WILD_REGION: MonsterRegionDto = "forest";
 
 type MonsterView = NonNullable<ActiveBattleResponse>["monster"];
 type StatusView = NonNullable<ActiveBattleResponse>["playerStatus"];
@@ -84,6 +90,11 @@ export default function BattlePage() {
   // the very first "no battle in progress" load, which never shows
   // Continue/Exit at all.
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+  // Which region a wild Continue should re-roll from — the Battle row itself
+  // carries no region, so this is threaded in from sessionStorage (set by
+  // useBattleEntry when the player first picked a region) and held here for
+  // the rest of the session.
+  const [wildRegion, setWildRegion] = useState<MonsterRegionDto>(DEFAULT_WILD_REGION);
   const [openPanel, setOpenPanel] = useState<"attacks" | "bag" | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +140,10 @@ export default function BattlePage() {
         if (cancelled) return;
         setPlayer(profile);
         setItemCatalog(items);
+        const storedRegion = MonsterRegionSchema.safeParse(
+          sessionStorage.getItem(WILD_REGION_STORAGE_KEY),
+        );
+        if (storedRegion.success) setWildRegion(storedRegion.data);
         if (active) {
           setMonster(active.monster);
           setPlayerStatus(active.playerStatus);
@@ -137,6 +152,17 @@ export default function BattlePage() {
           setPlayerEffects(active.playerEffects);
           setMonsterEffects(active.monsterEffects);
           setAttributesAfterDebuff(active.attributesAfterDebuff);
+        } else {
+          // A Start that rolled the ~20% empty encounter never created a
+          // battle row, so this GET correctly comes back empty — but it's
+          // expected system behavior, not a dead end, so show the same
+          // Continue/Exit prompt as a Continue-triggered miss instead of
+          // falling through to "No battle in progress."
+          const pendingMessage = sessionStorage.getItem(EMPTY_ENCOUNTER_STORAGE_KEY);
+          if (pendingMessage !== null) {
+            sessionStorage.removeItem(EMPTY_ENCOUNTER_STORAGE_KEY);
+            setEmptyMessage(pendingMessage);
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
@@ -164,6 +190,14 @@ export default function BattlePage() {
       if (report.playerAttack) newLines.push(describeAttack("You", report.playerAttack));
       if (report.monsterAttack) newLines.push(describeAttack("The monster", report.monsterAttack));
       newLines.push(...report.messages);
+      // Bleed/poison/burn tick damage is already folded into playerStatus/
+      // monsterStatus by the time it gets here — this just narrates it,
+      // since otherwise it silently disappears into the HP delta.
+      if (report.playerEffectDamage > 0 || report.monsterEffectDamage > 0) {
+        newLines.push(
+          `Effects: You took ${report.playerEffectDamage} Damage, Monster took ${report.monsterEffectDamage} Damage`,
+        );
+      }
       setLogLines((prev) => [...prev, ...newLines]);
       setOutcome(report.outcome);
       setOpenPanel(null);
@@ -215,7 +249,7 @@ export default function BattlePage() {
     setError(null);
     try {
       const isDungeonRun = player?.dungeonRun != null;
-      const response = isDungeonRun ? await continueDungeon() : await startBattle("forest");
+      const response = isDungeonRun ? await continueDungeon() : await startBattle(wildRegion);
 
       setLootOffer(null);
       const message = response.message;
@@ -442,19 +476,23 @@ export default function BattlePage() {
                     onRun={() => handleTurnResult(runFromBattle())}
                   />
                   {openPanel === "attacks" && (
-                    <AttacksPanel
-                      attacks={availableAttacks}
-                      onSelect={(name) => handleTurnResult(attack(name))}
-                      disabled={actionLoading}
-                    />
+                    <Modal title="Attacks" onClose={() => setOpenPanel(null)}>
+                      <AttacksPanel
+                        attacks={availableAttacks}
+                        onSelect={(name) => handleTurnResult(attack(name))}
+                        disabled={actionLoading}
+                      />
+                    </Modal>
                   )}
                   {openPanel === "bag" && (
-                    <BagPanel
-                      bag={player.bag}
-                      onUse={(id) => handleTurnResult(consumeBagItem(id))}
-                      onEquip={handleEquip}
-                      disabled={actionLoading}
-                    />
+                    <Modal title="Bag" onClose={() => setOpenPanel(null)}>
+                      <BagPanel
+                        bag={player.bag}
+                        onUse={(id) => handleTurnResult(consumeBagItem(id))}
+                        onEquip={handleEquip}
+                        disabled={actionLoading}
+                      />
+                    </Modal>
                   )}
                 </>
               )}

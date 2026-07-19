@@ -175,6 +175,8 @@ export class UseBagItemUseCase {
       playerMaxHp,
       attributesBeforeDebuff,
       revealedMonsterAttributes,
+      playerEffectDamage: playerTick.totalDamage,
+      monsterEffectDamage: monsterTick.totalDamage,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

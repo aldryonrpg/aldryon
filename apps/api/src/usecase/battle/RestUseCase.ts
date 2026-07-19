@@ -132,6 +132,8 @@ export class RestUseCase {
       messages: monsterTurn.messages,
       playerMaxHp,
       attributesBeforeDebuff,
+      playerEffectDamage: playerTick.totalDamage,
+      monsterEffectDamage: monsterTick.totalDamage,
       rng: this.rng,
       playerRepository: this.playerRepository,
       battleRepository: this.battleRepository,

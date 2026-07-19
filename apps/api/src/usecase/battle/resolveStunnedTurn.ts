@@ -94,6 +94,8 @@ export async function resolveStunnedTurn(params: {
     messages: ["You are stunned and cannot act!", ...monsterTurn.messages],
     playerMaxHp: params.playerMaxHp,
     attributesBeforeDebuff: params.attributesBeforeDebuff,
+    playerEffectDamage: playerTick.totalDamage,
+    monsterEffectDamage: monsterTick.totalDamage,
     rng: params.rng,
     playerRepository: params.playerRepository,
     battleRepository: params.battleRepository,

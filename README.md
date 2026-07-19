@@ -371,7 +371,12 @@ All 6 non-weapon slots equipped from the same setName → +SET_ATTRIBUTE_BONUS (
 Create **`apps/api/.env`** (gitignored):
 
 ```bash
-DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
+# Use Supabase's transaction-mode POOLER connection (port 6543), not the
+# direct one (port 5432) — the direct connection often only resolves over
+# IPv6, which Docker/container network setups (local Podman, Render) can
+# fail to reach at all. Pair with DATABASE_POOL_PREPARE=false below.
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres
+DATABASE_POOL_PREPARE=false
 # Supabase Auth (GoTrue) — the project's public URL, used to build the JWKS
 # endpoint access tokens are verified against locally
 # (SupabaseAuthGateway.forProject) — no network call to Supabase on the

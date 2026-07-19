@@ -50,4 +50,12 @@ export interface TurnReportOutput {
   /** Same, with any active stat-decay debuff applied — equal to
    * attributesBeforeDebuff whenever nothing is debuffed. */
   attributesAfterDebuff: AttributeValues;
+  /** Combined damage every stacked bleed/poison/burn instance on the player
+   * dealt this turn's tick, summed across all of them — 0 when nothing is
+   * active. Already folded into playerStatus.currentHp; surfaced
+   * separately so the client can narrate it instead of it disappearing
+   * into the HP delta. */
+  playerEffectDamage: number;
+  /** Same, for effects active on the monster (today, only burn). */
+  monsterEffectDamage: number;
 }

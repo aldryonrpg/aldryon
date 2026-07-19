@@ -46,6 +46,12 @@ export interface SettleTurnParams {
    * only AttackUseCase (REVEAL SPELL) and UseBagItemUseCase (Knowledge
    * Potion) ever pass a grown set. */
   revealedMonsterAttributes?: AttributeKey[];
+  /** This turn's combined bleed/poison/burn tick damage — callers already
+   * computed these via tickEffects() to adjust playerCurrentHp/
+   * monsterCurrentHp before calling in; passed through so the report can
+   * surface them instead of them disappearing into the HP delta. */
+  playerEffectDamage: number;
+  monsterEffectDamage: number;
   rng: Rng;
   playerRepository: PlayerRepository;
   battleRepository: BattleRepository;
@@ -111,6 +117,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     messages,
     playerMaxHp,
     attributesBeforeDebuff,
+    playerEffectDamage,
+    monsterEffectDamage,
     rng,
     playerRepository,
     battleRepository,
@@ -156,6 +164,15 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       level: xpResult.level,
       attributePoints: player.attributePoints + xpResult.attributePointsGained,
       pendingLoot: [...player.pendingLoot, ...lootOffer],
+      // Killing the boss (any tier) ends the run outright — without this,
+      // dungeonRunStep stays equal to dungeonRunTotalSteps forever, so the
+      // next /dungeon/continue re-derives isBossFight as true again and
+      // fights the same materialized boss row a second time. A regular
+      // step kill leaves these untouched; ContinueDungeonUseCase still
+      // needs them to know what's next.
+      ...(battle.dungeonIsBossFight
+        ? { dungeonRunTier: null, dungeonRunStep: null, dungeonRunTotalSteps: null }
+        : {}),
     });
     await playerRepository.update(updatedPlayer);
 
@@ -189,6 +206,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterEffects: monsterEffectsView,
       attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
       attributesAfterDebuff: attributesAfterDebuff.toValues(),
+      playerEffectDamage,
+      monsterEffectDamage,
     };
   }
 
@@ -217,6 +236,8 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       monsterEffects: monsterEffectsView,
       attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
       attributesAfterDebuff: attributesAfterDebuff.toValues(),
+      playerEffectDamage,
+      monsterEffectDamage,
     };
   }
 
@@ -258,5 +279,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     monsterEffects: monsterEffectsView,
     attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
     attributesAfterDebuff: attributesAfterDebuff.toValues(),
+    playerEffectDamage,
+    monsterEffectDamage,
   };
 }
