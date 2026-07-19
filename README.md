@@ -267,6 +267,82 @@ short gauntlet of fights capped off by a boss, once per day.
   ties broken by last-kill time ascending. Cached in-process for **5
   minutes**, since it's rendered on every logged-in player's Main Page.
 
+## Equipment, the bag & the store
+
+### Slots and rarity
+
+- **8 equipment slots**: `helmet`, `body`, `boots`, `gloves`, `necklace`,
+  `bracelet` (the 6 non-weapon "set slots"), plus `weapon` and
+  `two_handed_weapon` — weapons are never part of a set.
+- Rarity ladder, ascending: **basic** (store-only, never a monster drop) →
+  **common** → **uncommon** → **rare** → **very_rare** → **legendary** →
+  **unique** (at most one live instance server-wide, hand-placed; claimed
+  atomically via `uniqueItemOwnershipRepository.tryClaim`).
+- `storePurchasable` is a per-item flag independent of rarity — a set tier
+  (e.g. the Iron Set, uncommon) can still be drop-only despite an
+  otherwise-store-eligible rarity.
+
+### Equipment set bonus
+
+```
+All 6 non-weapon slots equipped from the same setName → +SET_ATTRIBUTE_BONUS (default 2) to every attribute
+```
+
+- **All-or-nothing** — 5 of 6 pieces from the same set grants no bonus at
+  all; since each slot holds at most one item, at most one set can ever be
+  complete at a time.
+- The completion bonus is a **flat value for every tier**
+- Applied on top of summed per-item `attributeBonuses` as part of a player's
+  effective attributes.
+
+### Bag capacity
+
+- **Normal stacks** (gear + POTs): **20 slots (25 for VIP)**, each stack
+  capped at **5** units.
+- **Special slots** (bandage, antidote): **2** dedicated slots outside
+  capacity, one per item, each independently capped at **5**.
+- **POT slot** (small/medium/big): its own dedicated slot outside capacity,
+  but all three variants **share one combined cap** — **5** at level 1-4,
+  **+1 every 5 levels**, topping out at **8** from level 15 onward.
+- Equipped gear never counts toward any of the above caps.
+
+### Store
+
+- `GET /store` lists every `storePurchasable` item; `items.value` doubles
+  directly as the store price (no separate listings table). Cached
+  in-process for **5 minutes**.
+- **Purchase** costs `item.value` gold and is placed via the same bag rules
+  as a loot claim (rejects on insufficient gold or no room).
+- **Sell** works on *any* item the player holds — not just
+  `storePurchasable` ones, including drop-only set pieces and
+  legendary/unique items — for `item.value × quantity` gold. This is
+  currently the **only way a player gains gold** (kills grant XP/loot, never
+  gold directly). Equipped items can't be sold. Selling (or destroying) a
+  `unique`-rarity item releases its global ownership claim so it can drop
+  again for someone else.
+
+## Player profile & names
+
+- `player_name` lives on `players`, nullable, **5-40 alphanumeric characters**
+  (`^[A-Za-z0-9]{5,40}$`), enforced in both `Player.create()` and a DB
+  `CHECK` constraint, and unique **case-insensitively** via a Postgres
+  unique index on `lower(player_name)`.
+- **Bloom filter fast path** (`PlayerNameCache` / `BloomFilter`) — before
+  hitting the DB, `UpdatePlayerNameUseCase` do a bloomfilter and it could:
+  - **"Definitely free"** (bit not set) skips the DB lookup entirely.
+  - **"Maybe taken"** (all bits set — a hit or a false positive) falls back
+    to `findByName` to confirm.
+  - The filter is **never authoritative** — it can false-positive but never
+    false-negative, and the actual uniqueness guarantee is the Postgres
+    unique index (`PlayerNameTakenError` is thrown from there). No removal
+    support (a fundamental Bloom filter limitation) — that's fine here since
+    names are never freed.
+- **`isVip` is player-owned profile state, not an auth claim** — unlike
+  `email`, it is never re-synced from the identity
+  provider on login, so it persists across logins once set. It gates the
+  bag's VIP capacity (above), the dungeon's 2-attempts-per-day allowance and
+  the shorter run cooldown (see Gameplay/Dungeons above).
+
 ## Tech stack
 
 - **Front-end** (`apps/web`) — [Next.js](https://nextjs.org/) (TypeScript),
@@ -301,8 +377,9 @@ LEVEL_UP_ATTRIBUTE_POINTS=4
 # selection after it unleashes (see "Monster attack selection" above). Optional, default 5.
 STATUS_COOLDOWN_ROUNDS=5
 # Optional: PORT (default 3001), WEB_ORIGIN (default http://localhost:3000)
+# Flat bonus to every attribute for completing a 6-piece equipment set (see
+# "Equipment, the bag & the store" above). Optional, default 2.
 SET_ATTRIBUTE_BONUS=2
-# This is the Set Completion Bonus for All Attributes 
 ```
 
 Create **`apps/web/.env.local`** (gitignored):
