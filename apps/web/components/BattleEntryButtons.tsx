@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getActiveBattle, startBattle, startDungeon } from "@/lib/api";
+import { useBattleEntry } from "@/lib/useBattleEntry";
 
 function StoreLink() {
   return (
@@ -29,41 +28,8 @@ function PlayerLink() {
 
 export function BattleEntryButtons() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<"battle" | "dungeon" | null>(null);
-  const [hasActiveBattle, setHasActiveBattle] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    getActiveBattle()
-      .then((battle) => setHasActiveBattle(battle !== null))
-      .catch(() => setHasActiveBattle(false));
-  }, []);
-
-  async function handleBattle() {
-    setError(null);
-    setLoading("battle");
-    try {
-      // No region picker yet — forest is the only seeded wild encounter
-      // (the Snake), so this is the smallest useful smoke test.
-      await startBattle("forest");
-      router.push("/battle");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setLoading(null);
-    }
-  }
-
-  async function handleDungeon() {
-    setError(null);
-    setLoading("dungeon");
-    try {
-      await startDungeon();
-      router.push("/battle");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setLoading(null);
-    }
-  }
+  const { hasActiveBattle, loading, error, startBattleAndEnter, startDungeonAndEnter } =
+    useBattleEntry();
 
   if (hasActiveBattle) {
     return (
@@ -85,7 +51,7 @@ export function BattleEntryButtons() {
       <div className="flex gap-4">
         <button
           type="button"
-          onClick={handleBattle}
+          onClick={() => startBattleAndEnter("forest")}
           disabled={loading !== null || hasActiveBattle === null}
           className="rounded-md bg-white px-6 py-3 font-medium text-stone-900 shadow-lg transition hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -93,7 +59,7 @@ export function BattleEntryButtons() {
         </button>
         <button
           type="button"
-          onClick={handleDungeon}
+          onClick={() => startDungeonAndEnter()}
           disabled={loading !== null || hasActiveBattle === null}
           className="rounded-md bg-red-800 px-6 py-3 font-medium text-stone-100 shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
         >

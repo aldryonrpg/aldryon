@@ -26,7 +26,7 @@ import {
 } from "@/usecase/dungeon/errors";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
+import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
@@ -75,7 +75,7 @@ export class StartDungeonUseCase {
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
     private readonly monsterRepository: MonsterRepository,
-    private readonly monsterAttackRepository: MonsterAttackRepository,
+    private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
@@ -153,7 +153,7 @@ export class StartDungeonUseCase {
       isBossFight: false,
       playerAttacks,
       effectiveAttributes,
-      monsterAttackRepository: this.monsterAttackRepository,
+      monsterCatalogCache: this.monsterCatalogCache,
       effectCounterRepository: this.effectCounterRepository,
       levelRepository: this.levelRepository,
       playerRepository: this.playerRepository,

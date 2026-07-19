@@ -20,8 +20,7 @@ import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSl
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { UniqueItemOwnershipRepository } from "@/usecase/item/UniqueItemOwnershipRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
+import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -38,8 +37,7 @@ export class UseBagItemUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
-    private readonly monsterRepository: MonsterRepository,
-    private readonly monsterAttackRepository: MonsterAttackRepository,
+    private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
@@ -58,16 +56,13 @@ export class UseBagItemUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const monster = await this.monsterRepository.findById(battle.monsterId);
-    if (!monster) throw new Error("Monster not found");
-
     const [
       playerAttacks,
-      moveset,
+      monsterWithMoveset,
       { base: attributesBeforeDebuff, effective: effectiveAttributes },
     ] = await Promise.all([
       this.attackRepository.findAll(),
-      this.monsterAttackRepository.findMovesetByMonsterId(monster.id),
+      this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
       computeEffectiveAttributesWithDebuff(
         player,
         this.playerItemRepository,
@@ -76,6 +71,8 @@ export class UseBagItemUseCase {
         battle.playerEffects,
       ),
     ]);
+    if (!monsterWithMoveset) throw new Error("Monster not found");
+    const { monster, moveset } = monsterWithMoveset;
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

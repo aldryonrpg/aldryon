@@ -26,7 +26,7 @@ import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
-import type { MonsterAttackRepository } from "@/usecase/monster/MonsterAttackRepository";
+import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
@@ -79,7 +79,7 @@ export class StartBattleUseCase {
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
     private readonly monsterRepository: MonsterRepository,
-    private readonly monsterAttackRepository: MonsterAttackRepository,
+    private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
@@ -153,7 +153,7 @@ export class StartBattleUseCase {
     }
 
     const monster = pick(monsters, this.rng);
-    const moveset = await this.monsterAttackRepository.findMovesetByMonsterId(monster.id);
+    const moveset = await this.monsterCatalogCache.getMoveset(monster.id);
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
     const playerMaxStamina = maxStamina(player.level);

@@ -10,6 +10,7 @@ import { createPlayerController } from "@/interface/http/playerController";
 import { createStoreController } from "@/interface/http/storeController";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
+import type { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
 import type { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import type { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import type { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
@@ -40,6 +41,7 @@ export interface AppDependencies {
   authGateway: AuthGateway;
   userRepository: UserRepository;
   getOrCreatePlayerUseCase: GetOrCreatePlayerUseCase;
+  authIdentityCache: AuthIdentityCache;
   startBattleUseCase: StartBattleUseCase;
   attackUseCase: AttackUseCase;
   runFromBattleUseCase: RunFromBattleUseCase;
@@ -77,6 +79,7 @@ export function createApp(deps: AppDependencies): Hono {
     deps.authGateway,
     deps.userRepository,
     deps.getOrCreatePlayerUseCase,
+    deps.authIdentityCache,
   );
 
   const gameplay = new Hono<{ Variables: AuthedVariables }>();

@@ -3,7 +3,6 @@ import type { Rng } from "@/domain/shared/Rng";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
-import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
 import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
 import { PostgresEffectCounterRepository } from "@/infrastructure/persistence/PostgresEffectCounterRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
@@ -27,11 +26,13 @@ import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeon
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
+import { PlayerNameCache } from "@/usecase/player/PlayerNameCache";
 import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
@@ -54,13 +55,13 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
   const monsterAttackRepository = new PostgresMonsterAttackRepository(sql);
   const attackRepository = new PostgresAttackRepository(sql);
   const levelRepository = new PostgresLevelRepository(sql);
-  const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
   const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
   const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
   const effectCounterRepository = new PostgresEffectCounterRepository(sql);
   const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
+  const monsterCatalogCache = new MonsterCatalogCache(monsterRepository, monsterAttackRepository);
+  const playerNameCache = new PlayerNameCache();
   const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
-    dungeonEncounterRepository,
     dungeonBossRepository,
     monsterRepository,
     monsterAttackRepository,
@@ -76,12 +77,12 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
     monsterAttackRepository,
     attackRepository,
     levelRepository,
-    dungeonEncounterRepository,
     dungeonBossRepository,
     dungeonSlayerRankingRepository,
     effectCounterRepository,
     uniqueItemOwnershipRepository,
     dungeonBossOfTheDayUseCase,
+    monsterCatalogCache,
     setAttributeBonus: SET_ATTRIBUTE_BONUS,
     getOrCreatePlayerUseCase: new GetOrCreatePlayerUseCase(playerRepository),
     startBattleUseCase: new StartBattleUseCase(
@@ -90,7 +91,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       itemRepository,
       battleRepository,
       monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -102,8 +103,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       playerItemRepository,
       itemRepository,
       battleRepository,
-      monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -119,8 +119,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       playerItemRepository,
       itemRepository,
       battleRepository,
-      monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -136,8 +135,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       playerItemRepository,
       itemRepository,
       battleRepository,
-      monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -153,8 +151,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       playerItemRepository,
       itemRepository,
       battleRepository,
-      monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -174,10 +171,10 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       uniqueItemOwnershipRepository,
     ),
     allocateAttributePointsUseCase: new AllocateAttributePointsUseCase(playerRepository),
-    updatePlayerNameUseCase: new UpdatePlayerNameUseCase(playerRepository),
+    updatePlayerNameUseCase: new UpdatePlayerNameUseCase(playerRepository, playerNameCache),
     getActiveBattleUseCase: new GetActiveBattleUseCase(
       battleRepository,
-      monsterRepository,
+      monsterCatalogCache,
       playerRepository,
       playerItemRepository,
       itemRepository,
@@ -199,7 +196,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       itemRepository,
       battleRepository,
       monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       rng,
@@ -212,7 +209,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       itemRepository,
       battleRepository,
       monsterRepository,
-      monsterAttackRepository,
+      monsterCatalogCache,
       attackRepository,
       levelRepository,
       dungeonBossOfTheDayUseCase,

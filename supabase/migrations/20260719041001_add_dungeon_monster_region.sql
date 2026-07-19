@@ -1,0 +1,12 @@
+-- A dedicated region for materialized dungeon-boss monster rows
+-- (DungeonBossOfTheDayUseCase), distinct from the 5 wild-battle-selectable
+-- regions (MonsterRegionSchema deliberately excludes it). Previously boss
+-- rows were stamped with region='mountain' just to satisfy the NOT NULL
+-- constraint — harmless while nothing ever called /battle/start with
+-- region=mountain, but once the map made every region reachable, a
+-- materialized boss could be rolled into an ordinary wild "mountain"
+-- encounter, wildly out of depth for whoever ran into it. This value is
+-- what a follow-up migration backfills existing boss rows onto — kept as
+-- its own migration since ALTER TYPE ... ADD VALUE can't be used in the
+-- same transaction as a statement that references the new value.
+alter type monster_region add value if not exists 'dungeon';

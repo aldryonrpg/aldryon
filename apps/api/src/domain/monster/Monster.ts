@@ -1,6 +1,12 @@
 import { Attributes, type AttributeValues } from "@/domain/shared/Attributes";
 
-export type MonsterRegion = "mountain" | "forest" | "bandit" | "sewage" | "ruins";
+/** "dungeon" is not a wild-battle-selectable region — see
+ * apps/shared/dtos/src/battle.ts's MonsterRegionSchema, which deliberately
+ * excludes it from what a player/`/battle/start` request can choose. It
+ * exists only so materialized dungeon-boss monster rows
+ * (DungeonBossOfTheDayUseCase) have a region distinct from the 5 wild ones,
+ * so they can never be rolled into an ordinary region encounter. */
+export type MonsterRegion = "mountain" | "forest" | "bandit" | "sewage" | "ruins" | "dungeon";
 export type MonsterType = "normal" | "poisonous";
 
 export interface DropTuple {

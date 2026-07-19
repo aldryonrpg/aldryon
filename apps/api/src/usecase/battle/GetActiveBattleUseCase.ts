@@ -11,7 +11,7 @@ import type {
   MonsterStatusOutput,
 } from "@/usecase/battle/StartBattleUseCase";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
+import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import { computeEffectiveAttributesWithDebuff } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -47,7 +47,7 @@ export interface ActiveBattleOutput {
 export class GetActiveBattleUseCase {
   constructor(
     private readonly battleRepository: BattleRepository,
-    private readonly monsterRepository: MonsterRepository,
+    private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly playerRepository: PlayerRepository,
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
@@ -62,7 +62,7 @@ export class GetActiveBattleUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const monster = await this.monsterRepository.findById(battle.monsterId);
+    const monster = await this.monsterCatalogCache.getMonster(battle.monsterId);
     if (!monster) throw new Error("Monster not found");
 
     const { base: attributesBeforeDebuff, effective: effectiveAttributes } =

@@ -38,20 +38,25 @@ export function selectByWeightedDamage(
 /**
  * Advances the weight counters for one turn: the picked non-special attack
  * (if any) resets to 0, every other non-special attack in the moveset gains
- * +1 — including ones that weren't affordable this turn, and including every
- * attack on a turn where the monster rested or started charging a special
- * instead (nothing was "picked" among the normals either way). Specials
- * never appear in the weights map — they don't participate in this scoring.
+ * `+increment` — including ones that weren't affordable this turn, and
+ * including every attack on a turn where the monster rested or started
+ * charging a special instead (nothing was "picked" among the normals either
+ * way). Specials never appear in the weights map — they don't participate in
+ * this scoring. The caller passes the monster's own level as `increment`, so
+ * a higher-level monster rotates through its moveset faster than a low-level
+ * one facing the identical scoring gap.
  */
 export function bumpAttackWeights(
   weights: Readonly<Record<string, number>>,
   moveset: readonly MonsterAttack[],
   pickedNormalAttackId: string | null,
+  increment: number,
 ): Record<string, number> {
   const next: Record<string, number> = {};
   for (const attack of moveset) {
     if (attack.isSpecial) continue;
-    next[attack.id] = attack.id === pickedNormalAttackId ? 0 : (weights[attack.id] ?? 0) + 1;
+    next[attack.id] =
+      attack.id === pickedNormalAttackId ? 0 : (weights[attack.id] ?? 0) + increment;
   }
   return next;
 }

@@ -64,17 +64,17 @@ describe("selectByWeightedDamage", () => {
 });
 
 describe("bumpAttackWeights", () => {
-  it("resets the picked attack to 0 and increments every other non-special attack", () => {
+  it("resets the picked attack to 0 and increments every other non-special attack by the given increment", () => {
     const a = attack("a");
     const b = attack("b");
-    const next = bumpAttackWeights({ a: 3, b: 5 }, [a, b], "a");
+    const next = bumpAttackWeights({ a: 3, b: 5 }, [a, b], "a", 1);
     expect(next).toEqual({ a: 0, b: 6 });
   });
 
   it("increments everything when nothing was picked (rested or charged a special)", () => {
     const a = attack("a");
     const b = attack("b");
-    const next = bumpAttackWeights({ a: 0, b: 2 }, [a, b], null);
+    const next = bumpAttackWeights({ a: 0, b: 2 }, [a, b], null, 1);
     expect(next).toEqual({ a: 1, b: 3 });
   });
 
@@ -82,20 +82,27 @@ describe("bumpAttackWeights", () => {
     const a = attack("a");
     const unaffordable = attack("unaffordable");
     // Caller passes the full moveset here, not just the affordable subset.
-    const next = bumpAttackWeights({}, [a, unaffordable], "a");
+    const next = bumpAttackWeights({}, [a, unaffordable], "a", 1);
     expect(next).toEqual({ a: 0, unaffordable: 1 });
   });
 
   it("never includes special attacks in the weights map", () => {
     const normal = attack("normal");
     const special = attack("special", { isSpecial: true });
-    const next = bumpAttackWeights({}, [normal, special], null);
+    const next = bumpAttackWeights({}, [normal, special], null, 1);
     expect(next).toEqual({ normal: 1 });
   });
 
-  it("starts a brand-new attack (no prior entry) at weight 1 when not picked", () => {
+  it("starts a brand-new attack (no prior entry) at weight equal to the increment when not picked", () => {
     const a = attack("a");
-    const next = bumpAttackWeights({}, [a], null);
+    const next = bumpAttackWeights({}, [a], null, 1);
     expect(next).toEqual({ a: 1 });
+  });
+
+  it("increments by a larger step for a higher-level monster, so it rotates its moveset faster", () => {
+    const a = attack("a");
+    const b = attack("b");
+    const next = bumpAttackWeights({ a: 0, b: 2 }, [a, b], "a", 8);
+    expect(next).toEqual({ a: 0, b: 10 });
   });
 });

@@ -13,4 +13,12 @@ export interface MonsterRepository {
    * identity itself. */
   findAllExcludingMaterializedBosses(): Promise<Monster[]>;
   create(monster: Monster): Promise<Monster>;
+  /** Retires a previous day's materialized boss rows once today's rotation
+   * has confirmed which boss is active (DungeonBossOfTheDayUseCase) —
+   * deletes every `region = 'dungeon'` row whose name isn't one of
+   * `${currentBossName} — Tier *`. Safe to call from multiple concurrent
+   * replicas: it only ever removes rows that *aren't* today's confirmed
+   * boss, so it never races with the materialize-or-reuse step that runs
+   * immediately before it. */
+  deleteStaleDungeonBossRows(currentBossName: string): Promise<void>;
 }

@@ -25,3 +25,10 @@ export class CannotDestroyEquippedItemError extends Error {
     this.name = "CannotDestroyEquippedItemError";
   }
 }
+
+export class PlayerNameTakenError extends Error {
+  constructor() {
+    super("Player name is already taken");
+    this.name = "PlayerNameTakenError";
+  }
+}

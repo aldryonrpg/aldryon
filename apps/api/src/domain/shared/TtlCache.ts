@@ -29,6 +29,31 @@ export class TtlCache<T> {
 }
 
 /**
+ * Same idea as TtlCache, but keyed — for reference data looked up by id
+ * where only a handful of distinct keys are hot at once (e.g. a few catalog
+ * monsters shared by many concurrent players), so caching just the rows a
+ * caller actually asked for beats warming the whole table up front.
+ */
+export class KeyedTtlCache<K, V> {
+  private readonly entries = new Map<K, { value: V; expiresAt: number }>();
+
+  constructor(
+    private readonly ttlMs: number,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  get(key: K): V | null {
+    const entry = this.entries.get(key);
+    if (!entry || this.now() >= entry.expiresAt) return null;
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    this.entries.set(key, { value, expiresAt: this.now() + this.ttlMs });
+  }
+}
+
+/**
  * Milliseconds from `now` until the next UTC day boundary — for a cache
  * that should refresh once a day (e.g. the dungeon boss, if it starts
  * rotating daily) without drifting: recompute this at every `set()` rather

@@ -1,9 +1,9 @@
 import { SupabaseAuthGateway } from "@/infrastructure/auth/SupabaseAuthGateway";
 import { loadEnv } from "@/infrastructure/config/env";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
+import { PostgresAuthIdentityResolver } from "@/infrastructure/persistence/PostgresAuthIdentityResolver";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
-import { PostgresDungeonEncounterRepository } from "@/infrastructure/persistence/PostgresDungeonEncounterRepository";
 import { PostgresDungeonSlayerRankingRepository } from "@/infrastructure/persistence/PostgresDungeonSlayerRankingRepository";
 import { PostgresEffectCounterRepository } from "@/infrastructure/persistence/PostgresEffectCounterRepository";
 import { PostgresItemRepository } from "@/infrastructure/persistence/PostgresItemRepository";
@@ -19,6 +19,7 @@ import { RandomRng } from "@/infrastructure/random/RandomRng";
 import { createSupabaseClient } from "@/infrastructure/supabase/supabaseClient";
 import { createApp } from "@/interface/http/createApp";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
+import { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
 import { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
@@ -33,11 +34,13 @@ import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeon
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
 import { GetOrCreatePlayerUseCase } from "@/usecase/player/GetOrCreatePlayerUseCase";
 import { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
+import { PlayerNameCache } from "@/usecase/player/PlayerNameCache";
 import { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
 import { UpdatePlayerNameUseCase } from "@/usecase/player/UpdatePlayerNameUseCase";
 import { ListStoreItemsUseCase } from "@/usecase/store/ListStoreItemsUseCase";
@@ -46,8 +49,15 @@ import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 
 const env = loadEnv();
 const supabase = createSupabaseClient(env);
-const sql = createPostgresClient(env.databaseUrl);
+const sql = createPostgresClient(env.databaseUrl, {
+  max: env.databasePoolMax,
+  idleTimeoutSeconds: env.databasePoolIdleTimeoutSeconds,
+  maxLifetimeSeconds: env.databasePoolMaxLifetimeSeconds,
+  prepare: env.databasePoolPrepareStatements,
+});
 const authGateway = new SupabaseAuthGateway(supabase);
+const authIdentityResolver = new PostgresAuthIdentityResolver(sql);
+const authIdentityCache = new AuthIdentityCache(authIdentityResolver);
 const rng = new RandomRng();
 
 const userRepository = new PostgresUserRepository(sql);
@@ -60,10 +70,12 @@ const attackRepository = new PostgresAttackRepository(sql);
 const levelRepository = new PostgresLevelRepository(sql);
 const battleRepository = new PostgresBattleRepository(sql);
 const dungeonSlayerRankingRepository = new PostgresDungeonSlayerRankingRepository(sql);
-const dungeonEncounterRepository = new PostgresDungeonEncounterRepository(sql);
 const dungeonBossRepository = new PostgresDungeonBossRepository(sql);
 const effectCounterRepository = new PostgresEffectCounterRepository(sql);
 const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
+const monsterCatalogCache = new MonsterCatalogCache(monsterRepository, monsterAttackRepository);
+const playerNameCache = new PlayerNameCache();
+playerNameCache.load(await playerRepository.listPlayerNames());
 
 const authenticateUserUseCase = new AuthenticateUserUseCase(authGateway, userRepository);
 const getOrCreatePlayerUseCase = new GetOrCreatePlayerUseCase(playerRepository);
@@ -74,7 +86,7 @@ const startBattleUseCase = new StartBattleUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -86,8 +98,7 @@ const attackUseCase = new AttackUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -103,8 +114,7 @@ const runFromBattleUseCase = new RunFromBattleUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -120,8 +130,7 @@ const useBagItemUseCase = new UseBagItemUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -137,8 +146,7 @@ const restUseCase = new RestUseCase(
   playerItemRepository,
   itemRepository,
   battleRepository,
-  monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -162,10 +170,10 @@ const destroyBagItemUseCase = new DestroyBagItemUseCase(
   uniqueItemOwnershipRepository,
 );
 const allocateAttributePointsUseCase = new AllocateAttributePointsUseCase(playerRepository);
-const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository);
+const updatePlayerNameUseCase = new UpdatePlayerNameUseCase(playerRepository, playerNameCache);
 const getActiveBattleUseCase = new GetActiveBattleUseCase(
   battleRepository,
-  monsterRepository,
+  monsterCatalogCache,
   playerRepository,
   playerItemRepository,
   itemRepository,
@@ -187,7 +195,7 @@ const startDungeonUseCase = new StartDungeonUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   rng,
@@ -195,7 +203,6 @@ const startDungeonUseCase = new StartDungeonUseCase(
   env.setAttributeBonus,
 );
 const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
-  dungeonEncounterRepository,
   dungeonBossRepository,
   monsterRepository,
   monsterAttackRepository,
@@ -206,7 +213,7 @@ const continueDungeonUseCase = new ContinueDungeonUseCase(
   itemRepository,
   battleRepository,
   monsterRepository,
-  monsterAttackRepository,
+  monsterCatalogCache,
   attackRepository,
   levelRepository,
   dungeonBossOfTheDayUseCase,
@@ -237,6 +244,7 @@ const app = createApp({
   authGateway,
   userRepository,
   getOrCreatePlayerUseCase,
+  authIdentityCache,
   startBattleUseCase,
   attackUseCase,
   runFromBattleUseCase,

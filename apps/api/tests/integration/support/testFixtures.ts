@@ -112,12 +112,17 @@ export async function createTestMonster(
   return id;
 }
 
-// No createTestDungeonBoss/createTestDungeonEncounter fixtures: unlike every
-// other fixture here, dungeon_encounters is a true production singleton
-// (plan3 §2c — exactly one gatekeeper/boss pairing row, ever), and
-// DungeonEncounterRepository.findOne() has no ordering to make a second row
-// deterministic. Tests that need a dungeon encounter use the real
-// migration-seeded Snake/Dragon pairing instead of inserting their own.
+export async function createTestDungeonBoss(
+  sql: SQL,
+  overrides: { name?: string } = {},
+): Promise<string> {
+  const id = Bun.randomUUIDv7();
+  await sql`
+    insert into dungeon_bosses (id, name, description, monster_image, base_hp, base_xp_gain)
+    values (${id}, ${overrides.name ?? `Test Boss ${id}`}, 'A test boss.', '/test-boss.png', 100, 50)
+  `;
+  return id;
+}
 
 export async function setPlayerDungeonAttempts(
   sql: SQL,

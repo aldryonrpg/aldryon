@@ -15,6 +15,7 @@ import {
   InsufficientAttributePointsError,
   ItemNotEquippableError,
   PlayerItemNotFoundError,
+  PlayerNameTakenError,
 } from "@/usecase/player/errors";
 import type { GetPlayerProfileUseCase } from "@/usecase/player/GetPlayerProfileUseCase";
 import type { UnequipItemUseCase } from "@/usecase/player/UnequipItemUseCase";
@@ -63,11 +64,18 @@ export function createPlayerController(
       );
     }
 
-    const result = await deps.updatePlayerNameUseCase.execute({
-      playerId: c.get("playerId"),
-      playerName: parsed.data.playerName,
-    });
-    return c.json(result, 200);
+    try {
+      const result = await deps.updatePlayerNameUseCase.execute({
+        playerId: c.get("playerId"),
+        playerName: parsed.data.playerName,
+      });
+      return c.json(result, 200);
+    } catch (err) {
+      if (err instanceof PlayerNameTakenError) {
+        return c.json({ error: { code: "PLAYER_NAME_TAKEN", message: err.message } }, 409);
+      }
+      throw err;
+    }
   });
 
   app.post("/player/equip", async (c) => {

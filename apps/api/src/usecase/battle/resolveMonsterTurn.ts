@@ -241,7 +241,12 @@ export async function resolveMonsterTurn(params: {
   }
 
   monsterCurrentStamina = Math.min(monster.maxStamina, monsterCurrentStamina + monsterStaminaRegen);
-  monsterAttackWeights = bumpAttackWeights(monsterAttackWeights, moveset, pickedNormalAttackId);
+  monsterAttackWeights = bumpAttackWeights(
+    monsterAttackWeights,
+    moveset,
+    pickedNormalAttackId,
+    monster.level,
+  );
   statusCooldownRoundsLeft = Math.max(0, statusCooldownRoundsLeft - 1);
 
   return {
