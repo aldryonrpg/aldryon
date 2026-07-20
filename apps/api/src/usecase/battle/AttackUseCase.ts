@@ -3,7 +3,7 @@ import { BATTLE_CONFIG, maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { rollHit } from "@/domain/battle/services/HitCheck";
-import { pickUnrevealedAttribute } from "@/domain/monster/monsterAttributeReveal";
+import { ATTRIBUTE_KEYS } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
@@ -13,6 +13,7 @@ import {
   NoActiveBattleError,
   UnknownAttackError,
 } from "@/usecase/battle/errors";
+import { resolveAttackReveal } from "@/usecase/battle/resolveAttackReveal";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
@@ -114,6 +115,12 @@ export class AttackUseCase {
     if (!attack.meetsRequirements(player.level, effectiveAttributes.toValues())) {
       throw new AttackNotUsableError("Attack requirements not met");
     }
+    if (
+      attack.revealsRandomMonsterAttribute &&
+      battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length
+    ) {
+      throw new AttackNotUsableError("You already know everything about this monster");
+    }
 
     const monsterAttributes = monster.getAttributes();
     const messages: string[] = [];
@@ -173,16 +180,14 @@ export class AttackUseCase {
       }
 
       if (attack.revealsRandomMonsterAttribute) {
-        const revealedKey = pickUnrevealedAttribute(revealedMonsterAttributes, this.rng);
-        if (revealedKey) {
-          revealedMonsterAttributes = [...revealedMonsterAttributes, revealedKey];
-          const label = revealedKey.charAt(0).toUpperCase() + revealedKey.slice(1);
-          messages.push(
-            `You glimpse the monster's ${label}: ${monsterAttributes.get(revealedKey)}!`,
-          );
-        } else {
-          messages.push("You already know everything about this monster.");
-        }
+        const reveal = resolveAttackReveal(
+          effectiveAttributes.intelligence,
+          revealedMonsterAttributes,
+          monsterAttributes,
+          this.rng,
+        );
+        revealedMonsterAttributes = reveal.revealedMonsterAttributes;
+        messages.push(reveal.message);
       }
     }
 

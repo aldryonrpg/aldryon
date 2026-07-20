@@ -21,21 +21,28 @@ export function loadEnv() {
     // apps/api is a trusted service, so it skips PostgREST/RLS entirely and
     // talks to Postgres directly. See PostgresUserRepository.
     //
-    // Use the **transaction-mode pooler** (port 6543, Supavisor), not the
-    // *direct* connection (port 5432) — confirmed empirically: the direct
+    // Use the pooler host (aws-*.pooler.supabase.com), never the *direct*
+    // db.<ref>.supabase.co host — confirmed empirically: the direct
     // connection often only resolves over IPv6, which container/VM network
     // setups without IPv6 egress (Podman's WSL VM locally, and likely
     // Render's containers too, since it deploys apps/api the same way)
-    // fail to reach at all (`ERR_POSTGRES_CONNECTION_CLOSED`). The pooler
-    // is IPv4-safe and works identically from a bare host or a container.
+    // fail to reach at all (`ERR_POSTGRES_CONNECTION_CLOSED`). Use the
+    // pooler's **session-mode port (5432)**, not transaction-mode (6543):
+    // transaction mode can hand a query to a different backend than the one
+    // that prepared it, causing intermittent bind/prepared-statement
+    // desync 500s under concurrent requests (confirmed live 2026-07-20 —
+    // garbled "bind message has N result formats but query has M columns"
+    // errors correlating with fast/overlapping play). Session mode keeps
+    // one stable backend per connection and was verified safe under 20
+    // concurrent prepared queries.
     databaseUrl: requireEnv("DATABASE_URL"),
     // Explicit Postgres connection-pool sizing instead of relying on
     // Bun.SQL's implicit defaults (max=10, idleTimeout=0/never expires,
     // prepare=true) — see createPostgresClient. Kept as ENV knobs, not
     // hardcoded, so Render can be retuned without a code deploy.
-    // DATABASE_POOL_PREPARE **must** be `false` under the transaction-mode
-    // pooler above — prepared statements can land on a different backend
-    // connection than the one that created them under that pooling mode.
+    // DATABASE_POOL_PREPARE should be `true` under the session-mode pooler
+    // above (the default/recommended setup) — only set it `false` if
+    // DATABASE_URL is switched to the transaction-mode port (6543) instead.
     databasePoolMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
     databasePoolIdleTimeoutSeconds: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? 30),
     databasePoolMaxLifetimeSeconds: Number(process.env.DATABASE_POOL_MAX_LIFETIME ?? 1800),

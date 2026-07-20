@@ -35,6 +35,9 @@ export const BagItemSchema = z.object({
   /** The catalog's per-unit value — doubles as both the store's buy price
    * and (Store-only) sell price. */
   value: z.number(),
+  /** True for Bandage/Antidote/the POT variants — drives the Bag UI's
+   * Permanent vs Normal slot grouping. */
+  isPermanent: z.boolean(),
 });
 export type BagItemDto = z.infer<typeof BagItemSchema>;
 
@@ -71,5 +74,8 @@ export const PlayerProfileResponseSchema = z.object({
   /** Flat per-attribute bonus a complete 6-piece equipment set grants
    * (env-configurable, `SET_ATTRIBUTE_BONUS`, default 2). */
   setAttributeBonus: z.number(),
+  /** Normal Slots capacity (20, or 25 for VIP) — Permanent Slots
+   * (Bandage/Antidote/POTs) are capacity-exempt and have their own caps. */
+  normalSlotCapacity: z.number(),
 });
 export type PlayerProfileResponse = z.infer<typeof PlayerProfileResponseSchema>;

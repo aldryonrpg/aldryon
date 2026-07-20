@@ -488,6 +488,7 @@ export default function BattlePage() {
                     <Modal title="Bag" onClose={() => setOpenPanel(null)}>
                       <BagPanel
                         bag={player.bag}
+                        normalSlotCapacity={player.normalSlotCapacity}
                         onUse={(id) => handleTurnResult(consumeBagItem(id))}
                         onEquip={handleEquip}
                         disabled={actionLoading}

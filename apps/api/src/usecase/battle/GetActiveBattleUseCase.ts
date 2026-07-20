@@ -2,7 +2,7 @@ import type { BattleEffectView } from "@/domain/battle/BattleEffect";
 import { toBattleEffectView } from "@/domain/battle/BattleEffect";
 import { maxHp, maxStamina } from "@/domain/battle/battleConfig";
 import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
-import type { AttributeValues } from "@/domain/shared/Attributes";
+import { ATTRIBUTE_KEYS, type AttributeValues } from "@/domain/shared/Attributes";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import type {
@@ -74,12 +74,15 @@ export class GetActiveBattleUseCase {
         battle.playerEffects,
       );
     const playerAttacks = await this.attackRepository.findAll();
+    const allAttributesRevealed = battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length;
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
       multiplier: attack.multiplier,
       scalingAttribute: attack.scalingAttribute,
-      meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+      meetsRequirements:
+        attack.meetsRequirements(player.level, effectiveAttributes.toValues()) &&
+        !(attack.revealsRandomMonsterAttribute && allAttributesRevealed),
       revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
     }));
 

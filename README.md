@@ -116,6 +116,31 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [5, 100
   to how many times the effect itself can stack on you. The player's
   `burn` on a monster has no cure (monsters carry no bag).
 
+### Monster attribute reveal
+
+A monster's attributes are hidden ("??") until revealed — two ways to learn them:
+
+- **`REVEAL SPELL`** (10 Stamina, ×0 multiplier, Intelligence-scaling,
+  requires 30 Intelligence) — on a successful hit, uncovers one or more of
+  the monster's still-hidden attributes. How many depends on the caster's
+  own effective Intelligence via a d100 roll (each tier only pays off with
+  the roll to match — a low roll always falls back to 1, no matter how high
+  Intelligence is):
+  - **100+ Intelligence**: roll ≥ 90 → 3, roll ≥ 60 → 2, else 1.
+  - **50+ Intelligence**: roll ≥ 60 → 2, else 1.
+  - **Below 50** (i.e. 30-49, just meeting the spell's own requirement):
+    always 1.
+  - Never reveals more than what's actually still hidden — a roll good for
+    3 with only 1 attribute left just reveals that 1.
+- **Knowledge Potion** (Bag consumable) — reveals all six attributes at
+  once, no Intelligence gate.
+- Once every attribute is already known, `REVEAL SPELL` greys out
+  client-side (same `meetsRequirements` flag that gates stamina/level) so
+  it's never selectable for a wasted turn. The backend still rejects it
+  defensively if submitted anyway — same as an unaffordable/under-level
+  attack, the rejection happens before anything is charged or resolved, so
+  the turn is never spent and the battle state never changes.
+
 ### Special attacks (monsters only)
 
 - Flagged `is_special` with `charge_turns >= 1`.
@@ -371,12 +396,18 @@ All 6 non-weapon slots equipped from the same setName → +SET_ATTRIBUTE_BONUS (
 Create **`apps/api/.env`** (gitignored):
 
 ```bash
-# Use Supabase's transaction-mode POOLER connection (port 6543), not the
-# direct one (port 5432) — the direct connection often only resolves over
-# IPv6, which Docker/container network setups (local Podman, Render) can
-# fail to reach at all. Pair with DATABASE_POOL_PREPARE=false below.
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres
-DATABASE_POOL_PREPARE=false
+# Use Supabase's POOLER host, not the direct db.<project-ref>.supabase.co
+# one — the direct host often only resolves over IPv6, which Docker/
+# container network setups (local Podman, Render) can fail to reach at all.
+# Use the pooler's SESSION-mode port (5432) — one stable backend per
+# connection, safe with prepared statements (DATABASE_POOL_PREPARE=true).
+# The same pooler host's TRANSACTION-mode port (6543) can hand a query to a
+# different backend than the one that prepared it, causing intermittent
+# bind/prepared-statement desync 500s under concurrent requests (confirmed
+# live) — only use it with DATABASE_POOL_PREPARE=false, and prefer session
+# mode unless you specifically need transaction mode's higher connection reuse.
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:5432/postgres
+DATABASE_POOL_PREPARE=true
 # Supabase Auth (GoTrue) — the project's public URL, used to build the JWKS
 # endpoint access tokens are verified against locally
 # (SupabaseAuthGateway.forProject) — no network call to Supabase on the

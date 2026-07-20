@@ -42,8 +42,10 @@ These rules are **non-negotiable** and apply to every instance/session working h
     string, via `Bun.SQL`) for data — **not** through `supabase-js
     .from()`/PostgREST — so it already bypasses PostgREST's reason to exist
     (Row Level Security) on its own request path; going through PostgREST
-    would just be an extra network hop for nothing. **This does not mean RLS
-    is unnecessary project-wide — see "Known gaps" below.**
+    would just be an extra network hop for nothing. **RLS is enabled
+    deny-by-default on every `public` table with zero policies — see
+    "Row Level Security" below — precisely so nothing but `apps/api`'s
+    direct connection can ever read/write.**
 - The back-end MUST follow **Clean Architecture + DDD**:
   - Layers: `domain` → `usecase` → `interface`, with `infrastructure`
     implementing the interfaces defined by inner layers.
@@ -147,24 +149,26 @@ see above) but only advisory in CI, matching its optional status.
 - Secrets (Supabase keys, Google OAuth credentials, API URLs) are configured as
   Render env vars and are **never committed**.
 
-## Known gaps
+## Row Level Security
 
-- **No Row Level Security (RLS) policies exist on any Supabase table yet.**
-  `apps/web` exposes `NEXT_PUBLIC_SUPABASE_ANON_KEY` client-side by design
-  (any `NEXT_PUBLIC_*` var ships in the JS bundle), and Supabase
-  auto-exposes every `public` schema table via PostgREST at
-  `https://<project>.supabase.co/rest/v1/<table>`. Without RLS policies,
-  the default Postgres grants for the `anon`/`authenticated` roles Supabase
-  sets up can let that public anon key read — and potentially write — rows
-  directly (players, battles, player_items, gold, everything), completely
-  bypassing every validation/authorization rule `apps/api`'s usecase layer
-  enforces. `apps/api` itself isn't blocked by this (it never goes through
-  PostgREST — see the `apps/api` bullet above), but the database is
-  currently reachable this way regardless of whether `apps/api` uses that
-  path. **Needs to be tackled before the game carries real traffic** — at
-  minimum, a deny-by-default RLS policy on every `public` table, since
-  nothing legitimate should ever read/write through PostgREST at all;
-  everything real goes through `apps/api`.
+- **RLS is enabled on every table in the `public` schema, with zero
+  policies defined — deny-by-default.** `apps/web` exposes
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` client-side by design (any `NEXT_PUBLIC_*`
+  var ships in the JS bundle), and Supabase auto-exposes every `public`
+  schema table via PostgREST at
+  `https://<project>.supabase.co/rest/v1/<table>`. With RLS on and no
+  policies, Postgres silently returns zero rows to the `anon`/`authenticated`
+  roles for every query (verified live: `GET .../rest/v1/players` with the
+  anon key returns `200 []` even though the table has real rows) — so that
+  public anon key can no longer read or write anything through PostgREST,
+  regardless of what grants Supabase's setup gives those roles by default.
+- `apps/api` is unaffected: it connects **directly to Postgres** (not
+  through PostgREST) with credentials that own/bypass RLS, so its own
+  request path — and the validation/authorization every usecase enforces —
+  never touches this at all.
+- **No policies exist and none are planned** unless a real, concrete need
+  for direct PostgREST access shows up — everything legitimate goes through
+  `apps/api`, so there's nothing for a policy to grant access to yet.
 
 ## Conventions
 

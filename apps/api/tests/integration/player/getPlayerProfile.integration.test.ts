@@ -73,8 +73,27 @@ describe("GetPlayerProfileUseCase (integration)", () => {
         setName: null,
         attributeBonuses: ZERO_ATTRIBUTE_BONUSES,
         value: 10,
+        isPermanent: false,
       },
     ]);
+    expect(profile.normalSlotCapacity).toBe(20);
+  });
+
+  it("marks bag entries isPermanent per the catalog flag, and reports the VIP capacity", async () => {
+    const userId = await createTestUser(sql);
+    const playerId = await createTestPlayer(sql, userId, { isVip: true });
+    const uc = buildUseCases(sql, new FakeRng([1]));
+
+    const itemId = await createTestItem(sql, {
+      name: "Profile Test Permanent Item",
+      isPermanent: true,
+    });
+    await createTestPlayerItem(sql, playerId, itemId);
+
+    const profile = await uc.getPlayerProfileUseCase.execute({ playerId });
+
+    expect(profile.bag.find((item) => item.itemId === itemId)?.isPermanent).toBe(true);
+    expect(profile.normalSlotCapacity).toBe(25);
   });
 
   it("reports attributeBonuses from equipped items, without touching base attributes", async () => {

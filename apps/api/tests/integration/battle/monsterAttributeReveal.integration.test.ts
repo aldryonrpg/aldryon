@@ -3,7 +3,9 @@ import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import { maxHp } from "@/domain/battle/battleConfig";
 import { ATTRIBUTE_KEYS } from "@/domain/shared/Attributes";
+import { AttackNotUsableError } from "@/usecase/battle/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import {
@@ -36,9 +38,12 @@ describe("Monster attribute reveal (integration)", () => {
     await sql.close();
   });
 
-  async function setupBasicBattle() {
+  async function setupBasicBattle(overrides: { intelligence?: number } = {}) {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { intelligence: 30, strength: 10 });
+    const playerId = await createTestPlayer(sql, userId, {
+      intelligence: overrides.intelligence ?? 30,
+      strength: 10,
+    });
     const monsterId = await createTestMonster(sql, { hp: 1000, strength: 5 });
     const monsterAttackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0 });
     await linkMonsterMoveset(sql, monsterId, monsterAttackId);
@@ -104,7 +109,7 @@ describe("Monster attribute reveal (integration)", () => {
     expect(result.monsterAttributes[revealedKey]).toBe(monster?.getAttributes().get(revealedKey));
   });
 
-  it("REVEAL SPELL says so once every attribute is already known", async () => {
+  it("rejects REVEAL SPELL once every attribute is already known, without spending the turn", async () => {
     const { playerId, battle } = await setupBasicBattle();
     await createTestPlayerAttack(sql, {
       name: "Test Reveal Spell 2",
@@ -119,10 +124,32 @@ describe("Monster attribute reveal (integration)", () => {
       Battle.create({ ...battle.toProps(), revealedMonsterAttributes: [...ATTRIBUTE_KEYS] }),
     );
 
-    const result = await uc.attackUseCase.execute({ playerId, attackName: "Test Reveal Spell 2" });
+    await expectRejection(
+      uc.attackUseCase.execute({ playerId, attackName: "Test Reveal Spell 2" }),
+      AttackNotUsableError,
+    );
 
-    expect(Object.keys(result.monsterAttributes)).toHaveLength(6);
-    expect(result.messages).toContain("You already know everything about this monster.");
+    // Rejected before any state mutation — stamina untouched, battle still there.
+    const stillActive = await uc.battleRepository.findByPlayerId(playerId);
+    expect(stillActive?.playerCurrentStamina).toBe(battle.playerCurrentStamina);
+  });
+
+  it("can reveal more than one attribute at 100+ Intelligence with a high roll", async () => {
+    const { playerId, battle } = await setupBasicBattle({ intelligence: 100 });
+    await createTestPlayerAttack(sql, {
+      name: "Test Reveal Spell 3",
+      staminaCost: 10,
+      multiplier: 0,
+      scalingAttribute: "intelligence",
+      reqIntelligence: 30,
+      revealsRandomMonsterAttribute: true,
+    });
+    const uc = buildUseCases(sql, new FakeRng([90, 0, 0, 0]));
+    await uc.battleRepository.create(battle);
+
+    const result = await uc.attackUseCase.execute({ playerId, attackName: "Test Reveal Spell 3" });
+
+    expect(Object.keys(result.monsterAttributes)).toHaveLength(3);
   });
 
   it("Knowledge Potion reveals all six attributes at once", async () => {

@@ -1,4 +1,5 @@
 import type { EquipmentSlot, Item, ItemRarity } from "@/domain/item/Item";
+import { normalBagCapacity } from "@/domain/player/Bag";
 import { computeSetBonus } from "@/domain/player/equipmentSetBonus";
 import type { EquipmentPosition } from "@/domain/player/PlayerItem";
 import { type AttributeValues, sumAttributeBonuses } from "@/domain/shared/Attributes";
@@ -34,6 +35,9 @@ export interface BagItemOutput {
   /** The catalog's per-unit value — doubles as both the store's buy price
    * and (Store-only) sell price. */
   value: number;
+  /** True for Bandage/Antidote/the POT variants — the client uses this to
+   * group the Bag UI into Permanent vs Normal slots. */
+  isPermanent: boolean;
 }
 
 export interface DungeonRunStatusOutput {
@@ -64,6 +68,11 @@ export interface GetPlayerProfileOutput {
    * (env-configurable, `SET_ATTRIBUTE_BONUS`) — surfaced so the client
    * can render "+N" set-completion messaging without hardcoding the value. */
   setAttributeBonus: number;
+  /** The Normal Slots capacity (20, or 25 for VIP) — surfaced so the client
+   * can render "X/Y Slots" without duplicating the VIP capacity rule. Only
+   * covers Normal Slots; Permanent Slots (Bandage/Antidote/POTs) have their
+   * own separate caps (see domain/player/Bag.ts). */
+  normalSlotCapacity: number;
 }
 
 /**
@@ -129,6 +138,7 @@ export class GetPlayerProfileUseCase {
           setName: item.setName,
           attributeBonuses: item.attributeBonuses,
           value: item.value,
+          isPermanent: item.isPermanent,
         });
       }
     }
@@ -169,6 +179,7 @@ export class GetPlayerProfileUseCase {
       equipped,
       bag,
       setAttributeBonus: this.setAttributeBonus,
+      normalSlotCapacity: normalBagCapacity(player.isVip),
     };
   }
 }

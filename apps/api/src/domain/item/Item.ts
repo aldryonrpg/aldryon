@@ -56,6 +56,12 @@ export interface ItemProps {
    * SVG circle rather than treating this as required, unlike Monster's
    * `monsterImage`. */
   itemImage: string | null;
+  /** Bag UI grouping only (Bandage/Antidote/the POT variants) — the
+   * backend's own capacity/placement rules still key off name (see
+   * domain/player/Bag.ts's SPECIAL_SLOT_ITEM_NAMES/POT_ITEM_NAMES), since
+   * those two permanent-slot kinds cap differently and this flag can't tell
+   * them apart. Defaults to false for everything else in the catalog. */
+  isPermanent: boolean;
 }
 
 /** Item catalog entry (plan2 §3b). Immutable — items are catalog data. */
@@ -107,6 +113,9 @@ export class Item {
   }
   get itemImage(): string | null {
     return this.props.itemImage;
+  }
+  get isPermanent(): boolean {
+    return this.props.isPermanent;
   }
 
   get isEquippable(): boolean {

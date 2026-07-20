@@ -206,6 +206,7 @@ export interface TestItemOverrides {
   setName?: string | null;
   storePurchasable?: boolean;
   itemImage?: string | null;
+  isPermanent?: boolean;
 }
 
 export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}): Promise<string> {
@@ -214,14 +215,15 @@ export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}
     insert into items (
       id, name, description, value, rarity, slot, hp_restore,
       strength, dexterity, agility, intelligence, vitality, luck,
-      reveals_all_monster_attributes, set_name, store_purchasable, item_image
+      reveals_all_monster_attributes, set_name, store_purchasable, item_image, is_permanent
     ) values (
       ${id}, ${overrides.name ?? `Test Item ${id}`}, 'test item', ${overrides.value ?? 10},
       ${overrides.rarity ?? "common"}, ${overrides.slot ?? null}, ${overrides.hpRestore ?? null},
       ${overrides.strength ?? 0}, ${overrides.dexterity ?? 0}, ${overrides.agility ?? 0},
       ${overrides.intelligence ?? 0}, ${overrides.vitality ?? 0}, ${overrides.luck ?? 0},
       ${overrides.revealsAllMonsterAttributes ?? false}, ${overrides.setName ?? null},
-      ${overrides.storePurchasable ?? true}, ${overrides.itemImage ?? null}
+      ${overrides.storePurchasable ?? true}, ${overrides.itemImage ?? null},
+      ${overrides.isPermanent ?? false}
     )
   `;
   return id;
