@@ -137,6 +137,18 @@ export class RunFromBattleUseCase {
 
     if (playerCurrentHp <= 0) {
       await settlePlayerDeath(player, this.levelRepository, this.playerRepository);
+      if (battle.dungeonTier !== null) {
+        // Dying to the parting hit mid-fight during a dungeon run ends it
+        // outright, same as a boss kill or an entrance ambush death.
+        await this.playerRepository.update(
+          Player.create({
+            ...player.toProps(),
+            dungeonRunTier: null,
+            dungeonRunStep: null,
+            dungeonRunTotalSteps: null,
+          }),
+        );
+      }
       return {
         playerAttack: null,
         monsterAttack,
@@ -162,10 +174,20 @@ export class RunFromBattleUseCase {
         // either way (fled or dead), so there's no DoT-tick step here.
         playerEffectDamage: 0,
         monsterEffectDamage: 0,
+        dungeonRunEnded: false,
       };
     }
 
-    const updatedPlayer = Player.create({ ...player.toProps(), lastRunAt: new Date() });
+    // Fleeing mid-fight during a dungeon run ends it outright too — same
+    // as dying does, per the user's explicit "if the player RUN or DIES
+    // the dungeon is counted as ended" intent, not just death.
+    const updatedPlayer = Player.create({
+      ...player.toProps(),
+      lastRunAt: new Date(),
+      ...(battle.dungeonTier !== null
+        ? { dungeonRunTier: null, dungeonRunStep: null, dungeonRunTotalSteps: null }
+        : {}),
+    });
     await this.playerRepository.update(updatedPlayer);
 
     return {
@@ -191,6 +213,7 @@ export class RunFromBattleUseCase {
       attributesAfterDebuff: effectiveAttributes.toValues(),
       playerEffectDamage: 0,
       monsterEffectDamage: 0,
+      dungeonRunEnded: false,
     };
   }
 }

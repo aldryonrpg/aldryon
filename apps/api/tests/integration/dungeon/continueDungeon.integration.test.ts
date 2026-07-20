@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
+import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
 import { BattleAlreadyInProgressError } from "@/usecase/battle/errors";
 import { NoDungeonRunInProgressError } from "@/usecase/dungeon/errors";
 import { buildUseCases } from "../support/buildUseCases";
+import { nowForBoss } from "../support/dungeonBossRotation";
 import { expectRejection } from "../support/expectRejection";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
@@ -102,7 +104,9 @@ describe("ContinueDungeonUseCase (integration)", () => {
     await setPlayerDungeonRun(sql, playerId, 1, 1, 1);
     // roll1=1 (ambush check <= boss's ambush_chance 0 -> always fails),
     // roll2=0 (Growl break-percent roll).
-    const uc = buildUseCases(sql, new FakeRng([1, 0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
+    const uc = buildUseCases(sql, new FakeRng([1, 0]), () => now);
 
     const result = await uc.continueDungeonUseCase.execute({ playerId });
 
@@ -127,7 +131,9 @@ describe("ContinueDungeonUseCase (integration)", () => {
     const userId2 = await createTestUser(sql);
     const playerId2 = await createTestPlayer(sql, userId2, { level: 17 });
     await setPlayerDungeonRun(sql, playerId2, 2, 3, 3);
-    const uc = buildUseCases(sql, new FakeRng([1, 0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
+    const uc = buildUseCases(sql, new FakeRng([1, 0]), () => now);
 
     const result1 = await uc.continueDungeonUseCase.execute({ playerId: playerId1 });
     await uc.battleRepository.deleteByPlayerId(playerId1);

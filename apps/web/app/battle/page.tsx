@@ -45,6 +45,7 @@ import {
   startBattle,
   unequipItem,
 } from "@/lib/api";
+import { getBattleBackgroundImage } from "@/lib/battleBackground";
 import { loadRarityColors } from "@/lib/rarityColors";
 import { EMPTY_ENCOUNTER_STORAGE_KEY, WILD_REGION_STORAGE_KEY } from "@/lib/useBattleEntry";
 
@@ -55,9 +56,6 @@ type StatusView = NonNullable<ActiveBattleResponse>["playerStatus"];
 type MonsterStatusView = NonNullable<ActiveBattleResponse>["monsterStatus"];
 type Outcome = "ongoing" | "won" | "lost" | "fled" | null;
 
-// One shared background for every battle for now; swap to a per-region/
-// per-dungeon lookup once those art assets exist.
-const BATTLE_BACKGROUND_STYLE = { backgroundImage: "url('/background_montain.png')" };
 const BATTLE_BACKGROUND_CLASS = "bg-cover bg-center bg-no-repeat bg-black";
 
 function describeAttack(label: string, result: AttackResultDto): string {
@@ -86,6 +84,13 @@ export default function BattlePage() {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [lootOffer, setLootOffer] = useState<string[] | null>(null);
+  // True only when the win that just happened killed a dungeon run's boss —
+  // player.dungeonRun is already null by the time this same kill's profile
+  // refresh lands (settleTurn clears it server-side immediately), so this
+  // can't be re-derived from player state; it has to come from the report
+  // itself. Drives hiding the loot screen's Continue button, since
+  // continuing here would otherwise silently start an unrelated wild battle.
+  const [dungeonRunEnded, setDungeonRunEnded] = useState(false);
   // Set when Continue rolls an empty encounter (wild miss) — distinct from
   // the very first "no battle in progress" load, which never shows
   // Continue/Exit at all.
@@ -200,6 +205,7 @@ export default function BattlePage() {
       }
       setLogLines((prev) => [...prev, ...newLines]);
       setOutcome(report.outcome);
+      setDungeonRunEnded(report.dungeonRunEnded);
       setOpenPanel(null);
       if (report.lootOffer && report.lootOffer.length > 0) {
         setLootOffer(report.lootOffer);
@@ -252,6 +258,7 @@ export default function BattlePage() {
       const response = isDungeonRun ? await continueDungeon() : await startBattle(wildRegion);
 
       setLootOffer(null);
+      setDungeonRunEnded(false);
       const message = response.message;
       setLogLines(message ? [message] : []);
       setAvailableAttacks(response.availableAttacks);
@@ -340,13 +347,17 @@ export default function BattlePage() {
     );
   }
 
+  const battleBackgroundStyle = {
+    backgroundImage: `url('${getBattleBackgroundImage(player.dungeonRun != null, wildRegion)}')`,
+  };
+
   // A Continue that rolled an empty encounter — no monster, but the
   // Continue/Exit choice is still offered rather than dead-ending.
   if (emptyMessage !== null) {
     return (
       <main
         className={`flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
-        style={BATTLE_BACKGROUND_STYLE}
+        style={battleBackgroundStyle}
       >
         <p className="max-w-md text-center">{emptyMessage}</p>
         {error && <p className="text-sm text-red-400">{error}</p>}
@@ -376,7 +387,7 @@ export default function BattlePage() {
     return (
       <main
         className={`flex min-h-screen flex-col items-center justify-center gap-4 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
-        style={BATTLE_BACKGROUND_STYLE}
+        style={battleBackgroundStyle}
       >
         <p>No battle in progress.</p>
         <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
@@ -391,7 +402,7 @@ export default function BattlePage() {
   return (
     <main
       className={`min-h-screen p-6 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
-      style={BATTLE_BACKGROUND_STYLE}
+      style={battleBackgroundStyle}
     >
       <div className="mx-auto flex max-w-5xl flex-col gap-4">
         <MonsterPanel
@@ -433,7 +444,7 @@ export default function BattlePage() {
               onClaim={handleClaim}
               onContinue={handleContinue}
               onExit={handleExit}
-              continueLabel={player.dungeonRun != null ? "Continue" : "Continue"}
+              showContinue={!dungeonRunEnded}
             />
           </div>
         ) : (

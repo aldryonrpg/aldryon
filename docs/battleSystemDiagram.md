@@ -6,8 +6,10 @@ diagrams, traced directly from source:
 
 1. **Setup** — the shared pre-turn loading/validation phase
    (`AttackUseCase.execute()`'s opening steps; `RestUseCase`,
-   `RunFromBattleUseCase`, and `UseBagItemUseCase` all do the identical
-   thing before branching into their own action).
+   `RunFromBattleUseCase`, and `UseBagItemUseCase` do the same thing minus
+   one branch — see the `PFan`/`PARALLEL` node below, the player attack
+   catalog fetch is Attack-only since Phase5 dropped it from the other
+   three, which never needed it).
 2. **Battle Start — First Turn & Ambush** — `StartBattleUseCase.execute()`
    (`POST /battle/start`): cooldown/empty-encounter checks, picking a
    monster, and the ambush roll that can hit (or even kill) the player
@@ -35,10 +37,10 @@ flowchart TD
     BC -- Yes --> LP[("DB: playerRepository.findById")]
     LP --> PC{"Player exists?"}
     PC -- No --> ErrP(["Throw Error: Player not found"])
-    PC -- Yes --> PFan["Fan out: Promise.all (3 concurrent branches)"]
+    PC -- Yes --> PFan["Fan out: Promise.all — 3 branches on /battle/attack (needs the attack catalog to validate the chosen attack), 2 branches on /rest, /run, /bag (LA dropped, Phase5)"]
 
     subgraph PARALLEL["Parallel Fetch"]
-        PFan --> LA[("DB: attackRepository.findAll — player attack catalog")]
+        PFan --> LA[("DB: attackRepository.findAll — player attack catalog (AttackUseCase only)")]
         PFan --> MCGet["Calc: monsterCatalogCache.getMonsterWithMoveset(battle.monsterId)"]
         PFan --> EA1[("DB: playerItemRepository.findByPlayerId")]
     end
@@ -88,9 +90,11 @@ flowchart TD
         VA2 -- No --> ErrS1(["Throw AttackNotUsableError"])
         VA2 -- Yes --> VA3{"Meets level/attribute requirements?"}
         VA3 -- No --> ErrS2(["Throw AttackNotUsableError"])
+        VA3 -- Yes --> VA4{"Reveals a monster attribute AND every attribute already revealed?"}
+        VA4 -- Yes --> ErrS3(["Throw AttackNotUsableError: already know everything about this monster"])
     end
 
-    VA3 -- Yes --> ReadyOut(["Ready: monster, moveset, playerAttacks, effectiveAttributes, playerMaxHp — proceed to the Ongoing Turn diagram"])
+    VA4 -- No --> ReadyOut(["Ready: monster, moveset, playerAttacks, effectiveAttributes, playerMaxHp — proceed to the Ongoing Turn diagram"])
 ```
 
 ## 2. Battle Start — First Turn & Ambush (`POST /battle/start`)
@@ -162,8 +166,7 @@ flowchart TD
     subgraph PLAYERATK["PLAYER TURN · Player's Strike"]
         PH["Calc: rollHit — playerDex/monsterAgi/playerLuck, roll 10-100"] --> HC{"Hit?"}
         HC -- No --> PMiss["playerDamage = 0"]
-        HC -- Yes --> Stance["Calc: defaultMonsterAttack — monster's HIT-stance scaling attribute"]
-        Stance --> Dmg["Calc: computeDamage — ceil(mult×atk)+staminaCost−ceil(defense), floor 1"]
+        HC -- Yes --> Dmg["Calc: computeDamage — defense scales on the incoming attack's own attribute (no defensive 'stance' concept anymore, combat-balance follow-up), ceil(mult×atk)+staminaCost−ceil(defense), floor 1"]
         Dmg --> ApplyDmg["Calc: monsterCurrentHp = max(0, hp − playerDamage)"]
         ApplyDmg --> EffCheck{"Attack applies an effect?"}
         EffCheck -- Yes --> Proc["Calc: rollEffectProc — Luck diff, roll 5-100"]
@@ -173,7 +176,8 @@ flowchart TD
         EffCheck -- No --> RevCheck
         ProcCheck -- No --> RevCheck
         AddEff1 --> RevCheck
-        RevCheck{"REVEAL SPELL used?"} -- Yes --> PickRev["Calc: pickUnrevealedAttribute — RNG among unrevealed"]
+        RevCheck{"REVEAL SPELL used?"} -- Yes --> PickRevCount["Calc: rollRevealCount — Intelligence-scaled roll: Int≥100 up to 3, Int≥50 up to 2, else 1"]
+        PickRevCount --> PickRev["Calc: pickUnrevealedAttributes — RNG picks up to count distinct unrevealed keys"]
         RevCheck -- No --> AliveCheck
         PickRev --> AliveCheck
         PMiss --> AliveCheck
@@ -195,16 +199,16 @@ flowchart TD
         AddIn --> ExtraCheck{"Special carries an extra distinct effect?"}
         ExtraCheck -- Yes --> ExCounter{{"Cache: effectCounterRepository.findByKind — extra effect (in-memory Map)"}}
         ExCounter --> AddEx["Calc: addBattleEffect + start shared status cooldown if Stun/Fear/Magic Aura Blast"]
-        ExtraCheck -- No --> WBump
-        AddEx --> WBump
+        ExtraCheck -- No --> SRegen
+        AddEx --> SRegen
 
         MT0 -- No --> Aff["Calc: filter moveset — affordable AND not on status cooldown"]
         Aff --> SpecAvail{"Any special affordable?"}
-        SpecAvail -- Yes --> StartCh["Calc: pick special (random tie-break), start charging"]
-        StartCh --> WBump
+        SpecAvail -- Yes --> StartCh["Calc: pick special (random tie-break), start charging — also regens at Rest rate (15) and pushes a charge-warning message, same as Rest1"]
+        StartCh --> SRegen
         SpecAvail -- No --> NormAvail{"Any normal attack affordable?"}
         NormAvail -- No --> Rest2["Calc: regen at Rest rate (15)"]
-        Rest2 --> WBump
+        Rest2 --> SRegen
         NormAvail -- Yes --> Score["Calc: computeDamage for every affordable normal candidate"]
         Score --> Select["Calc: selectByWeightedDamage — max(damage+weight), ties by moveset order"]
         Select --> MHit["Calc: rollHit — monsterDex/playerAgi/monsterLuck"]
@@ -214,14 +218,14 @@ flowchart TD
         MProc --> MProcCheck{"Proced?"}
         MProcCheck -- Yes --> MCounter{{"Cache: effectCounterRepository.findByKind (in-memory Map)"}}
         MCounter --> AddM["Calc: addBattleEffect on player"]
-        AddM --> WBump
-        MProcCheck -- No --> WBump
+        AddM --> SRegen
+        MProcCheck -- No --> SRegen
         MHitCheck -- No --> DeductOnly["Calc: stamina -= cost only"]
-        DeductOnly --> WBump
-        Rest1 --> WBump
+        DeductOnly --> SRegen
+        Rest1 --> SRegen
 
-        WBump["Calc: bumpAttackWeights — +monster.level to unpicked, reset picked to 0"] --> SRegen["Calc: monsterCurrentStamina regen, capped at monster.maxStamina"]
-        SRegen --> CDTick["Calc: statusCooldownRoundsLeft = max(0, −1)"]
+        SRegen["Calc: monsterCurrentStamina regen, capped at monster.maxStamina"] --> WBump["Calc: bumpAttackWeights — +monster.level to unpicked, reset picked to 0"]
+        WBump --> CDTick["Calc: statusCooldownRoundsLeft = max(0, −1)"]
     end
 
     CDTick --> TickEffects
@@ -249,23 +253,26 @@ flowchart TD
         Claim --> Combine
         UniqCheck -- No --> Combine
         LegWin -- No --> Combine
-        Combine["Calc: combine drop/exclusive/legendary into lootOffer"] --> UpdWin[("DB: playerRepository.update — xp, level, attributePoints, pendingLoot")]
+        Combine["Calc: combine drop/exclusive/legendary into lootOffer"] --> BossKillCheck{"battle.dungeonIsBossFight? (Battle entity, any tier — distinct from the tier-3-only check below)"}
+        BossKillCheck -- Yes --> UpdWin[("DB: playerRepository.update — xp, level, attributePoints, pendingLoot, AND reset Player.dungeonRunTier/Step/TotalSteps to null (the run ends outright, any tier's boss)")]
+        BossKillCheck -- No --> UpdWinPlain[("DB: playerRepository.update — xp, level, attributePoints, pendingLoot")]
         UpdWin --> DunCheck{"battle.dungeonTier==3 AND dungeonIsBossFight?"}
-        DunCheck -- Yes --> IncKill[("DB: dungeonSlayerRankingRepository.incrementKill")]
+        UpdWinPlain --> DunCheck
+        DunCheck -- Yes --> IncKill[("DB: dungeonSlayerRankingRepository.incrementKill — Dungeon Slayer leaderboard, tier-3 boss kills only")]
         DunCheck -- No --> DelWin
         IncKill --> DelWin[("DB: battleRepository.deleteByPlayerId")]
-        DelWin --> Won(["Return TurnReport — outcome: won"])
+        DelWin --> Won(["Return TurnReport — outcome: won, dungeonRunEnded: battle.dungeonIsBossFight"])
 
         DeadM -- No --> DeadP{"playerCurrentHp <= 0?"}
         DeadP -- "Yes: LOST" --> LL2[("DB: levelRepository.findAll")]
         LL2 --> DeathPen["Calc: applyDeathPenalty — floor(-1% xp), possible de-level"]
         DeathPen --> UpdDeath[("DB: playerRepository.update — xp, level, lastDeathAt")]
         UpdDeath --> DelLoss[("DB: battleRepository.deleteByPlayerId")]
-        DelLoss --> Lost(["Return TurnReport — outcome: lost"])
+        DelLoss --> Lost(["Return TurnReport — outcome: lost, dungeonRunEnded: false"])
 
         DeadP -- "No: ONGOING" --> BuildB["Calc: build updated Battle — round+1, new state fields"]
         BuildB --> UpdBattle[("DB: battleRepository.update")]
-        UpdBattle --> Ongoing(["Return TurnReport — outcome: ongoing"])
+        UpdBattle --> Ongoing(["Return TurnReport — outcome: ongoing, dungeonRunEnded: false"])
     end
 ```
 
@@ -293,11 +300,14 @@ flowchart TD
   its normal-attack proc, and once more on an ambush in the Battle Start
   diagram) — all now `Map.get` calls, not round-trips.
 - **Still uncached**: `attackRepository.findAll()` (the player attack
-  catalog) and `levelRepository.findAll()` (the XP curve) are both read on
-  effectively every turn/kill/death and are just as static as the two caches
-  above — flagged as the next candidates, not yet implemented.
+  catalog — **Attack turns only** since Phase5 dropped this call from
+  Rest/Run/Bag entirely, see the Setup diagram's `PFan` node) and
+  `levelRepository.findAll()` (the XP curve, read on every kill/death
+  regardless of action) are both just as static as the two caches above —
+  flagged as the next candidates, not yet implemented.
 - **Every DB call still made per turn on a warm cache** (common ongoing-turn
-  path): `battleRepository.findByPlayerId`, `playerRepository.findById`,
+  path, **Attack specifically** — Rest/Run/Bag skip `attackRepository.findAll`):
+  `battleRepository.findByPlayerId`, `playerRepository.findById`,
   `attackRepository.findAll`, `playerItemRepository.findByPlayerId`, and
   `itemRepository.findByIds` (only if the player has equipped items) — the
   monster/moveset pair costs 0 round-trips on a hit, 2 (run concurrently) on
@@ -306,6 +316,23 @@ flowchart TD
   `itemRepository.findById` + `uniqueItemOwnershipRepository.tryClaim`
   (legendary roll) and `dungeonSlayerRankingRepository.incrementKill`
   (Tier-3 boss kill).
+- **Two independent "boss kill" conditions, easy to conflate**:
+  `BossKillCheck` (`battle.dungeonIsBossFight`, any tier) resets the
+  **Player** entity's `dungeonRunTier`/`dungeonRunStep`/`dungeonRunTotalSteps`
+  to null — this is what actually ends a dungeon run, on any tier's boss.
+  `DunCheck` (`battle.dungeonTier==3 AND dungeonIsBossFight`) is a
+  *narrower*, separate condition that only gates
+  `dungeonSlayerRankingRepository.incrementKill` — the Dungeon Slayer
+  leaderboard only counts a Tier-3 boss kill, never Tier 1/2. Both read
+  `Battle` entity fields; only `BossKillCheck`'s effect touches `Player`.
+  The turn report's `dungeonRunEnded` field mirrors `BossKillCheck`'s
+  result, not `DunCheck`'s — it's what `apps/web`'s loot screen uses to
+  decide whether to offer Continue at all (bug fix, 2026-07-20: it
+  previously re-derived this from `player.dungeonRun`, which is already
+  null by the time that same kill's profile refresh lands — indistinguishable
+  from "never was in a dungeon," so Continue stayed offered after a boss
+  kill and silently started an unrelated wild battle instead of doing
+  nothing useful).
 - The **Dungeon variant** of a turn (`beginDungeonFight` /
   `ContinueDungeonUseCase`) reuses this exact same
   `resolveMonsterTurn`/`settleTurn` machinery once a fight is underway, and

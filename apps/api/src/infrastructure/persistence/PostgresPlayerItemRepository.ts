@@ -31,6 +31,17 @@ export class PostgresPlayerItemRepository implements PlayerItemRepository {
     return rows.map(toDomain);
   }
 
+  async findByPlayerIdForUpdate(playerId: string): Promise<PlayerItem[]> {
+    const rows = await this.sql<PlayerItemRow[]>`
+      select * from player_items where player_id = ${playerId} order by created_at asc for update
+    `;
+    return rows.map(toDomain);
+  }
+
+  async withTransaction<T>(fn: (repo: PlayerItemRepository) => Promise<T>): Promise<T> {
+    return this.sql.begin(async (tx) => fn(new PostgresPlayerItemRepository(tx)));
+  }
+
   async findById(id: string): Promise<PlayerItem | null> {
     const rows = await this.sql<
       PlayerItemRow[]

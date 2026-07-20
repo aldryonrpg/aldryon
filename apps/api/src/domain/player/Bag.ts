@@ -50,6 +50,29 @@ export function planAddNormalItem(snapshot: NormalBagSnapshot, itemId: string): 
   return { fits: false, targetPlayerItemId: null, reason: "Bag is full" };
 }
 
+export interface UnequipStackSnapshot {
+  /** An existing unequipped stack of the same item, if one exists. */
+  existingStack: { playerItemId: string; quantity: number } | null;
+}
+
+export interface UnequipPlan {
+  /** The stack to merge the returning unit into, or null if it should
+   * become its own new quantity-1 bag row instead (no existing stack, or
+   * the existing one is already at bagStackMax). */
+  mergeIntoPlayerItemId: string | null;
+}
+
+/** Plans returning one equipped unit back to the unequipped bag — the
+ * equip-side split's counterpart (equipping from a quantity>1 stack peels
+ * off one unit into its own row; unequipping tries to merge that unit back
+ * into a same-item stack instead of leaving bag slots fragmented). */
+export function planUnequip(snapshot: UnequipStackSnapshot): UnequipPlan {
+  if (snapshot.existingStack && snapshot.existingStack.quantity < BATTLE_CONFIG.bagStackMax) {
+    return { mergeIntoPlayerItemId: snapshot.existingStack.playerItemId };
+  }
+  return { mergeIntoPlayerItemId: null };
+}
+
 export interface AddSpecialItemPlan {
   fits: boolean;
   reason?: string;

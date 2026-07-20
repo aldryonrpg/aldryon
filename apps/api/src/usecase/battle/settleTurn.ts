@@ -208,11 +208,25 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       attributesAfterDebuff: attributesAfterDebuff.toValues(),
       playerEffectDamage,
       monsterEffectDamage,
+      dungeonRunEnded: battle.dungeonIsBossFight,
     };
   }
 
   if (playerCurrentHp <= 0) {
     await settlePlayerDeath(player, levelRepository, playerRepository);
+    if (battle.dungeonTier !== null) {
+      // Dying mid-fight during a dungeon run ends it outright, same as a
+      // boss kill or an entrance ambush death — cleared here so it never
+      // dangles waiting on the player to click Exit.
+      await playerRepository.update(
+        Player.create({
+          ...player.toProps(),
+          dungeonRunTier: null,
+          dungeonRunStep: null,
+          dungeonRunTotalSteps: null,
+        }),
+      );
+    }
     await battleRepository.deleteByPlayerId(player.id);
 
     return {
@@ -238,6 +252,7 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
       attributesAfterDebuff: attributesAfterDebuff.toValues(),
       playerEffectDamage,
       monsterEffectDamage,
+      dungeonRunEnded: false,
     };
   }
 
@@ -281,5 +296,6 @@ export async function settleTurn(params: SettleTurnParams): Promise<TurnReportOu
     attributesAfterDebuff: attributesAfterDebuff.toValues(),
     playerEffectDamage,
     monsterEffectDamage,
+    dungeonRunEnded: false,
   };
 }
