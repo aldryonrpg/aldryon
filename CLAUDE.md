@@ -144,10 +144,21 @@ see above) but only advisory in CI, matching its optional status.
 
 ## Deployment
 
-- Both `apps/web` and `apps/api` are deployed on **Render** as separate services
-  (see `render.yaml`).
+- Both `apps/web` and `apps/api` are deployed on **Render** as separate services,
+  set up **manually** in the Render dashboard — there is **no `render.yaml`**
+  (deleted; it was never wired to a Blueprint sync and didn't reflect the real
+  config). Don't recreate one unless the setup actually switches to Blueprint
+  sync — until then it would just be more dead weight.
 - Secrets (Supabase keys, Google OAuth credentials, API URLs) are configured as
-  Render env vars and are **never committed**.
+  Render env vars (tracked in the README) and are **never committed**.
+- **`apps/cron-sweep`** (a `psql`-only image running
+  `sweepStaleBattles.sql` — deletes battles, dungeon or ordinary, older than
+  2 days, and clears the owning player's dungeon-run state first if needed)
+  is built and ready but **deliberately not provisioned as a Render Cron Job
+  yet** — an extra paid Render service isn't worth it at this early stage
+  with a small player base generating little stale-battle volume. Revisit
+  once real usage makes abandoned battles/dungeon runs an actual DB-hygiene
+  problem, not before.
 
 ## Row Level Security
 
