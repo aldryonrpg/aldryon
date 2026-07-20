@@ -44,7 +44,6 @@ describe("AuthenticateUserUseCase", () => {
 
     expect(user.externalAuthId).toBe("ext-1");
     expect(user.email).toBe("player@example.com");
-    expect(user.isVip).toBe(false);
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -56,7 +55,6 @@ describe("AuthenticateUserUseCase", () => {
       email: "old@example.com",
       displayName: null,
       avatarUrl: null,
-      isVip: false,
     });
     await repo.upsert(existing);
 
@@ -72,31 +70,6 @@ describe("AuthenticateUserUseCase", () => {
 
     expect(user.id).toBe("existing-id");
     expect(user.email).toBe("new@example.com");
-  });
-
-  it("preserves isVip across repeat logins instead of resetting it", async () => {
-    const repo = new InMemoryUserRepository();
-    const existing = User.create({
-      id: "existing-id",
-      externalAuthId: "ext-3",
-      email: "vip@example.com",
-      displayName: null,
-      avatarUrl: null,
-      isVip: true,
-    });
-    await repo.upsert(existing);
-
-    const gateway = new StubAuthGateway({
-      externalAuthId: "ext-3",
-      email: "vip@example.com",
-      displayName: "Renamed",
-      avatarUrl: null,
-    });
-    const useCase = new AuthenticateUserUseCase(gateway, repo);
-
-    const { user } = await useCase.execute({ supabaseAccessToken: "any" });
-
-    expect(user.isVip).toBe(true);
   });
 
   it("propagates InvalidAccessTokenError from the gateway", async () => {

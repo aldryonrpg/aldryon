@@ -57,7 +57,6 @@ export function createBattleController(
     try {
       const result = await deps.startBattleUseCase.execute({
         playerId: c.get("playerId"),
-        isVip: c.get("isVip"),
         region: parsed.data.region,
       });
       return c.json(result, 200);
@@ -166,7 +165,6 @@ export function createBattleController(
     try {
       const result = await deps.claimLootUseCase.execute({
         playerId: c.get("playerId"),
-        isVip: c.get("isVip"),
         picks: parsed.data.picks,
       });
       return c.json(result, 200);

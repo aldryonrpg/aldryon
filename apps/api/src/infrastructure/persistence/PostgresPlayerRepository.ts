@@ -26,6 +26,7 @@ interface PlayerRow {
   dungeon_run_tier: 1 | 2 | 3 | null;
   dungeon_run_step: number | null;
   dungeon_run_total_steps: number | null;
+  is_vip: boolean;
 }
 
 function toDate(value: string | Date | null): Date | null {
@@ -58,6 +59,7 @@ function toDomain(row: PlayerRow): Player {
     dungeonRunTier: row.dungeon_run_tier,
     dungeonRunStep: row.dungeon_run_step,
     dungeonRunTotalSteps: row.dungeon_run_total_steps,
+    isVip: row.is_vip,
   });
 }
 
@@ -99,13 +101,13 @@ export class PostgresPlayerRepository implements PlayerRepository {
         id, user_id, player_name, gold, level, xp, attribute_points,
         strength, dexterity, agility, intelligence, vitality, luck,
         last_death_at, last_run_at, pending_loot, dungeon_attempt_1, dungeon_attempt_2,
-        dungeon_run_tier, dungeon_run_step, dungeon_run_total_steps, updated_at
+        dungeon_run_tier, dungeon_run_step, dungeon_run_total_steps, is_vip, updated_at
       ) values (
         ${props.id}, ${props.userId}, ${props.playerName}, ${props.gold}, ${props.level}, ${props.xp}, ${props.attributePoints},
         ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
         ${props.lastDeathAt}, ${props.lastRunAt}, ${props.pendingLoot}::jsonb,
         ${props.dungeonAttempt1}, ${props.dungeonAttempt2},
-        ${props.dungeonRunTier}, ${props.dungeonRunStep}, ${props.dungeonRunTotalSteps}, now()
+        ${props.dungeonRunTier}, ${props.dungeonRunStep}, ${props.dungeonRunTotalSteps}, ${props.isVip}, now()
       )
       returning *
     `;
@@ -142,6 +144,7 @@ export class PostgresPlayerRepository implements PlayerRepository {
           dungeon_run_tier = ${props.dungeonRunTier},
           dungeon_run_step = ${props.dungeonRunStep},
           dungeon_run_total_steps = ${props.dungeonRunTotalSteps},
+          is_vip = ${props.isVip},
           updated_at = now()
         where id = ${props.id}
         returning *

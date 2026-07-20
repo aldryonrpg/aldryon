@@ -51,7 +51,7 @@ describe("ExitDungeonRunUseCase (integration)", () => {
     const uc = buildUseCases(sql, new FakeRng([0, 99]));
 
     await uc.exitDungeonRunUseCase.execute({ playerId });
-    const result = await uc.startDungeonUseCase.execute({ playerId, isVip: false });
+    const result = await uc.startDungeonUseCase.execute({ playerId });
 
     expect(result.outcome).toBe("ongoing");
   });

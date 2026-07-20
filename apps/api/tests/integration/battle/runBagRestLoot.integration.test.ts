@@ -294,7 +294,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [itemId] });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks: [itemId] });
 
       expect(result.claimed).toEqual([itemId]);
       expect(result.rejected).toEqual([]);
@@ -315,7 +315,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       }
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [itemId] });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks: [itemId] });
 
       expect(result.claimed).toEqual([]);
       expect(result.rejected).toHaveLength(1);
@@ -325,8 +325,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     });
 
     it("accepts a VIP's 21st stack, where the same bag would reject a normal player", async () => {
-      const userId = await createTestUser(sql, { isVip: true });
-      const playerId = await createTestPlayer(sql, userId);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { isVip: true });
       const itemId = await createTestItem(sql, { name: "VIP Overflow Item" });
       await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
@@ -336,7 +336,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       }
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: true, picks: [itemId] });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks: [itemId] });
 
       expect(result.claimed).toEqual([itemId]);
       expect(result.rejected).toEqual([]);
@@ -346,8 +346,8 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
     });
 
     it("still rejects a VIP's 26th stack — the 25-slot cap is a hard ceiling", async () => {
-      const userId = await createTestUser(sql, { isVip: true });
-      const playerId = await createTestPlayer(sql, userId);
+      const userId = await createTestUser(sql);
+      const playerId = await createTestPlayer(sql, userId, { isVip: true });
       const itemId = await createTestItem(sql, { name: "VIP Full Bag Item" });
       await sql`update players set pending_loot = ${[itemId]}::jsonb where id = ${playerId}`;
 
@@ -357,7 +357,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       }
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: true, picks: [itemId] });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks: [itemId] });
 
       expect(result.claimed).toEqual([]);
       expect(result.rejected).toHaveLength(1);
@@ -372,7 +372,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       await expectRejection(
-        uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [] }),
+        uc.claimLootUseCase.execute({ playerId, picks: [] }),
         NoPendingLootError,
       );
     });
@@ -387,7 +387,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       await expectRejection(
-        uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [otherItemId] }),
+        uc.claimLootUseCase.execute({ playerId, picks: [otherItemId] }),
         InvalidLootPickError,
       );
     });
@@ -414,7 +414,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       await sql`update players set pending_loot = ${picks}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks });
 
       expect(result.claimed).toEqual(picks);
       expect(result.rejected).toEqual([]);
@@ -438,7 +438,6 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({
         playerId,
-        isVip: false,
         picks: [mediumId],
       });
 
@@ -457,7 +456,7 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       await sql`update players set pending_loot = ${[bigId]}::jsonb where id = ${playerId}`;
 
       const uc = buildUseCases(sql, new FakeRng([1]));
-      const result = await uc.claimLootUseCase.execute({ playerId, isVip: false, picks: [bigId] });
+      const result = await uc.claimLootUseCase.execute({ playerId, picks: [bigId] });
 
       expect(result.claimed).toEqual([]);
       expect(result.rejected).toHaveLength(1);
@@ -476,7 +475,6 @@ describe("Run / Bag / Rest / Loot use cases (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
       const result = await uc.claimLootUseCase.execute({
         playerId,
-        isVip: false,
         picks: [smallId],
       });
 

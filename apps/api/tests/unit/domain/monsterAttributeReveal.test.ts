@@ -1,17 +1,30 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildRevealedAttributesView,
-  pickUnrevealedAttribute,
+  pickUnrevealedAttributes,
+  rollRevealCount,
 } from "@/domain/monster/monsterAttributeReveal";
 import { FakeRng } from "../support/FakeRng";
 
-describe("pickUnrevealedAttribute", () => {
-  it("picks one of the remaining unrevealed keys", () => {
-    const result = pickUnrevealedAttribute(["strength", "dexterity"], new FakeRng([0]));
-    expect(result).toBe("agility");
+describe("pickUnrevealedAttributes", () => {
+  it("picks up to count distinct remaining unrevealed keys", () => {
+    const result = pickUnrevealedAttributes(["strength", "dexterity"], new FakeRng([0, 0]), 2);
+    expect(result).toEqual(["agility", "intelligence"]);
   });
 
-  it("returns null once every attribute is already revealed", () => {
+  it("returns fewer than count once fewer than that remain", () => {
+    const revealed: ("strength" | "dexterity" | "agility" | "intelligence" | "vitality")[] = [
+      "strength",
+      "dexterity",
+      "agility",
+      "intelligence",
+      "vitality",
+    ];
+    const result = pickUnrevealedAttributes(revealed, new FakeRng([0]), 3);
+    expect(result).toEqual(["luck"]);
+  });
+
+  it("returns an empty array once every attribute is already revealed", () => {
     const all: ("strength" | "dexterity" | "agility" | "intelligence" | "vitality" | "luck")[] = [
       "strength",
       "dexterity",
@@ -20,7 +33,33 @@ describe("pickUnrevealedAttribute", () => {
       "vitality",
       "luck",
     ];
-    expect(pickUnrevealedAttribute(all, new FakeRng([0]))).toBeNull();
+    expect(pickUnrevealedAttributes(all, new FakeRng([0]), 1)).toEqual([]);
+  });
+});
+
+describe("rollRevealCount", () => {
+  it("reveals 3 at 100+ Intelligence with a 90+ roll", () => {
+    expect(rollRevealCount(100, new FakeRng([90]))).toBe(3);
+  });
+
+  it("falls back to 2 at 100+ Intelligence with a roll below 90 but at least 60", () => {
+    expect(rollRevealCount(100, new FakeRng([89]))).toBe(2);
+  });
+
+  it("falls back to 1 at 100+ Intelligence with a roll below 60", () => {
+    expect(rollRevealCount(100, new FakeRng([59]))).toBe(1);
+  });
+
+  it("reveals 2 at 50+ Intelligence with a 60+ roll", () => {
+    expect(rollRevealCount(50, new FakeRng([60]))).toBe(2);
+  });
+
+  it("caps at 1 below 50 Intelligence regardless of roll", () => {
+    expect(rollRevealCount(49, new FakeRng([100]))).toBe(1);
+  });
+
+  it("caps at 1 for a player who just meets REVEAL SPELL's own requirement", () => {
+    expect(rollRevealCount(30, new FakeRng([100]))).toBe(1);
   });
 });
 

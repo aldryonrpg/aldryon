@@ -122,7 +122,6 @@ describe("Store (integration)", () => {
 
       const result = await uc.purchaseItemUseCase.execute({
         playerId,
-        isVip: false,
         itemId: smallPot.id,
       });
 
@@ -140,10 +139,9 @@ describe("Store (integration)", () => {
       const bandage = await uc.itemRepository.findByName("bandage");
       if (!bandage) throw new Error("Seeded bandage not found");
 
-      await uc.purchaseItemUseCase.execute({ playerId, isVip: false, itemId: bandage.id });
+      await uc.purchaseItemUseCase.execute({ playerId, itemId: bandage.id });
       const second = await uc.purchaseItemUseCase.execute({
         playerId,
-        isVip: false,
         itemId: bandage.id,
       });
 
@@ -159,7 +157,7 @@ describe("Store (integration)", () => {
       if (!smallPot) throw new Error("Seeded small pot not found");
 
       await expectRejection(
-        uc.purchaseItemUseCase.execute({ playerId, isVip: false, itemId: smallPot.id }),
+        uc.purchaseItemUseCase.execute({ playerId, itemId: smallPot.id }),
         InsufficientGoldError,
       );
 
@@ -178,7 +176,7 @@ describe("Store (integration)", () => {
       const uc = buildUseCases(sql, new FakeRng([1]));
 
       await expectRejection(
-        uc.purchaseItemUseCase.execute({ playerId, isVip: false, itemId: rareId }),
+        uc.purchaseItemUseCase.execute({ playerId, itemId: rareId }),
         ItemNotPurchasableError,
       );
     });
@@ -192,7 +190,6 @@ describe("Store (integration)", () => {
 
       const purchase = await uc.purchaseItemUseCase.execute({
         playerId,
-        isVip: false,
         itemId: helmet.id,
       });
       expect(purchase.gold).toBe(50); // 100 - 50 (Basic/Leather set uniform price)
@@ -214,7 +211,7 @@ describe("Store (integration)", () => {
       await createTestPlayerItem(sql, playerId, smallPot.id, { quantity: 5 });
 
       await expectRejection(
-        uc.purchaseItemUseCase.execute({ playerId, isVip: false, itemId: smallPot.id }),
+        uc.purchaseItemUseCase.execute({ playerId, itemId: smallPot.id }),
         BagFullError,
       );
 

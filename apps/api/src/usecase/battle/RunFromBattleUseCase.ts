@@ -5,9 +5,8 @@ import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
 import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeReveal";
 import { Player } from "@/domain/player/Player";
 import type { Rng } from "@/domain/shared/Rng";
-import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
-import { defaultMonsterAttack, defaultPlayerAttack } from "@/usecase/battle/combatStance";
+import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
@@ -38,7 +37,6 @@ export class RunFromBattleUseCase {
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
     private readonly monsterCatalogCache: MonsterCatalogCache,
-    private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
     private readonly rng: Rng,
     private readonly levelUpAttributePoints: number,
@@ -56,21 +54,17 @@ export class RunFromBattleUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const [
-      playerAttacks,
-      monsterWithMoveset,
-      { base: attributesBeforeDebuff, effective: effectiveAttributes },
-    ] = await Promise.all([
-      this.attackRepository.findAll(),
-      this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
-      computeEffectiveAttributesWithDebuff(
-        player,
-        this.playerItemRepository,
-        this.itemRepository,
-        this.setAttributeBonus,
-        battle.playerEffects,
-      ),
-    ]);
+    const [monsterWithMoveset, { base: attributesBeforeDebuff, effective: effectiveAttributes }] =
+      await Promise.all([
+        this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
+        computeEffectiveAttributesWithDebuff(
+          player,
+          this.playerItemRepository,
+          this.itemRepository,
+          this.setAttributeBonus,
+          battle.playerEffects,
+        ),
+      ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
     const { monster, moveset } = monsterWithMoveset;
 
@@ -84,7 +78,6 @@ export class RunFromBattleUseCase {
         player,
         monster,
         moveset,
-        playerAttacks,
         effectiveAttributes,
         attributesBeforeDebuff,
         playerMaxHp,
@@ -113,13 +106,12 @@ export class RunFromBattleUseCase {
 
     if (monsterAttributes.agility > effectiveAttributes.agility) {
       const attack = defaultMonsterAttack(moveset);
-      const playerStance = defaultPlayerAttack(playerAttacks);
       const damage = computeDamage({
         attackMultiplier: attack.multiplier,
         attackerScalingValue: monsterAttributes.get(attack.scalingAttribute),
         staminaCost: attack.staminaCost,
         defenderLevel: player.level,
-        defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
+        defenderScalingValue: effectiveAttributes.get(attack.scalingAttribute),
       });
       playerCurrentHp = Math.max(0, playerCurrentHp - damage);
 
@@ -166,6 +158,10 @@ export class RunFromBattleUseCase {
         monsterEffects: battle.monsterEffects.map(toBattleEffectView),
         attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
         attributesAfterDebuff: effectiveAttributes.toValues(),
+        // A flee never ticks effects — the battle ends this same turn
+        // either way (fled or dead), so there's no DoT-tick step here.
+        playerEffectDamage: 0,
+        monsterEffectDamage: 0,
       };
     }
 
@@ -193,6 +189,8 @@ export class RunFromBattleUseCase {
       monsterEffects: battle.monsterEffects.map(toBattleEffectView),
       attributesBeforeDebuff: attributesBeforeDebuff.toValues(),
       attributesAfterDebuff: effectiveAttributes.toValues(),
+      playerEffectDamage: 0,
+      monsterEffectDamage: 0,
     };
   }
 }

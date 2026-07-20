@@ -6,7 +6,6 @@ import type {
 
 interface ResolvedAuthIdentityRow {
   player_id: string;
-  is_vip: boolean;
 }
 
 export class PostgresAuthIdentityResolver implements AuthIdentityResolver {
@@ -14,7 +13,7 @@ export class PostgresAuthIdentityResolver implements AuthIdentityResolver {
 
   async resolve(externalAuthId: string): Promise<ResolvedAuthIdentity | null> {
     const rows = await this.sql<ResolvedAuthIdentityRow[]>`
-      select players.id as player_id, users.is_vip
+      select players.id as player_id
       from users
       join players on players.user_id = users.id
       where users.external_auth_id = ${externalAuthId}
@@ -23,6 +22,6 @@ export class PostgresAuthIdentityResolver implements AuthIdentityResolver {
 
     const row = rows[0];
     if (!row) return null;
-    return { playerId: row.player_id, isVip: row.is_vip };
+    return { playerId: row.player_id };
   }
 }

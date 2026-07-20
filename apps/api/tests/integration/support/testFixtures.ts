@@ -6,14 +6,11 @@ import type { SQL } from "bun";
  * specific charge state) without depending on the seeded catalog's numbers.
  */
 
-export async function createTestUser(
-  sql: SQL,
-  overrides: { isVip?: boolean } = {},
-): Promise<string> {
+export async function createTestUser(sql: SQL): Promise<string> {
   const id = Bun.randomUUIDv7();
   await sql`
-    insert into users (id, external_auth_id, email, is_vip)
-    values (${id}, ${`test-auth-${id}`}, ${`${id}@example.com`}, ${overrides.isVip ?? false})
+    insert into users (id, external_auth_id, email)
+    values (${id}, ${`test-auth-${id}`}, ${`${id}@example.com`})
   `;
   return id;
 }
@@ -31,6 +28,7 @@ export interface TestPlayerOverrides {
   luck?: number;
   lastRunAt?: Date | null;
   lastDeathAt?: Date | null;
+  isVip?: boolean;
 }
 
 export async function createTestPlayer(
@@ -43,13 +41,13 @@ export async function createTestPlayer(
     insert into players (
       id, user_id, gold, level, xp, attribute_points,
       strength, dexterity, agility, intelligence, vitality, luck,
-      last_run_at, last_death_at
+      last_run_at, last_death_at, is_vip
     ) values (
       ${id}, ${userId}, ${overrides.gold ?? 0}, ${overrides.level ?? 1}, ${overrides.xp ?? 0},
       ${overrides.attributePoints ?? 10},
       ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
       ${overrides.intelligence ?? 1}, ${overrides.vitality ?? 1}, ${overrides.luck ?? 1},
-      ${overrides.lastRunAt ?? null}, ${overrides.lastDeathAt ?? null}
+      ${overrides.lastRunAt ?? null}, ${overrides.lastDeathAt ?? null}, ${overrides.isVip ?? false}
     )
   `;
   return id;
@@ -208,6 +206,7 @@ export interface TestItemOverrides {
   setName?: string | null;
   storePurchasable?: boolean;
   itemImage?: string | null;
+  isPermanent?: boolean;
 }
 
 export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}): Promise<string> {
@@ -216,14 +215,15 @@ export async function createTestItem(sql: SQL, overrides: TestItemOverrides = {}
     insert into items (
       id, name, description, value, rarity, slot, hp_restore,
       strength, dexterity, agility, intelligence, vitality, luck,
-      reveals_all_monster_attributes, set_name, store_purchasable, item_image
+      reveals_all_monster_attributes, set_name, store_purchasable, item_image, is_permanent
     ) values (
       ${id}, ${overrides.name ?? `Test Item ${id}`}, 'test item', ${overrides.value ?? 10},
       ${overrides.rarity ?? "common"}, ${overrides.slot ?? null}, ${overrides.hpRestore ?? null},
       ${overrides.strength ?? 0}, ${overrides.dexterity ?? 0}, ${overrides.agility ?? 0},
       ${overrides.intelligence ?? 0}, ${overrides.vitality ?? 0}, ${overrides.luck ?? 0},
       ${overrides.revealsAllMonsterAttributes ?? false}, ${overrides.setName ?? null},
-      ${overrides.storePurchasable ?? true}, ${overrides.itemImage ?? null}
+      ${overrides.storePurchasable ?? true}, ${overrides.itemImage ?? null},
+      ${overrides.isPermanent ?? false}
     )
   `;
   return id;

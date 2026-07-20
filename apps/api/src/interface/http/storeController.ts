@@ -41,7 +41,6 @@ export function createStoreController(
     try {
       const result = await deps.purchaseItemUseCase.execute({
         playerId: c.get("playerId"),
-        isVip: c.get("isVip"),
         itemId: parsed.data.itemId,
       });
       return c.json(result, 200);

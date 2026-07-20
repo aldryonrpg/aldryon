@@ -35,13 +35,17 @@ These rules are **non-negotiable** and apply to every instance/session working h
       support TS 7 yet (crashes trying to npm-auto-install a "missing"
       TypeScript that's actually already installed). `apps/api` is pinned to
       6.x too, kept in sync rather than mixing major versions across the repo.
-  - `apps/api` — **Bun** back-end. Uses **Supabase Auth** (`supabase-js`) to
-    verify Google login tokens, and connects **directly to Postgres**
-    (Supabase's connection string, via `Bun.SQL`) for data — **not** through
-    `supabase-js .from()`/PostgREST. apps/api is a trusted service using the
-    service role key, which already bypasses PostgREST's reason to exist
-    (Row Level Security), so going through it would just be an extra network
-    hop for nothing.
+  - `apps/api` — **Bun** back-end. Verifies Google login tokens **locally**
+    against Supabase's public JWKS (`SupabaseAuthGateway`, `jose`) — no
+    Supabase SDK client, no service role key, just the project's public
+    `SUPABASE_URL`. Connects **directly to Postgres** (Supabase's connection
+    string, via `Bun.SQL`) for data — **not** through `supabase-js
+    .from()`/PostgREST — so it already bypasses PostgREST's reason to exist
+    (Row Level Security) on its own request path; going through PostgREST
+    would just be an extra network hop for nothing. **RLS is enabled
+    deny-by-default on every `public` table with zero policies — see
+    "Row Level Security" below — precisely so nothing but `apps/api`'s
+    direct connection can ever read/write.**
 - The back-end MUST follow **Clean Architecture + DDD**:
   - Layers: `domain` → `usecase` → `interface`, with `infrastructure`
     implementing the interfaces defined by inner layers.
@@ -144,6 +148,27 @@ see above) but only advisory in CI, matching its optional status.
   (see `render.yaml`).
 - Secrets (Supabase keys, Google OAuth credentials, API URLs) are configured as
   Render env vars and are **never committed**.
+
+## Row Level Security
+
+- **RLS is enabled on every table in the `public` schema, with zero
+  policies defined — deny-by-default.** `apps/web` exposes
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` client-side by design (any `NEXT_PUBLIC_*`
+  var ships in the JS bundle), and Supabase auto-exposes every `public`
+  schema table via PostgREST at
+  `https://<project>.supabase.co/rest/v1/<table>`. With RLS on and no
+  policies, Postgres silently returns zero rows to the `anon`/`authenticated`
+  roles for every query (verified live: `GET .../rest/v1/players` with the
+  anon key returns `200 []` even though the table has real rows) — so that
+  public anon key can no longer read or write anything through PostgREST,
+  regardless of what grants Supabase's setup gives those roles by default.
+- `apps/api` is unaffected: it connects **directly to Postgres** (not
+  through PostgREST) with credentials that own/bypass RLS, so its own
+  request path — and the validation/authorization every usecase enforces —
+  never touches this at all.
+- **No policies exist and none are planned** unless a real, concrete need
+  for direct PostgREST access shows up — everything legitimate goes through
+  `apps/api`, so there's nothing for a policy to grant access to yet.
 
 ## Conventions
 

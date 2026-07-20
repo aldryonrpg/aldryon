@@ -49,6 +49,11 @@ export const EMPTY_ENCOUNTER_FLAVOR: readonly string[] = [
   "You wander the moors of Aldryon and find only wind.",
   "The path is quiet today — nothing stirs.",
   "You search the region but find no trace of anything alive.",
+  "Only birdsong and rustling leaves greet you here.",
+  "You find tracks, but whatever made them is long gone.",
+  "The region feels strangely empty, as if holding its breath.",
+  "Not even a shadow moves. You press on.",
+  "A cold wind passes, but nothing else does.",
 ];
 
 export const AMBUSH_FLAVOR: readonly string[] = [

@@ -98,8 +98,10 @@ export class ContinueDungeonUseCase {
     const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
       name: attack.name,
       staminaCost: attack.staminaCost,
+      multiplier: attack.multiplier,
       scalingAttribute: attack.scalingAttribute,
       meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
     }));
 
     const isBossFight = step >= totalSteps;
@@ -112,7 +114,6 @@ export class ContinueDungeonUseCase {
       monster,
       dungeonTier: tier,
       isBossFight,
-      playerAttacks,
       effectiveAttributes,
       monsterCatalogCache: this.monsterCatalogCache,
       effectCounterRepository: this.effectCounterRepository,

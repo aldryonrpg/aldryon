@@ -40,7 +40,6 @@ describe("StartBattleUseCase (integration)", () => {
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
-      isVip: false,
       region: "mountain",
     });
 
@@ -79,7 +78,6 @@ describe("StartBattleUseCase (integration)", () => {
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
-      isVip: false,
       region: "ruins",
     });
 
@@ -108,7 +106,6 @@ describe("StartBattleUseCase (integration)", () => {
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
-      isVip: false,
       region: "ruins",
     });
 
@@ -149,7 +146,7 @@ describe("StartBattleUseCase (integration)", () => {
     );
 
     await expectRejection(
-      uc.startBattleUseCase.execute({ playerId, isVip: false, region: "ruins" }),
+      uc.startBattleUseCase.execute({ playerId, region: "ruins" }),
       BattleAlreadyInProgressError,
     );
   });
@@ -161,15 +158,18 @@ describe("StartBattleUseCase (integration)", () => {
     const uc = buildUseCases(sql, new FakeRng([1]));
 
     await expectRejection(
-      uc.startBattleUseCase.execute({ playerId, isVip: false, region: "sewage" }),
+      uc.startBattleUseCase.execute({ playerId, region: "sewage" }),
       RunCooldownError,
     );
   });
 
   it("uses the shorter 15s cooldown for VIP players", async () => {
-    const userId = await createTestUser(sql, { isVip: true });
+    const userId = await createTestUser(sql);
     const twentySecondsAgo = new Date(Date.now() - 20_000);
-    const playerId = await createTestPlayer(sql, userId, { lastRunAt: twentySecondsAgo });
+    const playerId = await createTestPlayer(sql, userId, {
+      lastRunAt: twentySecondsAgo,
+      isVip: true,
+    });
 
     // roll1=50 (not empty), roll2=0 (the seeded BANDIT SOLDIER is the only
     // bandit-region monster), roll3=99 (>ambushChance 10 -> no ambush, so no
@@ -177,7 +177,7 @@ describe("StartBattleUseCase (integration)", () => {
     const uc = buildUseCases(sql, new FakeRng([50, 0, 99]));
 
     // Past the 15s VIP window (but would still be inside the 30s normal one).
-    const result = await uc.startBattleUseCase.execute({ playerId, isVip: true, region: "bandit" });
+    const result = await uc.startBattleUseCase.execute({ playerId, region: "bandit" });
     expect(result).toBeTruthy();
   });
 
@@ -197,7 +197,6 @@ describe("StartBattleUseCase (integration)", () => {
 
     const result = await uc.startBattleUseCase.execute({
       playerId,
-      isVip: false,
       region: "sewage",
     });
     expect(result.outcome).toBe("ongoing");

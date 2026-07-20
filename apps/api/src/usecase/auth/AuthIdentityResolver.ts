@@ -1,6 +1,5 @@
 export interface ResolvedAuthIdentity {
   playerId: string;
-  isVip: boolean;
 }
 
 /**
@@ -14,6 +13,11 @@ export interface ResolvedAuthIdentity {
  * authMiddleware falls back to the slower, correctness-guaranteed
  * user-then-get-or-create-player path, which already distinguishes those
  * two cases.
+ *
+ * `isVip` deliberately isn't resolved here (plan4 §8) — it lives on
+ * `players` now and every usecase that needs it reads `player.isVip`
+ * directly off the Player row it already loads, rather than threading a
+ * second, separately-cached copy of the same fact through Hono context.
  */
 export interface AuthIdentityResolver {
   resolve(externalAuthId: string): Promise<ResolvedAuthIdentity | null>;

@@ -62,8 +62,10 @@ export type BattleEffectDto = z.infer<typeof BattleEffectSchema>;
 export const AvailableAttackSchema = z.object({
   name: z.string(),
   staminaCost: z.number(),
+  multiplier: z.number(),
   scalingAttribute: AttackScalingSchema,
   meetsRequirements: z.boolean(),
+  revealsRandomMonsterAttribute: z.boolean(),
 });
 export type AvailableAttackDto = z.infer<typeof AvailableAttackSchema>;
 
@@ -126,6 +128,13 @@ export const TurnReportSchema = z.object({
   /** Same, with any active stat-decay debuff applied — equal to
    * attributesBeforeDebuff whenever nothing is debuffed. */
   attributesAfterDebuff: AttributeValuesSchema,
+  /** Combined bleed/poison/burn tick damage on the player this turn, summed
+   * across every stacked instance — 0 when nothing is active. Already
+   * folded into playerStatus.currentHp; surfaced separately so the client
+   * can narrate it. */
+  playerEffectDamage: z.number(),
+  /** Same, for effects active on the monster (today, only burn). */
+  monsterEffectDamage: z.number(),
 });
 export type TurnReportDto = z.infer<typeof TurnReportSchema>;
 

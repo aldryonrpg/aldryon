@@ -250,12 +250,15 @@ export default function PlayerSheet() {
               />
             </div>
 
-            <BagPanel
-              bag={profile.bag}
-              onUse={handleUse}
-              onEquip={handleEquip}
-              disabled={actionLoading}
-            />
+            <div className="w-60 border border-white bg-black">
+              <BagPanel
+                bag={profile.bag}
+                normalSlotCapacity={profile.normalSlotCapacity}
+                onUse={handleUse}
+                onEquip={handleEquip}
+                disabled={actionLoading}
+              />
+            </div>
           </div>
 
           <div className="flex gap-3">

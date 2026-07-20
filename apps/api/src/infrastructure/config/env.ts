@@ -9,25 +9,40 @@ function requireEnv(name: string): string {
 export function loadEnv() {
   return {
     port: Number(process.env.PORT ?? 3001),
-    // Used only to verify Supabase Auth (GoTrue) tokens — see SupabaseAuthGateway.
+    // The project's public URL, used only to build the JWKS endpoint
+    // (`${supabaseUrl}/auth/v1/.well-known/jwks.json`) SupabaseAuthGateway
+    // verifies access tokens against locally — no GoTrue round trip, no
+    // Supabase SDK client needed in apps/api at all. Not a secret (it's the
+    // same value exposed client-side as NEXT_PUBLIC_SUPABASE_URL) — this
+    // project signs tokens with an asymmetric ECC/P-256 key, so there's no
+    // shared secret to hold at all, only this public URL.
     supabaseUrl: requireEnv("SUPABASE_URL"),
-    supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    // Direct Postgres connection (Supabase's connection string) for data
-    // access — apps/api is a trusted service, so it skips PostgREST/RLS
-    // entirely and talks to Postgres directly. See PostgresUserRepository.
+    // Postgres connection (Supabase's connection string) for data access —
+    // apps/api is a trusted service, so it skips PostgREST/RLS entirely and
+    // talks to Postgres directly. See PostgresUserRepository.
+    //
+    // Use the pooler host (aws-*.pooler.supabase.com), never the *direct*
+    // db.<ref>.supabase.co host — confirmed empirically: the direct
+    // connection often only resolves over IPv6, which container/VM network
+    // setups without IPv6 egress (Podman's WSL VM locally, and likely
+    // Render's containers too, since it deploys apps/api the same way)
+    // fail to reach at all (`ERR_POSTGRES_CONNECTION_CLOSED`). Use the
+    // pooler's **session-mode port (5432)**, not transaction-mode (6543):
+    // transaction mode can hand a query to a different backend than the one
+    // that prepared it, causing intermittent bind/prepared-statement
+    // desync 500s under concurrent requests (confirmed live 2026-07-20 —
+    // garbled "bind message has N result formats but query has M columns"
+    // errors correlating with fast/overlapping play). Session mode keeps
+    // one stable backend per connection and was verified safe under 20
+    // concurrent prepared queries.
     databaseUrl: requireEnv("DATABASE_URL"),
     // Explicit Postgres connection-pool sizing instead of relying on
     // Bun.SQL's implicit defaults (max=10, idleTimeout=0/never expires,
     // prepare=true) — see createPostgresClient. Kept as ENV knobs, not
-    // hardcoded, so Render can be retuned without a code deploy: today
-    // DATABASE_URL is Supabase's *direct* connection (no pooler in front),
-    // where every pool connection is a real, scarce backend connection
-    // against Supabase's own max_connections — idleTimeout matters here
-    // specifically so idle connections get released. When testing
-    // Supabase's transaction-mode pooler (port 6543) later, set
-    // DATABASE_POOL_PREPARE=false — prepared statements can land on a
-    // different backend connection than the one that created them under
-    // transaction-mode pooling.
+    // hardcoded, so Render can be retuned without a code deploy.
+    // DATABASE_POOL_PREPARE should be `true` under the session-mode pooler
+    // above (the default/recommended setup) — only set it `false` if
+    // DATABASE_URL is switched to the transaction-mode port (6543) instead.
     databasePoolMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
     databasePoolIdleTimeoutSeconds: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? 30),
     databasePoolMaxLifetimeSeconds: Number(process.env.DATABASE_POOL_MAX_LIFETIME ?? 1800),

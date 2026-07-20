@@ -8,7 +8,6 @@ interface UserRow {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
-  is_vip: boolean;
 }
 
 function toDomain(row: UserRow): User {
@@ -18,7 +17,6 @@ function toDomain(row: UserRow): User {
     email: row.email,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
-    isVip: row.is_vip,
   });
 }
 
@@ -37,17 +35,16 @@ export class PostgresUserRepository implements UserRepository {
     const props = user.toProps();
 
     const rows = await this.sql<UserRow[]>`
-      insert into users (id, external_auth_id, email, display_name, avatar_url, is_vip, updated_at)
+      insert into users (id, external_auth_id, email, display_name, avatar_url, updated_at)
       values (
         ${props.id}, ${props.externalAuthId}, ${props.email}, ${props.displayName},
-        ${props.avatarUrl}, ${props.isVip}, now()
+        ${props.avatarUrl}, now()
       )
       on conflict (external_auth_id)
       do update set
         email = excluded.email,
         display_name = excluded.display_name,
         avatar_url = excluded.avatar_url,
-        is_vip = excluded.is_vip,
         updated_at = now()
       returning *
     `;

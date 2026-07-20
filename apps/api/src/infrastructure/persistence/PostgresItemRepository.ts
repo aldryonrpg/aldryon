@@ -21,6 +21,7 @@ interface ItemRow {
   set_name: string | null;
   store_purchasable: boolean;
   item_image: string | null;
+  is_permanent: boolean;
 }
 
 function toDomain(row: ItemRow): Item {
@@ -44,6 +45,7 @@ function toDomain(row: ItemRow): Item {
     setName: row.set_name,
     storePurchasable: row.store_purchasable,
     itemImage: row.item_image,
+    isPermanent: row.is_permanent,
   });
 }
 

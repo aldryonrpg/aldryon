@@ -7,7 +7,10 @@ export interface DamageInput {
   staminaCost: number;
   /** Defender's level (or a monster's fixed catalog level). */
   defenderLevel: number;
-  /** Defender's effective value of their current-stance attack's scaling attribute. */
+  /** Defender's effective value of the incoming attack's own scaling
+   * attribute (Strength or Intelligence) — defense always matches whatever
+   * attribute the attack in play is scaled on, never a fixed per-side
+   * "stance". */
   defenderScalingValue: number;
 }
 

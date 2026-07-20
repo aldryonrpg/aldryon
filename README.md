@@ -79,9 +79,13 @@ Damage        = max(1, attack_value + attack.stamina_cost − defense_value)
 - The pure-debuff monster specials (`Fear`,
   `Magic Aura Blast`, `Stun`) and `REVEAL SPELL` intentionally keep a ×0
   multiplier — their value is the status effect/reveal, not direct damage.
-- A side's defensive scaling attribute is fixed to its own `HIT` attack's
-  scaling attribute for the whole battle (there's no "last attack used"
-  state tracked on a battle).
+- **Defense always matches whatever attribute the incoming attack is itself
+  scaled on** — a Strength attack is defended against with the defender's
+  own effective Strength, an Intelligence attack (e.g. **`BURN SPELL`**,
+  **`FIREBALL SPELL`**) with the defender's own effective Intelligence.
+  There's no fixed per-side "stance": defense is re-derived from the
+  attack in play every single time, not from either side's `HIT` attack or
+  the last attack either side happened to use.
 
 ### Battle effects (bleed / poison / burn)
 
@@ -111,6 +115,31 @@ roll <= (AttackerLuck − DefenderLuck)   // roll is a random integer in [5, 100
  — that's a cap on how many cure items you can hold, unrelated
   to how many times the effect itself can stack on you. The player's
   `burn` on a monster has no cure (monsters carry no bag).
+
+### Monster attribute reveal
+
+A monster's attributes are hidden ("??") until revealed — two ways to learn them:
+
+- **`REVEAL SPELL`** (10 Stamina, ×0 multiplier, Intelligence-scaling,
+  requires 30 Intelligence) — on a successful hit, uncovers one or more of
+  the monster's still-hidden attributes. How many depends on the caster's
+  own effective Intelligence via a d100 roll (each tier only pays off with
+  the roll to match — a low roll always falls back to 1, no matter how high
+  Intelligence is):
+  - **100+ Intelligence**: roll ≥ 90 → 3, roll ≥ 60 → 2, else 1.
+  - **50+ Intelligence**: roll ≥ 60 → 2, else 1.
+  - **Below 50** (i.e. 30-49, just meeting the spell's own requirement):
+    always 1.
+  - Never reveals more than what's actually still hidden — a roll good for
+    3 with only 1 attribute left just reveals that 1.
+- **Knowledge Potion** (Bag consumable) — reveals all six attributes at
+  once, no Intelligence gate.
+- Once every attribute is already known, `REVEAL SPELL` greys out
+  client-side (same `meetsRequirements` flag that gates stamina/level) so
+  it's never selectable for a wasted turn. The backend still rejects it
+  defensively if submitted anyway — same as an unaffordable/under-level
+  attack, the rejection happens before anything is charged or resolved, so
+  the turn is never spent and the battle state never changes.
 
 ### Special attacks (monsters only)
 
@@ -267,6 +296,82 @@ short gauntlet of fights capped off by a boss, once per day.
   ties broken by last-kill time ascending. Cached in-process for **5
   minutes**, since it's rendered on every logged-in player's Main Page.
 
+## Equipment, the bag & the store
+
+### Slots and rarity
+
+- **8 equipment slots**: `helmet`, `body`, `boots`, `gloves`, `necklace`,
+  `bracelet` (the 6 non-weapon "set slots"), plus `weapon` and
+  `two_handed_weapon` — weapons are never part of a set.
+- Rarity ladder, ascending: **basic** (store-only, never a monster drop) →
+  **common** → **uncommon** → **rare** → **very_rare** → **legendary** →
+  **unique** (at most one live instance server-wide, hand-placed; claimed
+  atomically via `uniqueItemOwnershipRepository.tryClaim`).
+- `storePurchasable` is a per-item flag independent of rarity — a set tier
+  (e.g. the Iron Set, uncommon) can still be drop-only despite an
+  otherwise-store-eligible rarity.
+
+### Equipment set bonus
+
+```
+All 6 non-weapon slots equipped from the same setName → +SET_ATTRIBUTE_BONUS (default 2) to every attribute
+```
+
+- **All-or-nothing** — 5 of 6 pieces from the same set grants no bonus at
+  all; since each slot holds at most one item, at most one set can ever be
+  complete at a time.
+- The completion bonus is a **flat value for every tier**
+- Applied on top of summed per-item `attributeBonuses` as part of a player's
+  effective attributes.
+
+### Bag capacity
+
+- **Normal stacks** (gear + POTs): **20 slots (25 for VIP)**, each stack
+  capped at **5** units.
+- **Special slots** (bandage, antidote): **2** dedicated slots outside
+  capacity, one per item, each independently capped at **5**.
+- **POT slot** (small/medium/big): its own dedicated slot outside capacity,
+  but all three variants **share one combined cap** — **5** at level 1-4,
+  **+1 every 5 levels**, topping out at **8** from level 15 onward.
+- Equipped gear never counts toward any of the above caps.
+
+### Store
+
+- `GET /store` lists every `storePurchasable` item; `items.value` doubles
+  directly as the store price (no separate listings table). Cached
+  in-process for **5 minutes**.
+- **Purchase** costs `item.value` gold and is placed via the same bag rules
+  as a loot claim (rejects on insufficient gold or no room).
+- **Sell** works on *any* item the player holds — not just
+  `storePurchasable` ones, including drop-only set pieces and
+  legendary/unique items — for `item.value × quantity` gold. This is
+  currently the **only way a player gains gold** (kills grant XP/loot, never
+  gold directly). Equipped items can't be sold. Selling (or destroying) a
+  `unique`-rarity item releases its global ownership claim so it can drop
+  again for someone else.
+
+## Player profile & names
+
+- `player_name` lives on `players`, nullable, **5-40 alphanumeric characters**
+  (`^[A-Za-z0-9]{5,40}$`), enforced in both `Player.create()` and a DB
+  `CHECK` constraint, and unique **case-insensitively** via a Postgres
+  unique index on `lower(player_name)`.
+- **Bloom filter fast path** (`PlayerNameCache` / `BloomFilter`) — before
+  hitting the DB, `UpdatePlayerNameUseCase` do a bloomfilter and it could:
+  - **"Definitely free"** (bit not set) skips the DB lookup entirely.
+  - **"Maybe taken"** (all bits set — a hit or a false positive) falls back
+    to `findByName` to confirm.
+  - The filter is **never authoritative** — it can false-positive but never
+    false-negative, and the actual uniqueness guarantee is the Postgres
+    unique index (`PlayerNameTakenError` is thrown from there). No removal
+    support (a fundamental Bloom filter limitation) — that's fine here since
+    names are never freed.
+- **`isVip` is player-owned profile state, not an auth claim** — unlike
+  `email`, it is never re-synced from the identity
+  provider on login, so it persists across logins once set. It gates the
+  bag's VIP capacity (above), the dungeon's 2-attempts-per-day allowance and
+  the shorter run cooldown (see Gameplay/Dungeons above).
+
 ## Tech stack
 
 - **Front-end** (`apps/web`) — [Next.js](https://nextjs.org/) (TypeScript),
@@ -291,18 +396,33 @@ short gauntlet of fights capped off by a boss, once per day.
 Create **`apps/api/.env`** (gitignored):
 
 ```bash
-DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
-# Supabase Auth (GoTrue) — used only to verify Google login tokens.
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+# Use Supabase's POOLER host, not the direct db.<project-ref>.supabase.co
+# one — the direct host often only resolves over IPv6, which Docker/
+# container network setups (local Podman, Render) can fail to reach at all.
+# Use the pooler's SESSION-mode port (5432) — one stable backend per
+# connection, safe with prepared statements (DATABASE_POOL_PREPARE=true).
+# The same pooler host's TRANSACTION-mode port (6543) can hand a query to a
+# different backend than the one that prepared it, causing intermittent
+# bind/prepared-statement desync 500s under concurrent requests (confirmed
+# live) — only use it with DATABASE_POOL_PREPARE=false, and prefer session
+# mode unless you specifically need transaction mode's higher connection reuse.
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:5432/postgres
+DATABASE_POOL_PREPARE=true
+# Supabase Auth (GoTrue) — the project's public URL, used to build the JWKS
+# endpoint access tokens are verified against locally
+# (SupabaseAuthGateway.forProject) — no network call to Supabase on the
+# request path, no Supabase SDK client in apps/api at all, and no secret to
+# hold (this project signs tokens with an asymmetric ECC/P-256 key).
+SUPABASE_URL=<https://your-project.supabase.co>
 # Attribute points granted per level-up (see "Combat math" above). Optional, default 4.
 LEVEL_UP_ATTRIBUTE_POINTS=4
 # Rounds a Stun/Fear/Magic-Aura-Blast-applying special is excluded from
 # selection after it unleashes (see "Monster attack selection" above). Optional, default 5.
 STATUS_COOLDOWN_ROUNDS=5
 # Optional: PORT (default 3001), WEB_ORIGIN (default http://localhost:3000)
+# Flat bonus to every attribute for completing a 6-piece equipment set (see
+# "Equipment, the bag & the store" above). Optional, default 2.
 SET_ATTRIBUTE_BONUS=2
-# This is the Set Completion Bonus for All Attributes 
 ```
 
 Create **`apps/web/.env.local`** (gitignored):

@@ -48,8 +48,11 @@ export class KeyedTtlCache<K, V> {
     return entry.value;
   }
 
-  set(key: K, value: V): void {
-    this.entries.set(key, { value, expiresAt: this.now() + this.ttlMs });
+  /** ttlMsOverride lets a caller shorten this particular entry's lifetime
+   * below the constructor's fixed duration (e.g. CachedAuthGateway capping
+   * an entry at the token's own remaining exp) — mirrors TtlCache.set. */
+  set(key: K, value: V, ttlMsOverride?: number): void {
+    this.entries.set(key, { value, expiresAt: this.now() + (ttlMsOverride ?? this.ttlMs) });
   }
 }
 

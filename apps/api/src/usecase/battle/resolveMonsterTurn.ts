@@ -1,4 +1,3 @@
-import type { Attack } from "@/domain/attack/Attack";
 import type { BattleEffect } from "@/domain/battle/BattleEffect";
 import {
   addBattleEffect,
@@ -17,7 +16,6 @@ import type { Monster } from "@/domain/monster/Monster";
 import type { BattleEffectKind, MonsterAttack } from "@/domain/monster/MonsterAttack";
 import type { Attributes } from "@/domain/shared/Attributes";
 import type { Rng } from "@/domain/shared/Rng";
-import { defaultPlayerAttack } from "@/usecase/battle/combatStance";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { AttackResultOutput } from "@/usecase/battle/TurnReportOutput";
@@ -60,7 +58,6 @@ export async function resolveMonsterTurn(params: {
   state: MonsterTurnState;
   monster: Monster;
   moveset: MonsterAttack[];
-  playerAttacks: Attack[];
   playerLevel: number;
   effectiveAttributes: Attributes;
   rng: Rng;
@@ -74,7 +71,6 @@ export async function resolveMonsterTurn(params: {
   const {
     monster,
     moveset,
-    playerAttacks,
     playerLevel,
     effectiveAttributes,
     rng,
@@ -105,13 +101,12 @@ export async function resolveMonsterTurn(params: {
       const special = moveset.find((a) => a.id === monsterChargingAttackId);
       if (!special) throw new Error("Charging monster attack no longer exists in its moveset");
 
-      const playerStance = defaultPlayerAttack(playerAttacks);
       const damage = computeDamage({
         attackMultiplier: special.multiplier,
         attackerScalingValue: monsterAttributes.get(special.scalingAttribute),
         staminaCost: special.staminaCost,
         defenderLevel: playerLevel,
-        defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
+        defenderScalingValue: effectiveAttributes.get(special.scalingAttribute),
       });
       playerCurrentHp = Math.max(0, playerCurrentHp - damage);
       monsterCurrentStamina = Math.max(0, monsterCurrentStamina - special.staminaCost);
@@ -182,7 +177,6 @@ export async function resolveMonsterTurn(params: {
     } else if (affordableNormals.length === 0) {
       monsterStaminaRegen = BATTLE_CONFIG.restStaminaRegen;
     } else {
-      const playerStance = defaultPlayerAttack(playerAttacks);
       const candidates = affordableNormals.map((a) => ({
         attack: a,
         // Damage this attack would deal if it hits — used only to score and
@@ -194,7 +188,7 @@ export async function resolveMonsterTurn(params: {
           attackerScalingValue: monsterAttributes.get(a.scalingAttribute),
           staminaCost: a.staminaCost,
           defenderLevel: playerLevel,
-          defenderScalingValue: effectiveAttributes.get(playerStance.scalingAttribute),
+          defenderScalingValue: effectiveAttributes.get(a.scalingAttribute),
         }),
       }));
       const picked = selectByWeightedDamage(candidates, monsterAttackWeights);

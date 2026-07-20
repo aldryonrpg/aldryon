@@ -46,6 +46,7 @@ export class GetOrCreatePlayerUseCase {
       dungeonRunTier: null,
       dungeonRunStep: null,
       dungeonRunTotalSteps: null,
+      isVip: false,
     });
 
     const saved = await this.playerRepository.create(player);
