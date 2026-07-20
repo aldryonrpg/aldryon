@@ -114,9 +114,18 @@ export class PostgresMonsterRepository implements MonsterRepository {
     // multi-byte characters like "—" in this Bun version, corrupting the
     // comparison — see git history for the array-based approach this
     // replaced). % and _ are escaped since a boss name could contain either.
+    // Excludes rows a live `battles` row still references — with a real
+    // multi-boss rotation, a day can roll over while a player is mid-fight
+    // against yesterday's boss; deleting that row out from under them would
+    // violate battles_monster_id_fkey (and end their fight for no reason).
+    // It stays "stale" until that battle itself ends and gets cleaned up
+    // the next time this runs.
     const likePattern = `${currentBossName.replace(/[%_]/g, "\\$&")} — Tier %`;
     await this.sql`
-      delete from monsters where region = 'dungeon' and name not like ${likePattern}
+      delete from monsters
+      where region = 'dungeon'
+        and name not like ${likePattern}
+        and id not in (select monster_id from battles)
     `;
   }
 }

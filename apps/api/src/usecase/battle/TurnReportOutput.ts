@@ -58,4 +58,10 @@ export interface TurnReportOutput {
   playerEffectDamage: number;
   /** Same, for effects active on the monster (today, only burn). */
   monsterEffectDamage: number;
+  /** True only on the turn that kills a dungeon run's boss — see
+   * TurnReportSchema's doc comment in apps/shared/dtos for why the client
+   * needs this instead of re-deriving it from player.dungeonRun (already
+   * cleared by the time this same kill's profile refresh lands). False on
+   * every other outcome. */
+  dungeonRunEnded: boolean;
 }

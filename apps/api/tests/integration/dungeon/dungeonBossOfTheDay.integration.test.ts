@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import type { DungeonBoss } from "@/domain/dungeon/DungeonBoss";
+import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
 import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
 import { buildUseCases } from "../support/buildUseCases";
+import { bossNameForDay, nowForBoss } from "../support/dungeonBossRotation";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 
@@ -36,10 +38,13 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
 
   it("materializes all 3 tiers up front from a single call for one of them", async () => {
     const base = buildUseCases(sql, new FakeRng([0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
     const uc = new DungeonBossOfTheDayUseCase(
       base.dungeonBossRepository,
       base.monsterRepository,
       base.monsterAttackRepository,
+      () => now,
     );
 
     const tier1 = await uc.getBossForTier(1);
@@ -55,10 +60,13 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
 
   it("materializes into the dedicated 'dungeon' region, never a wild-battle-selectable one", async () => {
     const base = buildUseCases(sql, new FakeRng([0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
     const uc = new DungeonBossOfTheDayUseCase(
       base.dungeonBossRepository,
       base.monsterRepository,
       base.monsterAttackRepository,
+      () => now,
     );
 
     await uc.getBossForTier(1);
@@ -77,11 +85,14 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
 
   it("serves every tier from the in-memory cache without re-querying the boss repo", async () => {
     const base = buildUseCases(sql, new FakeRng([0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
     const countingBossRepo = new CountingDungeonBossRepository(base.dungeonBossRepository);
     const uc = new DungeonBossOfTheDayUseCase(
       countingBossRepo,
       base.monsterRepository,
       base.monsterAttackRepository,
+      () => now,
     );
 
     const tier1First = await uc.getBossForTier(1);
@@ -101,6 +112,7 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
 
   it("refreshes exactly at the next UTC midnight, not a moment before", async () => {
     const base = buildUseCases(sql, new FakeRng([0]));
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
     const countingBossRepo = new CountingDungeonBossRepository(base.dungeonBossRepository);
 
     let now = Date.UTC(2026, 0, 15, 12, 0, 0); // 2026-01-15T12:00:00Z
@@ -119,12 +131,15 @@ describe("DungeonBossOfTheDayUseCase (integration)", () => {
     await uc.getBossForTier(2);
     expect(countingBossRepo.calls).toBe(1);
 
-    // Exactly at midnight — cache has expired, re-fetches (idempotent
-    // materialize-or-reuse still returns the same DB row, and with only one
-    // seeded boss, the deterministic day-index still lands on it).
+    // Exactly at midnight — cache has expired, re-fetches. With more than
+    // one boss in the catalog the rotation index legitimately changes
+    // across a real day boundary (consecutive days are never the same
+    // index mod bosses.length once length > 1), so this asserts against
+    // whichever boss production's own rotation formula would pick for the
+    // new day — not assuming it's still the same one as before midnight.
     now = Date.UTC(2026, 0, 16, 0, 0, 0, 0);
     const refreshed = await uc.getBossForTier(3);
     expect(countingBossRepo.calls).toBe(2);
-    expect(refreshed.name).toBe("Dragon — Tier 3");
+    expect(refreshed.name).toBe(`${bossNameForDay(bosses, now)} — Tier 3`);
   });
 });

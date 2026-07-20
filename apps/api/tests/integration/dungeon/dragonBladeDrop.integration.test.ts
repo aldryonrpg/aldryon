@@ -2,7 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { SQL } from "bun";
 import { Battle } from "@/domain/battle/Battle";
 import { maxHp } from "@/domain/battle/battleConfig";
+import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
 import { buildUseCases } from "../support/buildUseCases";
+import { nowForBoss } from "../support/dungeonBossRotation";
 import { FakeRng } from "../support/FakeRng";
 import { getSharedPostgresEnvironment } from "../support/sharedPostgresEnvironment";
 import { createTestPlayer, createTestUser, setPlayerDungeonRun } from "../support/testFixtures";
@@ -32,7 +34,13 @@ describe("Dragon Blade unique drop (integration)", () => {
     const setupUserId = await createTestUser(sql);
     const setupPlayerId = await createTestPlayer(sql, setupUserId, { level: 12 });
     await setPlayerDungeonRun(sql, setupPlayerId, 1, 1, 1);
-    const uc = buildUseCases(sql, new FakeRng([1, 0]));
+    // Dragon Blade is content tied specifically to the Dragon boss (its
+    // legendary_drops entry) — pin the day-based rotation to Dragon
+    // regardless of the catalog's other bosses or what today's real
+    // rotation would otherwise land on.
+    const bosses = await new PostgresDungeonBossRepository(sql).findAll();
+    const now = nowForBoss(bosses, "Dragon");
+    const uc = buildUseCases(sql, new FakeRng([1, 0]), () => now);
     const result = await uc.continueDungeonUseCase.execute({ playerId: setupPlayerId });
     await uc.battleRepository.deleteByPlayerId(setupPlayerId);
     if (!result.monster) throw new Error("Boss materialization failed");

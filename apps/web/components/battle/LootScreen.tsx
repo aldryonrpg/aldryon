@@ -53,7 +53,12 @@ interface LootScreenProps {
   onClaim: (itemId: string) => void;
   onContinue: () => void;
   onExit: () => void;
-  continueLabel: string;
+  /** False when this win just killed a dungeon run's boss — the run is
+   * over, so Continue is hidden entirely rather than offered (it would
+   * otherwise silently start an unrelated wild battle instead of doing
+   * nothing useful). True for every other win (wild kill, or a regular
+   * dungeon step kill that still has more steps/the boss ahead). */
+  showContinue: boolean;
 }
 
 /**
@@ -72,7 +77,7 @@ export function LootScreen({
   onClaim,
   onContinue,
   onExit,
-  continueLabel,
+  showContinue,
 }: LootScreenProps) {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-4 border border-white bg-black p-4">
@@ -143,14 +148,16 @@ export function LootScreen({
       </div>
 
       <div className="flex justify-center gap-4">
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={busy}
-          className="border border-white bg-white px-6 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {continueLabel}
-        </button>
+        {showContinue && (
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={busy}
+            className="border border-white bg-white px-6 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Continue
+          </button>
+        )}
         <button
           type="button"
           onClick={onExit}

@@ -135,6 +135,14 @@ export const TurnReportSchema = z.object({
   playerEffectDamage: z.number(),
   /** Same, for effects active on the monster (today, only burn). */
   monsterEffectDamage: z.number(),
+  /** True only on the turn that kills a dungeon run's boss — the run ends
+   * immediately server-side the moment this happens (player.dungeonRun
+   * becomes null in the very next profile fetch), so this is the only
+   * signal that survives to tell the client "don't offer Continue, this
+   * loot screen's only next step is Exit" instead of misreading the
+   * already-cleared dungeonRun as "was never in a dungeon" and starting an
+   * unrelated wild battle. False on every other outcome. */
+  dungeonRunEnded: z.boolean(),
 });
 export type TurnReportDto = z.infer<typeof TurnReportSchema>;
 

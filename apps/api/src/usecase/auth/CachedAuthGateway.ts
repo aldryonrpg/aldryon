@@ -3,7 +3,7 @@ import { KeyedTtlCache } from "@/domain/shared/TtlCache";
 import type { AuthenticatedIdentity } from "@/domain/user/AuthenticatedIdentity";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 300_000;
 
 /**
  * Wraps any AuthGateway with a short in-memory TTL cache keyed by the raw
@@ -12,12 +12,15 @@ const CACHE_TTL_MS = 60_000;
  * identical token (e.g. GET /player + GET /battle + GET /items on page
  * load), so this skips the redundant signature check within the window.
  * Same per-process-only caveat as AuthIdentityCache, and deliberately the
- * same 60s TTL so both hot-path caches share one staleness budget.
+ * same 300s (5min) TTL so both hot-path caches share one staleness budget —
+ * bumped from the original 60s once a battle session's actual length made
+ * that window too tight (players sit in one login session, actively
+ * battling, well past a minute).
  *
  * A cache entry is additionally capped at the token's own remaining `exp`
  * (via an unverified decode — the signature was already proven by `inner`
  * moments earlier, this just reads the claim) so a cached "valid" result can
- * never outlive the token it was computed from, even though 60s is
+ * never outlive the token it was computed from, even though 300s is still
  * negligible against Supabase's default ~1h token lifetime.
  */
 export class CachedAuthGateway implements AuthGateway {

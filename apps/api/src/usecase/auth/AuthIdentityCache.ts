@@ -7,8 +7,11 @@ import type {
 // Short on purpose: authMiddleware runs on every request, so this cache is
 // what actually keeps the DB off the hot path — but playerId, while
 // effectively permanent once created, is still a real DB fact, so a short
-// TTL is a cheap safety margin rather than caching indefinitely.
-const CACHE_TTL_MS = 60_000;
+// TTL is a cheap safety margin rather than caching indefinitely. 300s
+// (5min), not 60s — a player battling through a session stays logged in
+// well past a minute, so 60s was re-hitting the DB far more than the
+// "effectively permanent" fact actually warranted.
+const CACHE_TTL_MS = 300_000;
 
 /**
  * Per-process cache in front of AuthIdentityResolver, keyed by externalAuthId
