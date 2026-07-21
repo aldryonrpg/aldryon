@@ -138,14 +138,18 @@ export class StartDungeonUseCase {
       this.itemRepository,
       this.setAttributeBonus,
     );
-    const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
-      name: attack.name,
-      staminaCost: attack.staminaCost,
-      multiplier: attack.multiplier,
-      scalingAttribute: attack.scalingAttribute,
-      meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
-      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
-    }));
+    // Attacks the player hasn't unlocked never leave the API — fresh fight,
+    // no debuffs active yet.
+    const availableAttacks: AvailableAttackOutput[] = playerAttacks
+      .filter((attack) => attack.meetsRequirements(player.level, effectiveAttributes.toValues()))
+      .map((attack) => ({
+        name: attack.name,
+        staminaCost: attack.staminaCost,
+        multiplier: attack.multiplier,
+        scalingAttribute: attack.scalingAttribute,
+        meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+        revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
+      }));
 
     const result = await beginDungeonFight({
       player,

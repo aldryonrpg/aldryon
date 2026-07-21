@@ -12,6 +12,17 @@ export class RunCooldownError extends Error {
   }
 }
 
+export class BelowMinimumRegionLevelError extends Error {
+  constructor(
+    public readonly level: number,
+    public readonly minimumLevel: number,
+    public readonly region: string,
+  ) {
+    super(`Player level ${level} is below the minimum level (${minimumLevel}) for ${region}`);
+    this.name = "BelowMinimumRegionLevelError";
+  }
+}
+
 export class NoActiveBattleError extends Error {
   constructor() {
     super("Player has no active battle");

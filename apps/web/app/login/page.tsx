@@ -1,6 +1,7 @@
 import { Dancing_Script } from "next/font/google";
 import Image from "next/image";
 import { GoogleLoginButton } from "@/components/GoogleLoginButton";
+import { loginLore } from "@/lib/loginLore";
 
 const handwriting = Dancing_Script({ subsets: ["latin"], weight: ["500", "700"] });
 
@@ -26,12 +27,9 @@ export default function LoginPage() {
         />
         <div className="absolute inset-0 flex items-center justify-center px-[18%] py-[22%]">
           <p
-            className={`${handwriting.className} max-w-md text-center text-lg leading-relaxed text-stone-900 sm:text-xl`}
+            className={`${handwriting.className} max-w-md whitespace-pre-line text-center text-lg leading-relaxed text-stone-900 sm:text-xl`}
           >
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Hear ye, brave soul, and heed
-            this call to arms — sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-            Only the worthy shall pass beyond these gates, ut enim ad minim veniam, quis nostrud
-            exercitation ullamco.
+            {loginLore.en}
           </p>
         </div>
       </div>

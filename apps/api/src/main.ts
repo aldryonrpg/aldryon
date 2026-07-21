@@ -91,6 +91,8 @@ const startBattleUseCase = new StartBattleUseCase(
   rng,
   effectCounterRepository,
   env.setAttributeBonus,
+  env.mountainLevelRequirement,
+  env.ruinsLevelRequirement,
 );
 const attackUseCase = new AttackUseCase(
   playerRepository,

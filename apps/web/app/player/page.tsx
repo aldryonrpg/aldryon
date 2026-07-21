@@ -7,6 +7,7 @@ import { BagPanel } from "@/components/battle/BagPanel";
 import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
 import { SetBonusStatus } from "@/components/battle/SetBonusStatus";
 import { DayNightTimeline } from "@/components/DayNightTimeline";
+import { PageSunlightOverlay } from "@/components/PageSunlightOverlay";
 import {
   allocateAttributePoints,
   equipItem,
@@ -136,6 +137,7 @@ export default function PlayerSheet() {
     return (
       <>
         <DayNightTimeline />
+        <PageSunlightOverlay />
         <main className="flex min-h-screen items-center justify-center bg-black text-stone-100">
           Loading...
         </main>
@@ -147,6 +149,7 @@ export default function PlayerSheet() {
     return (
       <>
         <DayNightTimeline />
+        <PageSunlightOverlay />
         <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black text-stone-100">
           <p>{error ?? "Failed to load your profile."}</p>
           <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
@@ -160,7 +163,8 @@ export default function PlayerSheet() {
   return (
     <>
       <DayNightTimeline />
-      <main className="min-h-screen bg-black p-6 text-stone-100">
+      <PageSunlightOverlay />
+      <main className="flex min-h-screen items-center justify-center bg-black p-6 pt-[100px] text-stone-100">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
           <div className="flex items-center justify-between border border-white bg-black px-4 py-2">
             <span className="font-bold">Player Sheet</span>

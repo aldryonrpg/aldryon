@@ -1,8 +1,11 @@
+import type { MonsterRegion } from "@/domain/monster/Monster";
+
 /**
  * Pure game-rule constants (plan2 §4/§5/§6/§6a/§6b). No `process.env` here —
  * the domain never touches configuration I/O (CLAUDE.md's dependency rule).
- * The one real env knob, LEVEL_UP_ATTRIBUTE_POINTS, is read in
- * infrastructure/config and passed into usecases as a parameter instead.
+ * The env knobs (LEVEL_UP_ATTRIBUTE_POINTS, MOUNTAIN_LEVEL_REQUIREMENT,
+ * RUINS_LEVEL_REQUIREMENT, ...) are read in infrastructure/config and passed
+ * into usecases as parameters instead.
  */
 export const BATTLE_CONFIG = {
   /** 20% of /battle/start calls find nothing (plan2 §4 step 2). */
@@ -81,4 +84,23 @@ export function maxStamina(level: number): number {
     BATTLE_CONFIG.maxStaminaCap,
     BATTLE_CONFIG.baseMaxStamina + BATTLE_CONFIG.maxStaminaPerLevel * level,
   );
+}
+
+/** forest/bandit/sewage are open from level 1 — only mountain/ruins are
+ * level-gated, at env-configurable thresholds (MOUNTAIN_LEVEL_REQUIREMENT/
+ * RUINS_LEVEL_REQUIREMENT). "dungeon" never reaches here — it's not a
+ * `/battle/start`-selectable region (see MonsterRegionSchema). */
+export function minimumLevelForRegion(
+  region: MonsterRegion,
+  mountainLevelRequirement: number,
+  ruinsLevelRequirement: number,
+): number {
+  switch (region) {
+    case "mountain":
+      return mountainLevelRequirement;
+    case "ruins":
+      return ruinsLevelRequirement;
+    default:
+      return 1;
+  }
 }

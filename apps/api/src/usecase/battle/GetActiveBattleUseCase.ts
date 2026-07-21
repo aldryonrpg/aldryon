@@ -75,16 +75,21 @@ export class GetActiveBattleUseCase {
       );
     const playerAttacks = await this.attackRepository.findAll();
     const allAttributesRevealed = battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length;
-    const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
-      name: attack.name,
-      staminaCost: attack.staminaCost,
-      multiplier: attack.multiplier,
-      scalingAttribute: attack.scalingAttribute,
-      meetsRequirements:
-        attack.meetsRequirements(player.level, effectiveAttributes.toValues()) &&
-        !(attack.revealsRandomMonsterAttribute && allAttributesRevealed),
-      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
-    }));
+    // Attacks the player hasn't unlocked (level/base attribute requirements
+    // not met — a debuff never revokes an unlock, only meetsRequirements
+    // below reacts to that) never leave the API.
+    const availableAttacks: AvailableAttackOutput[] = playerAttacks
+      .filter((attack) => attack.meetsRequirements(player.level, attributesBeforeDebuff.toValues()))
+      .map((attack) => ({
+        name: attack.name,
+        staminaCost: attack.staminaCost,
+        multiplier: attack.multiplier,
+        scalingAttribute: attack.scalingAttribute,
+        meetsRequirements:
+          attack.meetsRequirements(player.level, effectiveAttributes.toValues()) &&
+          !(attack.revealsRandomMonsterAttribute && allAttributesRevealed),
+        revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
+      }));
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

@@ -13,8 +13,9 @@ export interface TimeOfDay {
 
 /**
  * The player's current local time, re-read on an interval — shared by
- * DayNightTimeline and MapNightOverlay so both derive from one clock instead
- * of each polling independently. Returns null until mounted: the initializer
+ * DayNightTimeline, MapImage, and the sunlight glow so they all derive from
+ * one clock instead of each polling independently. Returns null until
+ * mounted: the initializer
  * deliberately isn't `new Date()` on first render, because the server and
  * the browser would evaluate "now" at different instants, and any
  * time-derived value rendered from that would mismatch between SSR and
