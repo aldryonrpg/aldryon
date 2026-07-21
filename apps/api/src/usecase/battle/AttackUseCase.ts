@@ -14,6 +14,7 @@ import {
   UnknownAttackError,
 } from "@/usecase/battle/errors";
 import { resolveAttackReveal } from "@/usecase/battle/resolveAttackReveal";
+import { resolveBattleMonster } from "@/usecase/battle/resolveBattleMonster";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
@@ -81,7 +82,8 @@ export class AttackUseCase {
       ),
     ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
-    const { monster, moveset } = monsterWithMoveset;
+    const { moveset } = monsterWithMoveset;
+    const monster = resolveBattleMonster(monsterWithMoveset.monster, battle);
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

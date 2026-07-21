@@ -10,6 +10,7 @@ import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { NoActiveBattleError } from "@/usecase/battle/errors";
+import { resolveBattleMonster } from "@/usecase/battle/resolveBattleMonster";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import type { TurnReportOutput } from "@/usecase/battle/TurnReportOutput";
 import type { DungeonSlayerRankingRepository } from "@/usecase/dungeon/DungeonSlayerRankingRepository";
@@ -66,7 +67,8 @@ export class RunFromBattleUseCase {
         ),
       ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
-    const { monster, moveset } = monsterWithMoveset;
+    const { moveset } = monsterWithMoveset;
+    const monster = resolveBattleMonster(monsterWithMoveset.monster, battle);
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

@@ -13,6 +13,7 @@
     "test:api:unit": "bun test --cwd apps/api tests/unit",
     "test:api:integration": "bun test --cwd apps/api tests/integration",
     "test:api:integration:coverage": "bun run --filter=@aldryon/api test:integration:coverage",
+    "test:web:unit": "bun test --cwd apps/web tests/unit",
     "dev:web": "bun run --filter=@aldryon/web dev",
     "dev:api": "bun run --filter=@aldryon/api dev",
     "db:push:supabase": "bun run scripts/push-supabase-migrations.ts",

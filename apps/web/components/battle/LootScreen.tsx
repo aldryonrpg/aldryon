@@ -153,7 +153,7 @@ export function LootScreen({
             type="button"
             onClick={onContinue}
             disabled={busy}
-            className="border border-white bg-white px-6 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="battle-button rounded-md px-6 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue
           </button>
@@ -162,7 +162,7 @@ export function LootScreen({
           type="button"
           onClick={onExit}
           disabled={busy}
-          className="border border-white px-6 py-2 font-medium hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="battle-button rounded-md px-6 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           Exit
         </button>

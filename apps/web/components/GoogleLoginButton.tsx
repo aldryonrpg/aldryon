@@ -27,7 +27,7 @@ export function GoogleLoginButton() {
         width={1024}
         height={559}
         priority
-        className="h-auto w-64"
+        className="h-auto w-96"
       />
     </button>
   );

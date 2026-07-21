@@ -16,6 +16,7 @@ export interface EquippedItemOutput {
   playerItemId: string;
   itemId: string;
   name: string;
+  slot: EquipmentSlot | null;
   rarity: ItemRarity;
   setName: string | null;
   attributeBonuses: AttributeValues;
@@ -122,6 +123,7 @@ export class GetPlayerProfileUseCase {
           playerItemId: playerItem.id,
           itemId: item.id,
           name: item.name,
+          slot: item.slot,
           rarity: item.rarity,
           setName: item.setName,
           attributeBonuses: item.attributeBonuses,

@@ -1,0 +1,6 @@
+# Same convention as apps/api/bunfig.toml — coverage prints for information
+# only, no threshold enforced here.
+[test]
+coverage = true
+coverageReporter = ["text"]
+coveragePathIgnorePatterns = ["**/tests/**"]

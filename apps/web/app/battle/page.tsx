@@ -340,7 +340,7 @@ export default function BattlePage() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black text-stone-100">
         <p>{error ?? "Failed to load your profile."}</p>
-        <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
+        <Link href="/" className="wood-gold-button rounded-md px-4 py-2">
           Return to Map
         </Link>
       </main>
@@ -366,7 +366,7 @@ export default function BattlePage() {
             type="button"
             onClick={handleContinue}
             disabled={actionLoading}
-            className="border border-white bg-white px-6 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="battle-button rounded-md px-6 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue
           </button>
@@ -374,7 +374,7 @@ export default function BattlePage() {
             type="button"
             onClick={handleExit}
             disabled={actionLoading}
-            className="border border-white px-6 py-2 font-medium hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="battle-button rounded-md px-6 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
           >
             Exit
           </button>
@@ -390,7 +390,7 @@ export default function BattlePage() {
         style={battleBackgroundStyle}
       >
         <p>No battle in progress.</p>
-        <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
+        <Link href="/" className="wood-gold-button rounded-md px-4 py-2">
           Return to Map
         </Link>
       </main>
@@ -398,6 +398,11 @@ export default function BattlePage() {
   }
 
   const battleOver = outcome !== null && outcome !== "ongoing";
+  // Every action endpoint redirects a stunned turn server-side regardless of
+  // which one was called (resolveStunnedTurn) — there's no real choice to
+  // offer, so the UI shouldn't pretend Attack/Bag/Rest/Run pick between
+  // different outcomes while this is active.
+  const isPlayerStunned = playerEffects.some((effect) => effect.type === "stun");
 
   return (
     <main
@@ -472,10 +477,19 @@ export default function BattlePage() {
                     {outcome === "lost" && "You died..."}
                     {outcome === "fled" && "You fled the battle."}
                   </p>
-                  <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
+                  <Link href="/" className="wood-gold-button rounded-md px-4 py-2">
                     Return to Map
                   </Link>
                 </div>
+              ) : isPlayerStunned ? (
+                <button
+                  type="button"
+                  onClick={() => handleTurnResult(rest())}
+                  disabled={actionLoading}
+                  className="battle-button w-28 rounded-md px-4 py-3 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Pass (Stunned)
+                </button>
               ) : (
                 <>
                   <ActionButtons

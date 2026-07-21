@@ -6,6 +6,7 @@ const EquippedItemSchema = z.object({
   playerItemId: z.string(),
   itemId: z.string(),
   name: z.string(),
+  slot: ItemSlotSchema.nullable(),
   rarity: ItemRaritySchema,
   setName: z.string().nullable(),
   attributeBonuses: AttributeValuesSchema,

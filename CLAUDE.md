@@ -187,3 +187,24 @@ see above) but only advisory in CI, matching its optional status.
   import from there, never duplicate DTOs.
 - Don't put business logic in `interface/` or `infrastructure/`; it belongs in
   `domain/` and `usecase/`.
+
+### Button UI Styles (`apps/web`)
+
+Three fixed button styles, each with a fixed scope — a button's category is
+what it *does*, not what page it's on. Don't invent a fourth style or move a
+button between categories without an explicit ask.
+
+- **Gold** (`.wood-gold-button`, `apps/web/app/globals.css`) — **website
+  actions**: site-level navigation/account chrome that isn't part of a
+  battle or character-management flow. Logout, "Return to Map" links, the
+  Login page's language toggle, the Main Page's Resume Battle/Player Sheet
+  buttons.
+- **Battle** (`.battle-button`, red — same bevel/gold-trim family as Gold,
+  red fill instead of wood/gold) — **CTA and player-action buttons**:
+  Continue, Exit, Set Name, Save, the Attack/Bag/Rest/Run action row, Pass
+  (Stunned).
+- **Black** (the original plain `border border-white bg-black` look) —
+  **Bag slots, Equipment slots, Buy, Sell, and Claim — forever.** These are
+  explicitly *not* part of the Gold/Battle overhaul and never will be;
+  don't restyle them even if asked to convert "all buttons," ask first if
+  that seems to be the intent.
