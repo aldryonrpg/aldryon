@@ -9,8 +9,12 @@ import { createClient } from "@/lib/supabase/server";
  * upserts the domain User — see lib/api.ts and plans/plan1.md §3.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : url.origin;
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login`);
