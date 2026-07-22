@@ -26,3 +26,34 @@
 .wood-gold-button:disabled {
   filter: grayscale(0.6);
 }
+
+/* Battle Button UI — CTA / player-action buttons (Continue, Exit, Set Name,
+   Save, Attack/Bag/Rest/Run, Pass). Same bevel/gold-trim family as
+   .wood-gold-button, red fill instead of wood/gold — see CLAUDE.md's
+   "Button UI Styles" section for which buttons use which class. */
+.battle-button {
+  color: #f6e4d6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  background-image: linear-gradient(160deg, #a83a3a 0%, #7a1f1f 45%, #4a1010 100%);
+  border: 2px solid #d9a256;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 190, 160, 0.5),
+    inset 0 -2px 3px rgba(20, 5, 5, 0.6),
+    0 1px 3px rgba(0, 0, 0, 0.6);
+  transition:
+    filter 0.15s ease,
+    transform 0.05s ease;
+}
+
+.battle-button:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.battle-button:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+
+.battle-button:disabled {
+  filter: grayscale(0.6);
+}

@@ -242,7 +242,7 @@ export default function StorePage() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black text-stone-100">
         <p>{error ?? "Failed to load your profile."}</p>
-        <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
+        <Link href="/" className="wood-gold-button rounded-md px-4 py-2">
           Return to Map
         </Link>
       </main>
@@ -258,7 +258,7 @@ export default function StorePage() {
         <div className="flex items-center justify-between border border-white bg-black px-4 py-2">
           <span className="font-bold">Store</span>
           <span>Gold: {profile.gold}</span>
-          <Link href="/" className="border border-white px-3 py-1 text-sm hover:bg-stone-800">
+          <Link href="/" className="wood-gold-button rounded-md px-3 py-1 text-sm">
             Return to Map
           </Link>
         </div>

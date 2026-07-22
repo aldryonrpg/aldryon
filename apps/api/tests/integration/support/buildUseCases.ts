@@ -42,6 +42,8 @@ import { SellItemUseCase } from "@/usecase/store/SellItemUseCase";
 const LEVEL_UP_ATTRIBUTE_POINTS = 4;
 const STATUS_COOLDOWN_ROUNDS = 5;
 const SET_ATTRIBUTE_BONUS = 2;
+const MOUNTAIN_LEVEL_REQUIREMENT = 4;
+const RUINS_LEVEL_REQUIREMENT = 6;
 
 /** Wires every repo + usecase against a live testcontainers Postgres, given
  * an (often fake) Rng. `now` defaults to the real clock — pass a fake one to
@@ -84,6 +86,8 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
     dungeonBossOfTheDayUseCase,
     monsterCatalogCache,
     setAttributeBonus: SET_ATTRIBUTE_BONUS,
+    mountainLevelRequirement: MOUNTAIN_LEVEL_REQUIREMENT,
+    ruinsLevelRequirement: RUINS_LEVEL_REQUIREMENT,
     getOrCreatePlayerUseCase: new GetOrCreatePlayerUseCase(playerRepository),
     startBattleUseCase: new StartBattleUseCase(
       playerRepository,
@@ -97,6 +101,8 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       rng,
       effectCounterRepository,
       SET_ATTRIBUTE_BONUS,
+      MOUNTAIN_LEVEL_REQUIREMENT,
+      RUINS_LEVEL_REQUIREMENT,
     ),
     attackUseCase: new AttackUseCase(
       playerRepository,

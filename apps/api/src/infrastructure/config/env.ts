@@ -63,6 +63,12 @@ export function loadEnv() {
     // as the other balance numbers above: it's a tuning value, not a code
     // decision.
     setAttributeBonus: Number(process.env.SET_ATTRIBUTE_BONUS ?? 2),
+    // Wild-region level gates for /battle/start — forest/bandit/sewage stay
+    // open from level 1 (no knob needed), only Mountain Pass and Ancient
+    // Ruins are gated. Kept as ENV knobs for the same reason as the other
+    // balance numbers above: still-tunable design decisions, not code.
+    mountainLevelRequirement: Number(process.env.MOUNTAIN_LEVEL_REQUIREMENT ?? 4),
+    ruinsLevelRequirement: Number(process.env.RUINS_LEVEL_REQUIREMENT ?? 6),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   EMPTY_ENCOUNTER_FLAVOR,
   maxHp,
   maxStamina,
+  minimumLevelForRegion,
 } from "@/domain/battle/battleConfig";
 import { computeDamage } from "@/domain/battle/services/DamageCalculator";
 import { rollEffectProc } from "@/domain/battle/services/EffectResolver";
@@ -21,7 +22,11 @@ import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import { defaultMonsterAttack } from "@/usecase/battle/combatStance";
 import { settlePlayerDeath } from "@/usecase/battle/deathSettlement";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
-import { BattleAlreadyInProgressError, RunCooldownError } from "@/usecase/battle/errors";
+import {
+  BattleAlreadyInProgressError,
+  BelowMinimumRegionLevelError,
+  RunCooldownError,
+} from "@/usecase/battle/errors";
 import { resolveCounterItemId } from "@/usecase/battle/resolveCounterItem";
 import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/TurnReportOutput";
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
@@ -86,6 +91,8 @@ export class StartBattleUseCase {
     private readonly rng: Rng,
     private readonly effectCounterRepository: EffectCounterRepository,
     private readonly setAttributeBonus: number,
+    private readonly mountainLevelRequirement: number,
+    private readonly ruinsLevelRequirement: number,
   ) {}
 
   async execute(input: StartBattleInput): Promise<StartBattleOutput> {
@@ -94,6 +101,15 @@ export class StartBattleUseCase {
 
     let player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
+
+    const minimumLevel = minimumLevelForRegion(
+      input.region,
+      this.mountainLevelRequirement,
+      this.ruinsLevelRequirement,
+    );
+    if (player.level < minimumLevel) {
+      throw new BelowMinimumRegionLevelError(player.level, minimumLevel, input.region);
+    }
 
     // Starting the next battle forfeits any unclaimed loot offer (plan2 §5e).
     if (player.pendingLoot.length > 0) {
@@ -120,14 +136,19 @@ export class StartBattleUseCase {
       this.itemRepository,
       this.setAttributeBonus,
     );
-    const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
-      name: attack.name,
-      staminaCost: attack.staminaCost,
-      multiplier: attack.multiplier,
-      scalingAttribute: attack.scalingAttribute,
-      meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
-      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
-    }));
+    // Attacks the player hasn't unlocked never leave the API — no debuffs
+    // are active yet at battle start, so this is the same check that will
+    // gate meetsRequirements below.
+    const availableAttacks: AvailableAttackOutput[] = playerAttacks
+      .filter((attack) => attack.meetsRequirements(player.level, effectiveAttributes.toValues()))
+      .map((attack) => ({
+        name: attack.name,
+        staminaCost: attack.staminaCost,
+        multiplier: attack.multiplier,
+        scalingAttribute: attack.scalingAttribute,
+        meetsRequirements: attack.meetsRequirements(player.level, effectiveAttributes.toValues()),
+        revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
+      }));
 
     // 20% of the time: find nothing (plan2 §4 step 2).
     if (this.rng.int(1, 100) <= Math.round(BATTLE_CONFIG.emptyEncounterChance * 100)) {

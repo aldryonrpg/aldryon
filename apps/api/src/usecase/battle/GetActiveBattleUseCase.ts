@@ -5,6 +5,7 @@ import { buildRevealedAttributesView } from "@/domain/monster/monsterAttributeRe
 import { ATTRIBUTE_KEYS, type AttributeValues } from "@/domain/shared/Attributes";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
+import { resolveBattleMonster } from "@/usecase/battle/resolveBattleMonster";
 import type {
   AvailableAttackOutput,
   BattleStatusOutput,
@@ -62,8 +63,9 @@ export class GetActiveBattleUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const monster = await this.monsterCatalogCache.getMonster(battle.monsterId);
-    if (!monster) throw new Error("Monster not found");
+    const rawMonster = await this.monsterCatalogCache.getMonster(battle.monsterId);
+    if (!rawMonster) throw new Error("Monster not found");
+    const monster = resolveBattleMonster(rawMonster, battle);
 
     const { base: attributesBeforeDebuff, effective: effectiveAttributes } =
       await computeEffectiveAttributesWithDebuff(
@@ -75,16 +77,21 @@ export class GetActiveBattleUseCase {
       );
     const playerAttacks = await this.attackRepository.findAll();
     const allAttributesRevealed = battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length;
-    const availableAttacks: AvailableAttackOutput[] = playerAttacks.map((attack) => ({
-      name: attack.name,
-      staminaCost: attack.staminaCost,
-      multiplier: attack.multiplier,
-      scalingAttribute: attack.scalingAttribute,
-      meetsRequirements:
-        attack.meetsRequirements(player.level, effectiveAttributes.toValues()) &&
-        !(attack.revealsRandomMonsterAttribute && allAttributesRevealed),
-      revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
-    }));
+    // Attacks the player hasn't unlocked (level/base attribute requirements
+    // not met — a debuff never revokes an unlock, only meetsRequirements
+    // below reacts to that) never leave the API.
+    const availableAttacks: AvailableAttackOutput[] = playerAttacks
+      .filter((attack) => attack.meetsRequirements(player.level, attributesBeforeDebuff.toValues()))
+      .map((attack) => ({
+        name: attack.name,
+        staminaCost: attack.staminaCost,
+        multiplier: attack.multiplier,
+        scalingAttribute: attack.scalingAttribute,
+        meetsRequirements:
+          attack.meetsRequirements(player.level, effectiveAttributes.toValues()) &&
+          !(attack.revealsRandomMonsterAttribute && allAttributesRevealed),
+        revealsRandomMonsterAttribute: attack.revealsRandomMonsterAttribute,
+      }));
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

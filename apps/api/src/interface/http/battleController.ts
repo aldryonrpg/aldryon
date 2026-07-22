@@ -11,6 +11,7 @@ import type { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import {
   AttackNotUsableError,
   BattleAlreadyInProgressError,
+  BelowMinimumRegionLevelError,
   InvalidBagItemError,
   InvalidLootPickError,
   NoActiveBattleError,
@@ -75,6 +76,9 @@ export function createBattleController(
           },
           429,
         );
+      }
+      if (err instanceof BelowMinimumRegionLevelError) {
+        return c.json({ error: { code: "BELOW_MINIMUM_REGION_LEVEL", message: err.message } }, 403);
       }
       throw err;
     }

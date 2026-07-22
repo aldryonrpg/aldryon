@@ -39,8 +39,10 @@ function AttackRow({
  * "Attacks:" label, Intelligence-scaled ones (spells) after under a blue
  * "Spells:" label — then sorted by Stamina cost ascending within each group
  * so the cheapest options are easiest to spot (plans/plan4.md §10). The
- * backend only ever sends the flat list of attacks available to the player;
- * all grouping, ordering, and row formatting happens here.
+ * backend only ever sends attacks the player has actually unlocked
+ * (level/base-attribute requirements met); all grouping, ordering, and row
+ * formatting happens here. meetsRequirements only greys a row out when a
+ * debuff or Reveal-exhausted state makes it temporarily unusable.
  */
 export function AttacksPanel({ attacks, onSelect, disabled }: AttacksPanelProps) {
   const strengthAttacks = attacks

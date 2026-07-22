@@ -64,6 +64,12 @@ export const AvailableAttackSchema = z.object({
   staminaCost: z.number(),
   multiplier: z.number(),
   scalingAttribute: AttackScalingSchema,
+  /** Attacks the player hasn't unlocked (level/base attribute requirements
+   * not met) are never included in the array at all — the API filters
+   * those out before this DTO is built. This flag reflects the *current*
+   * check against debuffed attributes / Reveal-exhausted state, so the
+   * client greys out an already-listed attack when it's temporarily
+   * unusable mid-fight. */
   meetsRequirements: z.boolean(),
   revealsRandomMonsterAttribute: z.boolean(),
 });

@@ -8,8 +8,8 @@ interface ActionButtonsProps {
 }
 
 function actionClass(active: boolean) {
-  return `w-28 border border-white bg-black px-4 py-3 hover:enabled:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50 ${
-    active ? "bg-stone-800" : ""
+  return `battle-button w-28 rounded-md px-4 py-3 disabled:cursor-not-allowed disabled:opacity-50 ${
+    active ? "ring-2 ring-white" : ""
   }`;
 }
 

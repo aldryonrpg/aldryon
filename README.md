@@ -232,6 +232,13 @@ since rule 1 already decides them unconditionally.
 - Otherwise a monster is picked at random from the chosen region, then
   rolls its own `ambush_chance` for one unrolled free strike before the
   player ever acts (a special attack can never be used for an ambush).
+- **Region level gates**: Forest, Bandit Camp, and Sewage are open from
+  level 1. **Mountain Pass** requires `MOUNTAIN_LEVEL_REQUIREMENT`
+  (env-configurable, default **4**) and **Ancient Ruins** requires
+  `RUINS_LEVEL_REQUIREMENT` (env-configurable, default **6**) —
+  `/battle/start` rejects (403 `BELOW_MINIMUM_REGION_LEVEL`) a player below
+  the chosen region's requirement, same shape as the dungeon's level gate
+  below.
 
 ## Dungeons
 
@@ -423,6 +430,11 @@ STATUS_COOLDOWN_ROUNDS=5
 # Flat bonus to every attribute for completing a 6-piece equipment set (see
 # "Equipment, the bag & the store" above). Optional, default 2.
 SET_ATTRIBUTE_BONUS=2
+# Minimum player level to start a wild battle in Mountain Pass / Ancient
+# Ruins (see "Encounters" above) — Forest/Bandit Camp/Sewage stay open from
+# level 1. Both optional, default 4 and 6 respectively.
+MOUNTAIN_LEVEL_REQUIREMENT=4
+RUINS_LEVEL_REQUIREMENT=6
 ```
 
 Create **`apps/web/.env.local`** (gitignored):

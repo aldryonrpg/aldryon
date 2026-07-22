@@ -5,8 +5,13 @@ import { DEFAULT_TIME_OF_DAY_UPDATE_INTERVAL_MS, useTimeOfDay } from "@/lib/useT
 // A simple fixed day/night split (no geolocation, no real sunrise/sunset
 // math) — good enough for a decorative clock, not meant to be astronomically
 // accurate.
-const DAY_START_HOUR = 6;
-const DAY_END_HOUR = 18;
+export const DAY_START_HOUR = 6;
+export const DAY_END_HOUR = 18;
+
+/** Shared with the sunlight-glow hook so the effect never outlives the sun icon. */
+export function isDaytime(now: Date): boolean {
+  return now.getHours() >= DAY_START_HOUR && now.getHours() < DAY_END_HOUR;
+}
 
 // A shallow arc (a flattened rainbow, not a full semicircle) — the icon
 // rises from one edge, peaks at the midpoint, and settles at the other
@@ -22,7 +27,7 @@ const ARC_PEAK_RISE = 50;
  * a fraction (0-1) of the viewBox's width/height — used for both the drawn
  * track (which takes raw viewBox units) and the icon (which is a plain HTML
  * element positioned by percentage, so it scales with the container). */
-function pointOnArc(t: number): { xPercent: number; yPercent: number } {
+export function pointOnArc(t: number): { xPercent: number; yPercent: number } {
   const controlX = ARC_VIEWBOX_WIDTH / 2;
   const controlY = ARC_BASELINE_Y - ARC_PEAK_RISE;
   const x = (1 - t) ** 2 * 0 + 2 * (1 - t) * t * controlX + t ** 2 * ARC_VIEWBOX_WIDTH;
@@ -85,7 +90,7 @@ export function DayNightTimeline() {
   }
 
   const { now, dayFraction } = timeOfDay;
-  const isDaytime = now.getHours() >= DAY_START_HOUR && now.getHours() < DAY_END_HOUR;
+  const daytime = isDaytime(now);
   const iconPos = pointOnArc(dayFraction);
   const controlX = ARC_VIEWBOX_WIDTH / 2;
   const controlY = ARC_BASELINE_Y - ARC_PEAK_RISE;
@@ -120,7 +125,7 @@ export function DayNightTimeline() {
           }}
           title={now.toLocaleTimeString()}
         >
-          {isDaytime ? <SunIcon /> : <MoonIcon />}
+          {daytime ? <SunIcon /> : <MoonIcon />}
         </div>
       </div>
     </div>

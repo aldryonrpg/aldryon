@@ -17,7 +17,7 @@ export function LogoutButton() {
       type="button"
       onClick={handleClick}
       aria-label="Log out"
-      className="flex items-center gap-1.5 border border-white bg-black px-3 py-1 text-sm text-stone-100 hover:bg-stone-800"
+      className="wood-gold-button flex items-center gap-1.5 rounded-md px-3 py-1 text-sm"
     >
       Logout
       <svg

@@ -11,6 +11,7 @@ import type { Rng } from "@/domain/shared/Rng";
 import type { BattleRepository } from "@/usecase/battle/BattleRepository";
 import type { EffectCounterRepository } from "@/usecase/battle/EffectCounterRepository";
 import { InvalidBagItemError, NoActiveBattleError } from "@/usecase/battle/errors";
+import { resolveBattleMonster } from "@/usecase/battle/resolveBattleMonster";
 import { resolveMonsterTurn } from "@/usecase/battle/resolveMonsterTurn";
 import { resolveStunnedTurn } from "@/usecase/battle/resolveStunnedTurn";
 import { settleTurn } from "@/usecase/battle/settleTurn";
@@ -66,7 +67,8 @@ export class UseBagItemUseCase {
         ),
       ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
-    const { monster, moveset } = monsterWithMoveset;
+    const { moveset } = monsterWithMoveset;
+    const monster = resolveBattleMonster(monsterWithMoveset.monster, battle);
 
     const playerMaxHp = maxHp(effectiveAttributes.vitality, effectiveAttributes.strength);
 

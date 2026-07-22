@@ -12,8 +12,8 @@ export interface MapLocation {
   label: string;
   action: MapLocationAction;
   /** Percentages of the map image's own box — same percentage-of-container
-   * approach as DayNightTimeline/MapNightOverlay, so it scales with the
-   * image regardless of rendered size. Eyeballed from mapa.png, not
+   * approach as DayNightTimeline/MapImage, so it scales with the image
+   * regardless of rendered size. Eyeballed from mapa.png, not
    * pixel-measured — expect to nudge these once seen rendered. */
   xPercent: number;
   yPercent: number;

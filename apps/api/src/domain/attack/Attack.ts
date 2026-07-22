@@ -16,9 +16,12 @@ export interface AttackProps {
 }
 
 /**
- * Player attack catalog entry (plan2 §3e). Requirements are shipped to the
- * client at battle start so it can grey out unaffordable attacks, and
- * re-checked server-side on every /battle/attack (the client can't be
+ * Player attack catalog entry (plan2 §3e). meetsRequirements gates two
+ * things on the API side: which attacks are unlocked (level/base attribute
+ * requirements) and therefore included in the response at all, and which of
+ * those are currently usable (same check against debuffed attributes, plus
+ * Reveal Spell exhaustion) so the client can grey them out. Re-checked
+ * server-side on every /battle/attack regardless (the client can't be
  * trusted).
  */
 export class Attack {

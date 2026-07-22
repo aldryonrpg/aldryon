@@ -7,6 +7,7 @@ import { BagPanel } from "@/components/battle/BagPanel";
 import { EquipmentPanel } from "@/components/battle/EquipmentPanel";
 import { SetBonusStatus } from "@/components/battle/SetBonusStatus";
 import { DayNightTimeline } from "@/components/DayNightTimeline";
+import { PageSunlightOverlay } from "@/components/PageSunlightOverlay";
 import {
   allocateAttributePoints,
   equipItem,
@@ -63,6 +64,16 @@ export default function PlayerSheet() {
   function handleStage(key: AttributeKeyDto) {
     if (remaining <= 0) return;
     setStaged((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+  }
+
+  function handleUnstage(key: AttributeKeyDto) {
+    setStaged((prev) => {
+      const current = prev[key] ?? 0;
+      if (current <= 0) return prev;
+      const next = { ...prev, [key]: current - 1 };
+      if (next[key] === 0) delete next[key];
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -136,6 +147,7 @@ export default function PlayerSheet() {
     return (
       <>
         <DayNightTimeline />
+        <PageSunlightOverlay />
         <main className="flex min-h-screen items-center justify-center bg-black text-stone-100">
           Loading...
         </main>
@@ -147,9 +159,10 @@ export default function PlayerSheet() {
     return (
       <>
         <DayNightTimeline />
+        <PageSunlightOverlay />
         <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black text-stone-100">
           <p>{error ?? "Failed to load your profile."}</p>
-          <Link href="/" className="border border-white px-4 py-2 hover:bg-stone-800">
+          <Link href="/" className="wood-gold-button rounded-md px-4 py-2">
             Return to Map
           </Link>
         </main>
@@ -160,11 +173,12 @@ export default function PlayerSheet() {
   return (
     <>
       <DayNightTimeline />
-      <main className="min-h-screen bg-black p-6 text-stone-100">
+      <PageSunlightOverlay />
+      <main className="flex min-h-screen items-center justify-center bg-black p-6 pt-[100px] text-stone-100">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
           <div className="flex items-center justify-between border border-white bg-black px-4 py-2">
             <span className="font-bold">Player Sheet</span>
-            <Link href="/" className="border border-white px-3 py-1 text-sm hover:bg-stone-800">
+            <Link href="/" className="wood-gold-button rounded-md px-3 py-1 text-sm">
               Return to Map
             </Link>
           </div>
@@ -172,7 +186,10 @@ export default function PlayerSheet() {
           <div className="flex items-center justify-between border border-white bg-black px-4 py-2 text-sm">
             <span>Level {profile.level}</span>
             <span>XP: {profile.xp}</span>
-            <span>Pending points: {remaining}</span>
+            <span>
+              Pending points:{" "}
+              <span className="inline-block w-6 text-right tabular-nums">{remaining}</span>
+            </span>
           </div>
 
           <div className="flex items-center gap-3 border border-white bg-black px-4 py-2 text-sm">
@@ -189,7 +206,7 @@ export default function PlayerSheet() {
               type="button"
               onClick={handleSaveName}
               disabled={savingName || !PLAYER_NAME_PATTERN.test(nameInput)}
-              className="border border-white bg-white px-3 py-1 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="battle-button rounded-md px-3 py-1 font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               {savingName ? "Saving..." : "Set Name"}
             </button>
@@ -199,11 +216,10 @@ export default function PlayerSheet() {
 
           <div className="flex flex-wrap items-start gap-6">
             <div className="border border-white bg-black">
-              <div className="grid grid-cols-4 border-b border-white text-xs text-stone-400">
+              <div className="grid grid-cols-[8rem_9rem_6rem] border-b border-white text-xs text-stone-400">
                 <div className="border-r border-white px-2 py-1">Attribute</div>
-                <div className="border-r border-white px-2 py-1">Item Bonus</div>
-                <div className="border-r border-white px-2 py-1">Value</div>
-                <div className="px-2 py-1">Add</div>
+                <div className="border-r border-white px-2 py-1 text-center">Value</div>
+                <div className="px-2 py-1">Item Bonus</div>
               </div>
               {ROWS.map((row) => {
                 const base = profile.attributes[row.key];
@@ -212,26 +228,35 @@ export default function PlayerSheet() {
                 return (
                   <div
                     key={row.key}
-                    className="grid grid-cols-4 border-b border-white last:border-b-0"
+                    className="grid grid-cols-[8rem_9rem_6rem] border-b border-white last:border-b-0"
                   >
                     <div className="border-r border-white px-2 py-1">{row.label}</div>
-                    <div className="border-r border-white px-2 py-1">
-                      {bonus > 0 ? <span className="text-green-500">+{bonus}</span> : "—"}
-                    </div>
-                    <div className="border-r border-white px-2 py-1">
-                      {base}
-                      {add > 0 && <span className="text-green-500"> (+{add})</span>}
-                    </div>
-                    <div className="flex items-center justify-center px-1 py-1">
+                    <div className="flex items-center justify-center gap-2 border-r border-white px-1 py-1">
+                      <button
+                        type="button"
+                        aria-label={`Remove 1 point from ${row.label}`}
+                        disabled={saving || add <= 0}
+                        onClick={() => handleUnstage(row.key)}
+                        className="battle-button flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold leading-none disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[3rem] text-center">
+                        {base}
+                        {add > 0 && <span className="text-green-500"> (+{add})</span>}
+                      </span>
                       <button
                         type="button"
                         aria-label={`Add 1 point to ${row.label}`}
                         disabled={saving || remaining <= 0}
                         onClick={() => handleStage(row.key)}
-                        className="wood-gold-button flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold leading-none disabled:cursor-not-allowed disabled:opacity-30"
+                        className="battle-button flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold leading-none disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         +
                       </button>
+                    </div>
+                    <div className="px-2 py-1">
+                      {bonus > 0 ? <span className="text-green-500">+{bonus}</span> : "—"}
                     </div>
                   </div>
                 );
@@ -266,7 +291,7 @@ export default function PlayerSheet() {
               type="button"
               onClick={handleSave}
               disabled={saving || stagedTotal === 0}
-              className="border border-white bg-white px-4 py-2 font-medium text-black hover:enabled:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="battle-button rounded-md px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save"}
             </button>

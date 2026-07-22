@@ -28,7 +28,8 @@ describe("StartBattleUseCase (integration)", () => {
 
   it("finds a monster and creates a battle row (happy path)", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId);
+    // Mountain Pass is level-gated (MOUNTAIN_LEVEL_REQUIREMENT, default 4).
+    const playerId = await createTestPlayer(sql, userId, { level: 4 });
     const monsterId = await createTestMonster(sql, { region: "mountain", hp: 50, ambushChance: 0 });
     const attackId = await createTestMonsterAttack(sql, { staminaCost: 0, multiplier: 0.4 });
     await linkMonsterMoveset(sql, monsterId, attackId);
@@ -54,7 +55,8 @@ describe("StartBattleUseCase (integration)", () => {
 
   it("lands a free ambush strike before the player acts, including its effect proc", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId, { dexterity: 1, luck: 1 });
+    // Ancient Ruins is level-gated (RUINS_LEVEL_REQUIREMENT, default 6).
+    const playerId = await createTestPlayer(sql, userId, { dexterity: 1, luck: 1, level: 6 });
     const monsterId = await createTestMonster(sql, {
       region: "ruins",
       hp: 50,
@@ -99,7 +101,8 @@ describe("StartBattleUseCase (integration)", () => {
 
   it("returns an empty encounter 20% of the time (seeded Rng)", async () => {
     const userId = await createTestUser(sql);
-    const playerId = await createTestPlayer(sql, userId);
+    // Ancient Ruins is level-gated (RUINS_LEVEL_REQUIREMENT, default 6).
+    const playerId = await createTestPlayer(sql, userId, { level: 6 });
 
     // roll1=10 (<=20 -> empty), roll2=0 (pick the flavor message)
     const uc = buildUseCases(sql, new FakeRng([10, 0]));

@@ -75,10 +75,32 @@ These rules are **non-negotiable** and apply to every instance/session working h
 
 - **Biome** is the one linter + formatter for the whole repo — both `apps/web`
   and `apps/api`. Do not add ESLint or Prettier.
+- **LF line endings everywhere, always** — `.gitattributes` (`* text=auto
+  eol=lf`) enforces this at the git level regardless of a contributor's
+  local `core.autocrlf`, and `.editorconfig` (`end_of_line = lf`, plus
+  Biome's indent settings — 2-space, spaces not tabs) mirrors it at the
+  editor level for any IDE that reads EditorConfig. Several files (several
+  early `supabase/migrations/*.sql`, `apps/api/package.json`, `CLAUDE.md`
+  itself, `AGENTS.md`, `.gitignore`, `LICENSE`) had drifted to CRLF before
+  either file existed and were normalized back to LF — if `bun run lint`
+  ever flags a file as one giant diff of unchanged-looking lines, it's this,
+  not a real content problem; run `sed -i 's/\r$//' <file>` to fix it.
+  **IntelliJ IDEA/WebStorm**: install the official Biome plugin (JetBrains
+  Marketplace) and set it as the default formatter for JS/TS/JSON/CSS —
+  there's no repo-committable IntelliJ config for this since `.idea/` is
+  gitignored here (personal, per-developer), so this is a one-time manual
+  step per machine, not something a checked-in file can do for you.
 - **husky + lint-staged** is the git hook manager.
 - **Trivy** and **`bun audit`** are both run as the vulnerability check —
   complementary, not redundant (Trivy: broad multi-ecosystem/container/IaC/
-  secrets; `bun audit`: Bun-native CVE check against `bun.lock`).
+  secrets; `bun audit`: Bun-native CVE check against `bun.lock`). **`bun
+  audit --audit-level=high` runs in `.husky/pre-commit` too**, unconditionally
+  on every commit (not gated on which files are staged, since it checks the
+  one shared root `bun.lock` regardless) — same command and severity
+  threshold as the CI step, so a vulnerable dependency is caught locally
+  before it ever reaches CI. Trivy itself stays CI-only (it needs the
+  pinned-SHA GitHub Action, not a local binary every dev is assumed to
+  have).
 - Assume every developer and CI runner has a **Docker or Podman** runtime
   available locally, so **testcontainers** integration tests run in pre-commit
   and CI.
@@ -187,3 +209,24 @@ see above) but only advisory in CI, matching its optional status.
   import from there, never duplicate DTOs.
 - Don't put business logic in `interface/` or `infrastructure/`; it belongs in
   `domain/` and `usecase/`.
+
+### Button UI Styles (`apps/web`)
+
+Three fixed button styles, each with a fixed scope — a button's category is
+what it *does*, not what page it's on. Don't invent a fourth style or move a
+button between categories without an explicit ask.
+
+- **Gold** (`.wood-gold-button`, `apps/web/app/globals.css`) — **website
+  actions**: site-level navigation/account chrome that isn't part of a
+  battle or character-management flow. Logout, "Return to Map" links, the
+  Login page's language toggle, the Main Page's Resume Battle/Player Sheet
+  buttons.
+- **Battle** (`.battle-button`, red — same bevel/gold-trim family as Gold,
+  red fill instead of wood/gold) — **CTA and player-action buttons**:
+  Continue, Exit, Set Name, Save, the Attack/Bag/Rest/Run action row, Pass
+  (Stunned).
+- **Black** (the original plain `border border-white bg-black` look) —
+  **Bag slots, Equipment slots, Buy, Sell, and Claim — forever.** These are
+  explicitly *not* part of the Gold/Battle overhaul and never will be;
+  don't restyle them even if asked to convert "all buttons," ask first if
+  that seems to be the intent.
