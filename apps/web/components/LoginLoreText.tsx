@@ -29,11 +29,18 @@ export function LoginLoreText({ fontClassName }: { fontClassName: string }) {
         <TargetFlag className="h-4 w-6 rounded-sm" />
         {target.label}
       </button>
-      <p
-        className={`${fontClassName} max-w-md text-center text-sm leading-relaxed text-stone-900 sm:text-base`}
-      >
-        {loginLore[language]}
-      </p>
+      <div className="flex max-w-md flex-col gap-3">
+        <p
+          className={`${fontClassName} text-center text-sm leading-relaxed text-stone-900 [text-transform:math-auto] sm:text-base`}
+        >
+          {loginLore[language].body}
+        </p>
+        <p
+          className={`${fontClassName} whitespace-pre-line text-center text-sm leading-relaxed text-stone-900 [text-transform:math-auto] sm:text-base`}
+        >
+          {loginLore[language].closing}
+        </p>
+      </div>
     </>
   );
 }
