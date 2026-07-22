@@ -29,6 +29,9 @@
     "lint-staged": "17.0.8",
     "supabase": "2.109.1"
   },
+  "overrides": {
+    "sharp": "^0.35.3"
+  },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [
       "biome check --write --no-errors-on-unmatched"

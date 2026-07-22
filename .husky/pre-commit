@@ -1,5 +1,8 @@
 bunx lint-staged
 
+echo "Vulnerability check (bun audit)"
+bun audit --audit-level=high || exit 1
+
 if git diff --cached --name-only | grep -q '^apps/api/'; then
   echo "apps/api changes detected — running back-end quality gates"
   bun run test:api:unit || exit 1
