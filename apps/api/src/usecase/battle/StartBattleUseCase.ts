@@ -32,7 +32,6 @@ import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/T
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -84,7 +83,6 @@ export class StartBattleUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
-    private readonly monsterRepository: MonsterRepository,
     private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
@@ -168,7 +166,7 @@ export class StartBattleUseCase {
       };
     }
 
-    const monsters = await this.monsterRepository.findAllByRegion(input.region);
+    const monsters = await this.monsterCatalogCache.getMonstersByRegion(input.region);
     if (monsters.length === 0) {
       return {
         monster: null,

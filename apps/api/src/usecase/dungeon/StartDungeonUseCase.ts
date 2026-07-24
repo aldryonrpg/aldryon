@@ -27,7 +27,6 @@ import {
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -73,7 +72,6 @@ export class StartDungeonUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
-    private readonly monsterRepository: MonsterRepository,
     private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
@@ -126,7 +124,7 @@ export class StartDungeonUseCase {
       );
     }
 
-    const candidates = await this.monsterRepository.findAllExcludingMaterializedBosses();
+    const candidates = await this.monsterCatalogCache.getMonstersExcludingMaterializedBosses();
     if (candidates.length === 0) throw new Error("No monsters available for the dungeon");
     const rawMonster = pick(candidates, this.rng);
     const monster = scaleMonsterForDungeonStep(rawMonster, tier);
