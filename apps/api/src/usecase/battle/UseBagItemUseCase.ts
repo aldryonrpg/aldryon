@@ -49,10 +49,11 @@ export class UseBagItemUseCase {
   ) {}
 
   async execute(input: UseBagItemInput): Promise<TurnReportOutput> {
-    const battle = await this.battleRepository.findByPlayerId(input.playerId);
+    const [battle, player] = await Promise.all([
+      this.battleRepository.findByPlayerId(input.playerId),
+      this.playerRepository.findById(input.playerId),
+    ]);
     if (!battle) throw new NoActiveBattleError();
-
-    const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
     const [monsterWithMoveset, { base: attributesBeforeDebuff, effective: effectiveAttributes }] =

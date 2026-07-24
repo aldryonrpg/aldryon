@@ -35,6 +35,22 @@ export function loadEnv() {
     // errors correlating with fast/overlapping play). Session mode keeps
     // one stable backend per connection and was verified safe under 20
     // concurrent prepared queries.
+    //
+    // Root-caused 2026-07-24: this is NOT a `prepare`-flag issue.
+    // `DATABASE_POOL_PREPARE=false` was the documented "fix" for
+    // transaction mode, but a controlled load test against this project's
+    // real Supavisor pooler (aws-1-sa-east-1) reproduced the identical
+    // "bind message supplies N parameters, but prepared statement requires
+    // M" error with `prepare: false` set, at ANY concurrency above 1
+    // connection (max:5 → 17% of queries failed, max:20 → 13% failed).
+    // A control run at max:1 (fully serialized, defeating the point of
+    // pooling) was clean, as was session mode at max:20. Conclusion:
+    // transaction mode is unusable with this Supavisor deployment the
+    // moment more than one physical connection is concurrently active —
+    // this is a pooler-side limitation, not something `apps/api`'s client
+    // config can work around. Do not re-attempt port 6543 here without a
+    // fix on Supabase's/Supavisor's side; if retried, re-run the same kind
+    // of concurrent-load test before trusting it, don't just flip the URL.
     databaseUrl: requireEnv("DATABASE_URL"),
     // Explicit Postgres connection-pool sizing instead of relying on
     // Bun.SQL's implicit defaults (max=10, idleTimeout=0/never expires,

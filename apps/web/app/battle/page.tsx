@@ -406,10 +406,10 @@ export default function BattlePage() {
 
   return (
     <main
-      className={`min-h-screen p-6 text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
+      className={`min-h-screen p-6 pt-[1200px] text-stone-100 ${BATTLE_BACKGROUND_CLASS}`}
       style={battleBackgroundStyle}
     >
-      <div className="mx-auto flex max-w-5xl flex-col gap-4">
+      <div className="mx-auto flex max-w-5xl origin-top scale-[0.8] flex-col gap-4">
         <MonsterPanel
           name={monster.name}
           monsterImage={monster.monsterImage}

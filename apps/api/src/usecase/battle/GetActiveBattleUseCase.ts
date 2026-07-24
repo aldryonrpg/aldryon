@@ -63,19 +63,20 @@ export class GetActiveBattleUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const rawMonster = await this.monsterCatalogCache.getMonster(battle.monsterId);
+    const [rawMonster, { base: attributesBeforeDebuff, effective: effectiveAttributes }, playerAttacks] =
+      await Promise.all([
+        this.monsterCatalogCache.getMonster(battle.monsterId),
+        computeEffectiveAttributesWithDebuff(
+          player,
+          this.playerItemRepository,
+          this.itemRepository,
+          this.setAttributeBonus,
+          battle.playerEffects,
+        ),
+        this.attackRepository.findAll(),
+      ]);
     if (!rawMonster) throw new Error("Monster not found");
     const monster = resolveBattleMonster(rawMonster, battle);
-
-    const { base: attributesBeforeDebuff, effective: effectiveAttributes } =
-      await computeEffectiveAttributesWithDebuff(
-        player,
-        this.playerItemRepository,
-        this.itemRepository,
-        this.setAttributeBonus,
-        battle.playerEffects,
-      );
-    const playerAttacks = await this.attackRepository.findAll();
     const allAttributesRevealed = battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length;
     // Attacks the player hasn't unlocked (level/base attribute requirements
     // not met — a debuff never revokes an unlock, only meetsRequirements

@@ -1,6 +1,7 @@
 import type { SQL } from "bun";
 import { Attack } from "@/domain/attack/Attack";
 import type { AttackScaling, BattleEffectKind } from "@/domain/monster/MonsterAttack";
+import { TtlCache } from "@/domain/shared/TtlCache";
 import type { AttackRepository } from "@/usecase/attack/AttackRepository";
 
 interface AttackRow {
@@ -41,16 +42,33 @@ function toDomain(row: AttackRow): Attack {
   });
 }
 
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * `attacks` is seed/migration-only catalog data (plan2 §10), never written
+ * to at runtime, but findAll() is re-read on every single Attack turn
+ * (AttackUseCase) and every Battle screen load/reload (GetActiveBattleUseCase)
+ * — caching the whole table after the first read (same TTL convention as
+ * MonsterCatalogCache) turns those into an in-memory read the rest of the
+ * time this process is up.
+ */
 export class PostgresAttackRepository implements AttackRepository {
+  private readonly cache = new TtlCache<Attack[]>(CACHE_TTL_MS);
+
   constructor(private readonly sql: SQL) {}
 
   async findAll(): Promise<Attack[]> {
+    const cached = this.cache.get();
+    if (cached) return cached;
+
     const rows = await this.sql<AttackRow[]>`select * from attacks order by name asc`;
-    return rows.map(toDomain);
+    const attacks = rows.map(toDomain);
+    this.cache.set(attacks);
+    return attacks;
   }
 
   async findByName(name: string): Promise<Attack | null> {
-    const rows = await this.sql<AttackRow[]>`select * from attacks where name = ${name} limit 1`;
-    return rows[0] ? toDomain(rows[0]) : null;
+    const attacks = await this.findAll();
+    return attacks.find((attack) => attack.name === name) ?? null;
   }
 }
