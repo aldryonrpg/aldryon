@@ -63,18 +63,21 @@ export class GetActiveBattleUseCase {
     const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const [rawMonster, { base: attributesBeforeDebuff, effective: effectiveAttributes }, playerAttacks] =
-      await Promise.all([
-        this.monsterCatalogCache.getMonster(battle.monsterId),
-        computeEffectiveAttributesWithDebuff(
-          player,
-          this.playerItemRepository,
-          this.itemRepository,
-          this.setAttributeBonus,
-          battle.playerEffects,
-        ),
-        this.attackRepository.findAll(),
-      ]);
+    const [
+      rawMonster,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+      playerAttacks,
+    ] = await Promise.all([
+      this.monsterCatalogCache.getMonster(battle.monsterId),
+      computeEffectiveAttributesWithDebuff(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        this.setAttributeBonus,
+        battle.playerEffects,
+      ),
+      this.attackRepository.findAll(),
+    ]);
     if (!rawMonster) throw new Error("Monster not found");
     const monster = resolveBattleMonster(rawMonster, battle);
     const allAttributesRevealed = battle.revealedMonsterAttributes.length >= ATTRIBUTE_KEYS.length;

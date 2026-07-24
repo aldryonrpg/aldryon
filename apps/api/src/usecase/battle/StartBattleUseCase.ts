@@ -96,10 +96,13 @@ export class StartBattleUseCase {
   ) {}
 
   async execute(input: StartBattleInput): Promise<StartBattleOutput> {
-    const existingBattle = await this.battleRepository.findByPlayerId(input.playerId);
+    const [existingBattle, foundPlayer] = await Promise.all([
+      this.battleRepository.findByPlayerId(input.playerId),
+      this.playerRepository.findById(input.playerId),
+    ]);
     if (existingBattle) throw new BattleAlreadyInProgressError();
 
-    let player = await this.playerRepository.findById(input.playerId);
+    let player = foundPlayer;
     if (!player) throw new Error("Player not found");
 
     const minimumLevel = minimumLevelForRegion(
@@ -129,13 +132,15 @@ export class StartBattleUseCase {
       }
     }
 
-    const playerAttacks = await this.attackRepository.findAll();
-    const effectiveAttributes = await computeEffectiveAttributes(
-      player,
-      this.playerItemRepository,
-      this.itemRepository,
-      this.setAttributeBonus,
-    );
+    const [playerAttacks, effectiveAttributes] = await Promise.all([
+      this.attackRepository.findAll(),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        this.setAttributeBonus,
+      ),
+    ]);
     // Attacks the player hasn't unlocked never leave the API — no debuffs
     // are active yet at battle start, so this is the same check that will
     // gate meetsRequirements below.
