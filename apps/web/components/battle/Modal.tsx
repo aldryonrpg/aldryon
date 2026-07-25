@@ -40,7 +40,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="px-2 text-stone-300 hover:text-white"
+            className="bg-transparent px-2 text-stone-300 hover:text-white"
           >
             ✕
           </button>

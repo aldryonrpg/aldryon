@@ -49,23 +49,28 @@ export class UseBagItemUseCase {
   ) {}
 
   async execute(input: UseBagItemInput): Promise<TurnReportOutput> {
-    const battle = await this.battleRepository.findByPlayerId(input.playerId);
+    const [battle, player] = await Promise.all([
+      this.battleRepository.findByPlayerId(input.playerId),
+      this.playerRepository.findById(input.playerId),
+    ]);
     if (!battle) throw new NoActiveBattleError();
-
-    const player = await this.playerRepository.findById(input.playerId);
     if (!player) throw new Error("Player not found");
 
-    const [monsterWithMoveset, { base: attributesBeforeDebuff, effective: effectiveAttributes }] =
-      await Promise.all([
-        this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
-        computeEffectiveAttributesWithDebuff(
-          player,
-          this.playerItemRepository,
-          this.itemRepository,
-          this.setAttributeBonus,
-          battle.playerEffects,
-        ),
-      ]);
+    const [
+      monsterWithMoveset,
+      { base: attributesBeforeDebuff, effective: effectiveAttributes },
+      playerItem,
+    ] = await Promise.all([
+      this.monsterCatalogCache.getMonsterWithMoveset(battle.monsterId),
+      computeEffectiveAttributesWithDebuff(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        this.setAttributeBonus,
+        battle.playerEffects,
+      ),
+      this.playerItemRepository.findById(input.playerItemId),
+    ]);
     if (!monsterWithMoveset) throw new Error("Monster not found");
     const { moveset } = monsterWithMoveset;
     const monster = resolveBattleMonster(monsterWithMoveset.monster, battle);
@@ -94,7 +99,6 @@ export class UseBagItemUseCase {
       });
     }
 
-    const playerItem = await this.playerItemRepository.findById(input.playerItemId);
     if (!playerItem || playerItem.playerId !== player.id) {
       throw new InvalidBagItemError("Item not found in your bag");
     }

@@ -32,7 +32,6 @@ import type { BattleStatusOutput, MonsterStatusOutput } from "@/usecase/battle/T
 import type { ItemRepository } from "@/usecase/item/ItemRepository";
 import type { LevelRepository } from "@/usecase/level/LevelRepository";
 import type { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
-import type { MonsterRepository } from "@/usecase/monster/MonsterRepository";
 import { computeEffectiveAttributes } from "@/usecase/player/effectiveAttributes";
 import type { PlayerItemRepository } from "@/usecase/player/PlayerItemRepository";
 import type { PlayerRepository } from "@/usecase/player/PlayerRepository";
@@ -84,7 +83,6 @@ export class StartBattleUseCase {
     private readonly playerItemRepository: PlayerItemRepository,
     private readonly itemRepository: ItemRepository,
     private readonly battleRepository: BattleRepository,
-    private readonly monsterRepository: MonsterRepository,
     private readonly monsterCatalogCache: MonsterCatalogCache,
     private readonly attackRepository: AttackRepository,
     private readonly levelRepository: LevelRepository,
@@ -96,10 +94,13 @@ export class StartBattleUseCase {
   ) {}
 
   async execute(input: StartBattleInput): Promise<StartBattleOutput> {
-    const existingBattle = await this.battleRepository.findByPlayerId(input.playerId);
+    const [existingBattle, foundPlayer] = await Promise.all([
+      this.battleRepository.findByPlayerId(input.playerId),
+      this.playerRepository.findById(input.playerId),
+    ]);
     if (existingBattle) throw new BattleAlreadyInProgressError();
 
-    let player = await this.playerRepository.findById(input.playerId);
+    let player = foundPlayer;
     if (!player) throw new Error("Player not found");
 
     const minimumLevel = minimumLevelForRegion(
@@ -129,13 +130,15 @@ export class StartBattleUseCase {
       }
     }
 
-    const playerAttacks = await this.attackRepository.findAll();
-    const effectiveAttributes = await computeEffectiveAttributes(
-      player,
-      this.playerItemRepository,
-      this.itemRepository,
-      this.setAttributeBonus,
-    );
+    const [playerAttacks, effectiveAttributes] = await Promise.all([
+      this.attackRepository.findAll(),
+      computeEffectiveAttributes(
+        player,
+        this.playerItemRepository,
+        this.itemRepository,
+        this.setAttributeBonus,
+      ),
+    ]);
     // Attacks the player hasn't unlocked never leave the API — no debuffs
     // are active yet at battle start, so this is the same check that will
     // gate meetsRequirements below.
@@ -163,7 +166,7 @@ export class StartBattleUseCase {
       };
     }
 
-    const monsters = await this.monsterRepository.findAllByRegion(input.region);
+    const monsters = await this.monsterCatalogCache.getMonstersByRegion(input.region);
     if (monsters.length === 0) {
       return {
         monster: null,
