@@ -25,7 +25,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
       <button
         type="button"
         aria-label="Close"
-        className="fixed inset-0 bg-black/70"
+        className="fixed inset-0 bg-transparent"
         onClick={onClose}
       />
       <div
