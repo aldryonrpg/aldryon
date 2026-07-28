@@ -115,4 +115,11 @@ export class PostgresBattleRepository implements BattleRepository {
   async deleteByPlayerId(playerId: string): Promise<void> {
     await this.sql`delete from battles where player_id = ${playerId}`;
   }
+
+  async clampMonsterCurrentHp(monsterId: string, newMaxHp: number): Promise<void> {
+    await this.sql`
+      update battles set monster_current_hp = least(monster_current_hp, ${newMaxHp})
+      where monster_id = ${monsterId}
+    `;
+  }
 }

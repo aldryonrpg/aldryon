@@ -53,7 +53,12 @@ export async function createTestPlayer(
   return id;
 }
 
+export async function createTestAdmin(sql: SQL, userId: string): Promise<void> {
+  await sql`insert into admins (user_id) values (${userId})`;
+}
+
 export interface TestMonsterOverrides {
+  name?: string;
   region?: string;
   hp?: number;
   level?: number;
@@ -83,7 +88,7 @@ export async function createTestMonster(
       strength, dexterity, agility, intelligence, vitality, luck, monster_type,
       drops, exclusive_drops, legendary_drops, ambush_chance
     ) values (
-      ${id}, ${`Test Monster ${id}`}, 'test monster', ${overrides.region ?? "forest"},
+      ${id}, ${overrides.name ?? `Test Monster ${id}`}, 'test monster', ${overrides.region ?? "forest"},
       ${`data:image/svg+xml,test-${id}`},
       ${overrides.hp ?? 100}, ${overrides.xpGain ?? 50}, ${overrides.level ?? 1}, ${overrides.maxStamina ?? 100},
       ${overrides.strength ?? 1}, ${overrides.dexterity ?? 1}, ${overrides.agility ?? 1},
@@ -107,6 +112,37 @@ export async function createTestMonster(
     update monsters set drops = drops - (jsonb_array_length(drops) - 1) where id = ${id}
   `;
 
+  return id;
+}
+
+export interface TestBattleOverrides {
+  playerCurrentHp?: number;
+  playerCurrentStamina?: number;
+  monsterCurrentHp?: number;
+  monsterCurrentStamina?: number;
+}
+
+/** Inserts a battle row directly (not via StartBattleUseCase) so a test can
+ * put a battle in an exact mid-fight state — e.g. a specific
+ * monsterCurrentHp — without depending on the encounter roll or damage
+ * formula. */
+export async function createTestBattle(
+  sql: SQL,
+  playerId: string,
+  monsterId: string,
+  overrides: TestBattleOverrides = {},
+): Promise<string> {
+  const id = Bun.randomUUIDv7();
+  await sql`
+    insert into battles (
+      id, player_id, monster_id, player_current_hp, player_current_stamina,
+      monster_current_hp, monster_current_stamina
+    ) values (
+      ${id}, ${playerId}, ${monsterId},
+      ${overrides.playerCurrentHp ?? 100}, ${overrides.playerCurrentStamina ?? 100},
+      ${overrides.monsterCurrentHp ?? 100}, ${overrides.monsterCurrentStamina ?? 100}
+    )
+  `;
   return id;
 }
 

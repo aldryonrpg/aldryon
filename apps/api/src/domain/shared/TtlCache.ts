@@ -54,6 +54,21 @@ export class KeyedTtlCache<K, V> {
   set(key: K, value: V, ttlMsOverride?: number): void {
     this.entries.set(key, { value, expiresAt: this.now() + (ttlMsOverride ?? this.ttlMs) });
   }
+
+  /** Every key currently held, expired or not — for a caller that needs to
+   * revalidate its whole cached set against an external source of truth
+   * (e.g. MonsterCatalogCache's cross-replica invalidation sweep) rather
+   * than waiting for each key's own get()-driven TTL. */
+  keys(): K[] {
+    return [...this.entries.keys()];
+  }
+
+  /** Forces the next get() for this key to miss — for a write path that
+   * needs a cached entry to reflect a change immediately instead of waiting
+   * out its TTL (e.g. an admin monster edit, plan9 §4). */
+  delete(key: K): void {
+    this.entries.delete(key);
+  }
 }
 
 /**

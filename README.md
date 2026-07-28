@@ -379,6 +379,43 @@ All 6 non-weapon slots equipped from the same setName → +SET_ATTRIBUTE_BONUS (
   bag's VIP capacity (above), the dungeon's 2-attempts-per-day allowance and
   the shorter run cooldown (see Gameplay/Dungeons above).
 
+## Admin panel
+
+`/admin` is a gated screen for adjusting the monster and dungeon-boss
+catalogs without hand-writing a SQL migration — no link to it anywhere in
+the UI, reachable only by URL. Two tabs, Monsters selected by default:
+
+- **Monsters** — the wild catalog (materialized dungeon-boss rows are
+  filtered out, since those are generated from the Bosses catalog below,
+  not hand-tuned), with name search, a region filter, a create form, and
+  per-row inline edit.
+- **Bosses** — the `dungeon_bosses` base-stat catalog
+  `DungeonBossOfTheDayUseCase` scales per tier (see Dungeons → Boss of the
+  day above), with the same name search / create / inline-edit pattern,
+  minus the fields a boss doesn't have (region, level, ambush chance).
+
+Neither tab supports delete — a catalog row can be referenced by an
+in-progress battle or an already-materialized dungeon-boss tier row, and
+deleting one out from under either is a separate, riskier problem than
+adjusting or adding.
+
+**Access** is a dedicated `admins` table (`user_id` → `users.id`), not a
+flag on `users` — granting/revoking is a plain row insert/delete. It ships
+empty on purpose; there's no UI for managing it, add a row directly in
+Supabase. RLS is enabled on it like every other `public` table, but that's
+defense-in-depth for the PostgREST/anon-key surface only — `apps/api`
+connects to Postgres directly and bypasses RLS regardless, so the `admins`
+row itself is the actual access gate.
+
+Editing a monster takes effect on the very next turn for every player
+currently fighting it — nothing about "the monster" is snapshotted into a
+battle row (see Combat math above), so a live HP/attribute edit propagates
+immediately, including a same-turn clamp-down if a lowered HP cap would
+otherwise sit below an in-progress fight's current HP. Editing a dungeon
+boss's base stats does **not** retroactively touch an already-materialized
+"`${name}` — Tier N" monster row — those regenerate from the updated stats
+the next time that boss's daily rotation turn comes back around.
+
 ## Tech stack
 
 - **Front-end** (`apps/web`) — [Next.js](https://nextjs.org/) (TypeScript),

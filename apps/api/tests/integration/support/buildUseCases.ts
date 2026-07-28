@@ -1,5 +1,6 @@
 import type { SQL } from "bun";
 import type { Rng } from "@/domain/shared/Rng";
+import { PostgresAdminRepository } from "@/infrastructure/persistence/PostgresAdminRepository";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
 import { PostgresDungeonBossRepository } from "@/infrastructure/persistence/PostgresDungeonBossRepository";
@@ -20,13 +21,19 @@ import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
+import { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
 import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
+import { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
@@ -63,6 +70,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
   const uniqueItemOwnershipRepository = new PostgresUniqueItemOwnershipRepository(sql);
   const monsterCatalogCache = new MonsterCatalogCache(monsterRepository, monsterAttackRepository);
   const playerNameCache = new PlayerNameCache();
+  const adminRepository = new PostgresAdminRepository(sql);
   const dungeonBossOfTheDayUseCase = new DungeonBossOfTheDayUseCase(
     dungeonBossRepository,
     monsterRepository,
@@ -85,6 +93,7 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
     uniqueItemOwnershipRepository,
     dungeonBossOfTheDayUseCase,
     monsterCatalogCache,
+    adminRepository,
     setAttributeBonus: SET_ATTRIBUTE_BONUS,
     mountainLevelRequirement: MOUNTAIN_LEVEL_REQUIREMENT,
     ruinsLevelRequirement: RUINS_LEVEL_REQUIREMENT,
@@ -234,5 +243,15 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
       itemRepository,
       uniqueItemOwnershipRepository,
     ),
+    listMonstersForAdminUseCase: new ListMonstersForAdminUseCase(monsterRepository),
+    createMonsterUseCase: new CreateMonsterUseCase(monsterRepository),
+    updateMonsterUseCase: new UpdateMonsterUseCase(
+      monsterRepository,
+      monsterCatalogCache,
+      battleRepository,
+    ),
+    listDungeonBossesForAdminUseCase: new ListDungeonBossesForAdminUseCase(dungeonBossRepository),
+    createDungeonBossUseCase: new CreateDungeonBossUseCase(dungeonBossRepository),
+    updateDungeonBossUseCase: new UpdateDungeonBossUseCase(dungeonBossRepository),
   };
 }

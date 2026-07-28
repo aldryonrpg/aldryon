@@ -1,5 +1,6 @@
 import { SupabaseAuthGateway } from "@/infrastructure/auth/SupabaseAuthGateway";
 import { loadEnv } from "@/infrastructure/config/env";
+import { PostgresAdminRepository } from "@/infrastructure/persistence/PostgresAdminRepository";
 import { PostgresAttackRepository } from "@/infrastructure/persistence/PostgresAttackRepository";
 import { PostgresAuthIdentityResolver } from "@/infrastructure/persistence/PostgresAuthIdentityResolver";
 import { PostgresBattleRepository } from "@/infrastructure/persistence/PostgresBattleRepository";
@@ -28,13 +29,19 @@ import { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase";
 import { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
+import { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
 import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
+import { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
@@ -60,6 +67,7 @@ const authIdentityCache = new AuthIdentityCache(authIdentityResolver);
 const rng = new RandomRng();
 
 const userRepository = new PostgresUserRepository(sql);
+const adminRepository = new PostgresAdminRepository(sql);
 const playerRepository = new PostgresPlayerRepository(sql);
 const playerItemRepository = new PostgresPlayerItemRepository(sql);
 const itemRepository = new PostgresItemRepository(sql);
@@ -233,11 +241,24 @@ const sellItemUseCase = new SellItemUseCase(
   itemRepository,
   uniqueItemOwnershipRepository,
 );
+const listMonstersForAdminUseCase = new ListMonstersForAdminUseCase(monsterRepository);
+const createMonsterUseCase = new CreateMonsterUseCase(monsterRepository);
+const updateMonsterUseCase = new UpdateMonsterUseCase(
+  monsterRepository,
+  monsterCatalogCache,
+  battleRepository,
+);
+const listDungeonBossesForAdminUseCase = new ListDungeonBossesForAdminUseCase(
+  dungeonBossRepository,
+);
+const createDungeonBossUseCase = new CreateDungeonBossUseCase(dungeonBossRepository);
+const updateDungeonBossUseCase = new UpdateDungeonBossUseCase(dungeonBossRepository);
 
 const app = createApp({
   authenticateUserUseCase,
   authGateway,
   userRepository,
+  adminRepository,
   getOrCreatePlayerUseCase,
   authIdentityCache,
   startBattleUseCase,
@@ -262,6 +283,12 @@ const app = createApp({
   listStoreItemsUseCase,
   purchaseItemUseCase,
   sellItemUseCase,
+  listMonstersForAdminUseCase,
+  createMonsterUseCase,
+  updateMonsterUseCase,
+  listDungeonBossesForAdminUseCase,
+  createDungeonBossUseCase,
+  updateDungeonBossUseCase,
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
 });
 

@@ -1,10 +1,14 @@
 import { LoginRequestSchema } from "@aldryon/dtos";
 import { Hono } from "hono";
 import { mapUserToProfile } from "@/interface/http/dto/mapUserToProfile";
+import type { AdminRepository } from "@/usecase/admin/AdminRepository";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { InvalidAccessTokenError } from "@/usecase/auth/AuthGateway";
 
-export function createAuthController(authenticateUserUseCase: AuthenticateUserUseCase): Hono {
+export function createAuthController(
+  authenticateUserUseCase: AuthenticateUserUseCase,
+  adminRepository: AdminRepository,
+): Hono {
   const app = new Hono();
 
   app.post("/auth/login", async (c) => {
@@ -22,8 +26,9 @@ export function createAuthController(authenticateUserUseCase: AuthenticateUserUs
       const { user } = await authenticateUserUseCase.execute({
         supabaseAccessToken: parsed.data.supabaseAccessToken,
       });
+      const isAdmin = await adminRepository.isAdmin(user.id);
 
-      return c.json({ user: mapUserToProfile(user) }, 200);
+      return c.json({ user: mapUserToProfile(user, isAdmin) }, 200);
     } catch (err) {
       if (err instanceof InvalidAccessTokenError) {
         return c.json({ error: { code: "INVALID_TOKEN", message: err.message } }, 401);

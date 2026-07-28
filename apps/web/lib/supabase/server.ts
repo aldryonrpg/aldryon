@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { SUPABASE_COOKIE_OPTIONS } from "@/lib/supabase/cookieOptions";
 
 type CookieToSet = {
   name: string;
@@ -29,6 +30,7 @@ export async function createClient() {
           }
         },
       },
+      cookieOptions: SUPABASE_COOKIE_OPTIONS,
     },
   );
 }

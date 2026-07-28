@@ -13,6 +13,18 @@ export interface MonsterRepository {
    * identity itself. */
   findAllExcludingMaterializedBosses(): Promise<Monster[]>;
   create(monster: Monster): Promise<Monster>;
+  /** Full-row update for the admin patch flow (plan9 §4) — the only other
+   * write path besides `create`, since monsters otherwise never change
+   * after being seeded or materialized. */
+  update(monster: Monster): Promise<Monster>;
+  /** `updated_at` (as epoch ms) for exactly the ids passed in that still
+   * exist — used only by MonsterCatalogCache's periodic cross-replica
+   * invalidation sweep. An admin edit bumps `updated_at` and evicts the
+   * cache on whichever Render replica handled the request; every OTHER
+   * replica has no way to know that happened, so it periodically compares
+   * this against what it last saw for its own cached ids and self-evicts on
+   * a mismatch — no pub/sub layer needed. */
+  findUpdatedAtByIds(ids: string[]): Promise<Record<string, number>>;
   /** Retires a previous day's materialized boss rows once today's rotation
    * has confirmed which boss is active (DungeonBossOfTheDayUseCase) —
    * deletes every `region = 'dungeon'` row whose name isn't one of

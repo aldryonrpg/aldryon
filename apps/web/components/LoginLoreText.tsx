@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrazilFlag } from "@/components/flags/BrazilFlag";
 import { UkFlag } from "@/components/flags/UkFlag";
 import { type LoreLanguage, loginLore } from "@/lib/loginLore";
@@ -13,8 +13,26 @@ const SWITCH_TARGET: Record<
   pt: { code: "en", Flag: UkFlag, label: "English" },
 };
 
+/** Remembers the visitor's language choice across visits — English is
+ * always the state on first paint (server-rendered/static, so it can't
+ * read localStorage yet) and only swaps to a saved "pt" after mount, which
+ * is also the correct behavior for an actual first-time visitor (nothing
+ * saved yet, stays English). */
+const LANGUAGE_STORAGE_KEY = "aldryon-login-language";
+
 export function LoginLoreText({ fontClassName }: { fontClassName: string }) {
   const [language, setLanguage] = useState<LoreLanguage>("en");
+
+  useEffect(() => {
+    const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (saved === "en" || saved === "pt") setLanguage(saved);
+  }, []);
+
+  function handleSwitch(next: LoreLanguage) {
+    setLanguage(next);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
+  }
+
   const target = SWITCH_TARGET[language];
   const TargetFlag = target.Flag;
 
@@ -22,7 +40,7 @@ export function LoginLoreText({ fontClassName }: { fontClassName: string }) {
     <>
       <button
         type="button"
-        onClick={() => setLanguage(target.code)}
+        onClick={() => handleSwitch(target.code)}
         aria-label={`Switch to ${target.label}`}
         className="wood-gold-button fixed top-4 left-4 z-30 flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold"
       >

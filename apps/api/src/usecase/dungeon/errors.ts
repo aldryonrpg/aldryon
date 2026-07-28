@@ -25,3 +25,17 @@ export class NoDungeonRunInProgressError extends Error {
     this.name = "NoDungeonRunInProgressError";
   }
 }
+
+export class DuplicateDungeonBossNameError extends Error {
+  constructor(name: string) {
+    super(`A dungeon boss named "${name}" already exists`);
+    this.name = "DuplicateDungeonBossNameError";
+  }
+}
+
+export class DungeonBossNotFoundError extends Error {
+  constructor() {
+    super("Dungeon boss not found");
+    this.name = "DungeonBossNotFoundError";
+  }
+}

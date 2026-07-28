@@ -1,11 +1,12 @@
 import type { UserProfile } from "@aldryon/dtos";
 import type { User } from "@/domain/user/User";
 
-export function mapUserToProfile(user: User): UserProfile {
+export function mapUserToProfile(user: User, isAdmin: boolean): UserProfile {
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    isAdmin,
   };
 }

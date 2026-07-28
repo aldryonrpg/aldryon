@@ -4,14 +4,24 @@ import type {
   AttributeKeyDto,
   ClaimLootResponse,
   ContinueDungeonResponse,
+  CreateDungeonBossRequest,
+  CreateDungeonBossResponse,
+  CreateMonsterRequest,
+  CreateMonsterResponse,
   DestroyBagItemResponse,
   DungeonLeaderboardResponse,
   EquipItemResponse,
   ExitDungeonRunResponse,
   ItemCatalogResponse,
   ItemRarityColorsResponse,
+  ListDungeonBossesAdminResponse,
+  ListMonstersAdminResponse,
   LoginResponse,
   MonsterRegionDto,
+  PatchDungeonBossRequest,
+  PatchDungeonBossResponse,
+  PatchMonsterRequest,
+  PatchMonsterResponse,
   PatchPlayerResponse,
   PlayerProfileResponse,
   PurchaseItemResponse,
@@ -190,4 +200,39 @@ export function purchaseItem(itemId: string): Promise<PurchaseItemResponse> {
 
 export function sellItem(playerItemId: string): Promise<SellItemResponse> {
   return authedFetch("/store/sell", { method: "POST", body: JSON.stringify({ playerItemId }) });
+}
+
+export function listMonstersAdmin(): Promise<ListMonstersAdminResponse> {
+  return authedFetch("/admin/monsters");
+}
+
+export function createMonsterAdmin(input: CreateMonsterRequest): Promise<CreateMonsterResponse> {
+  return authedFetch("/admin/monsters", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function patchMonsterAdmin(
+  id: string,
+  patch: PatchMonsterRequest,
+): Promise<PatchMonsterResponse> {
+  return authedFetch(`/admin/monsters/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function listDungeonBossesAdmin(): Promise<ListDungeonBossesAdminResponse> {
+  return authedFetch("/admin/dungeon-bosses");
+}
+
+export function createDungeonBossAdmin(
+  input: CreateDungeonBossRequest,
+): Promise<CreateDungeonBossResponse> {
+  return authedFetch("/admin/dungeon-bosses", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function patchDungeonBossAdmin(
+  id: string,
+  patch: PatchDungeonBossRequest,
+): Promise<PatchDungeonBossResponse> {
+  return authedFetch(`/admin/dungeon-bosses/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
