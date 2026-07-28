@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { SUPABASE_COOKIE_OPTIONS } from "@/lib/supabase/cookieOptions";
 
 type CookieToSet = {
   name: string;
@@ -9,7 +10,7 @@ type CookieToSet = {
 
 /** Paths that require an authenticated session — kept alongside the
  * matcher in proxy.ts so both lists stay in sync. */
-const PROTECTED_PATHS = ["/", "/battle", "/store"];
+const PROTECTED_PATHS = ["/", "/battle", "/store", "/admin"];
 
 /**
  * Route protection lives here (not per-page) so `/`, `/battle`, `/store`,
@@ -38,6 +39,7 @@ export async function updateSession(request: NextRequest) {
           }
         },
       },
+      cookieOptions: SUPABASE_COOKIE_OPTIONS,
     },
   );
 

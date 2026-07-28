@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createAdminController } from "@/interface/http/adminController";
+import type { AdminVariables } from "@/interface/http/adminMiddleware";
+import { createAdminMiddleware } from "@/interface/http/adminMiddleware";
 import { createAuthController } from "@/interface/http/authController";
 import type { AuthedVariables } from "@/interface/http/authMiddleware";
 import { createAuthMiddleware } from "@/interface/http/authMiddleware";
@@ -8,6 +11,7 @@ import { createDungeonController } from "@/interface/http/dungeonController";
 import { createItemController } from "@/interface/http/itemController";
 import { createPlayerController } from "@/interface/http/playerController";
 import { createStoreController } from "@/interface/http/storeController";
+import type { AdminRepository } from "@/usecase/admin/AdminRepository";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import type { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
@@ -19,11 +23,17 @@ import type { RunFromBattleUseCase } from "@/usecase/battle/RunFromBattleUseCase
 import type { StartBattleUseCase } from "@/usecase/battle/StartBattleUseCase";
 import type { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import type { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
+import type { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import type { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
 import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
+import type { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
+import type { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import type { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
 import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import type { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import type { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
+import type { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
 import type { EquipItemUseCase } from "@/usecase/player/EquipItemUseCase";
@@ -40,6 +50,7 @@ export interface AppDependencies {
   authenticateUserUseCase: AuthenticateUserUseCase;
   authGateway: AuthGateway;
   userRepository: UserRepository;
+  adminRepository: AdminRepository;
   getOrCreatePlayerUseCase: GetOrCreatePlayerUseCase;
   authIdentityCache: AuthIdentityCache;
   startBattleUseCase: StartBattleUseCase;
@@ -64,6 +75,12 @@ export interface AppDependencies {
   listStoreItemsUseCase: ListStoreItemsUseCase;
   purchaseItemUseCase: PurchaseItemUseCase;
   sellItemUseCase: SellItemUseCase;
+  listMonstersForAdminUseCase: ListMonstersForAdminUseCase;
+  createMonsterUseCase: CreateMonsterUseCase;
+  updateMonsterUseCase: UpdateMonsterUseCase;
+  listDungeonBossesForAdminUseCase: ListDungeonBossesForAdminUseCase;
+  createDungeonBossUseCase: CreateDungeonBossUseCase;
+  updateDungeonBossUseCase: UpdateDungeonBossUseCase;
   webOrigin: string;
 }
 
@@ -73,7 +90,7 @@ export function createApp(deps: AppDependencies): Hono {
   app.use("*", cors({ origin: deps.webOrigin, credentials: true }));
 
   app.get("/health", (c) => c.json({ status: "ok" }));
-  app.route("/", createAuthController(deps.authenticateUserUseCase));
+  app.route("/", createAuthController(deps.authenticateUserUseCase, deps.adminRepository));
 
   const authMiddleware = createAuthMiddleware(
     deps.authGateway,
@@ -132,6 +149,27 @@ export function createApp(deps: AppDependencies): Hono {
     }),
   );
   app.route("/", gameplay);
+
+  const adminMiddleware = createAdminMiddleware(
+    deps.authGateway,
+    deps.userRepository,
+    deps.adminRepository,
+  );
+
+  const admin = new Hono<{ Variables: AdminVariables }>();
+  admin.use("*", adminMiddleware);
+  admin.route(
+    "/",
+    createAdminController({
+      listMonstersForAdminUseCase: deps.listMonstersForAdminUseCase,
+      createMonsterUseCase: deps.createMonsterUseCase,
+      updateMonsterUseCase: deps.updateMonsterUseCase,
+      listDungeonBossesForAdminUseCase: deps.listDungeonBossesForAdminUseCase,
+      createDungeonBossUseCase: deps.createDungeonBossUseCase,
+      updateDungeonBossUseCase: deps.updateDungeonBossUseCase,
+    }),
+  );
+  app.route("/", admin);
 
   return app;
 }

@@ -10,6 +10,7 @@ export interface MonsterWithMoveset {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 1000;
 
 /**
  * Caches monster rows and movesets by monster id (perf follow-up): a
@@ -32,18 +33,77 @@ export class MonsterCatalogCache {
   // source of truth for monster data instead of a second full-object cache.
   private readonly regionIdsCache = new KeyedTtlCache<MonsterRegion, string[]>(CACHE_TTL_MS);
   private readonly excludingBossesIdsCache = new TtlCache<string[]>(CACHE_TTL_MS);
+  // Cross-replica invalidation sweep bookkeeping (plan9 follow-up) — see
+  // sweepExternalInvalidations below. Per-cache-instance, so each Render
+  // replica tracks its own view independently, same as the caches above.
+  private lastSweepAt = 0;
+  private readonly lastSeenUpdatedAt = new Map<string, number>();
 
   constructor(
     private readonly monsterRepository: MonsterRepository,
     private readonly monsterAttackRepository: MonsterAttackRepository,
+    private readonly sweepIntervalMs: number = SWEEP_INTERVAL_MS,
   ) {}
 
+  /** Drops a monster's cached row (and moveset) so the next read re-fetches
+   * from Postgres — used after an admin edit (plan9 §4) so a live battle
+   * doesn't keep seeing the pre-edit stats for up to CACHE_TTL_MS. Doesn't
+   * touch the region/exclude-bosses id-list caches: a patch never changes
+   * which ids exist, only a create does, and a newly created monster is
+   * fine waiting out its own TTL for those rarely-read lists. */
+  evict(monsterId: string): void {
+    this.monsterCache.delete(monsterId);
+    this.movesetCache.delete(monsterId);
+  }
+
+  /**
+   * `evict()` only clears the cache on the one Render replica that handled
+   * an admin's PATCH request — every OTHER replica's `MonsterCatalogCache`
+   * instance is a separate in-memory object with no way to hear about that
+   * (plan9 follow-up: "we might have like 3 instances"). This closes that
+   * gap without a pub/sub layer: at most once per `sweepIntervalMs`, compare
+   * every currently-cached id's `updated_at` (Postgres, cheap point-selects)
+   * against what this instance last saw for that id. A mismatch means some
+   * OTHER process wrote to that row since we cached it, so we evict it here
+   * too. Comparing two DB-observed timestamps (never this process's own
+   * clock) sidesteps any app/DB clock-skew risk entirely.
+   */
+  private async sweepExternalInvalidations(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastSweepAt < this.sweepIntervalMs) return;
+    this.lastSweepAt = now;
+
+    const cachedIds = this.monsterCache.keys();
+    if (cachedIds.length === 0) return;
+
+    const current = await this.monsterRepository.findUpdatedAtByIds(cachedIds);
+    for (const [id, updatedAt] of Object.entries(current)) {
+      const lastSeen = this.lastSeenUpdatedAt.get(id);
+      if (lastSeen !== undefined && lastSeen !== updatedAt) {
+        this.evict(id);
+      }
+      this.lastSeenUpdatedAt.set(id, updatedAt);
+    }
+  }
+
   async getMonster(monsterId: string): Promise<Monster | null> {
+    await this.sweepExternalInvalidations();
+
     const cached = this.monsterCache.get(monsterId);
     if (cached) return cached;
 
     const monster = await this.monsterRepository.findById(monsterId);
-    if (monster) this.monsterCache.set(monsterId, monster);
+    if (monster) {
+      this.monsterCache.set(monsterId, monster);
+      // Baseline lastSeenUpdatedAt right here, at the moment we cache a
+      // fresh row — not lazily on whatever later sweep pass first notices
+      // this id. Otherwise a change landing between this fetch and that
+      // first sweep pass would just get folded into the baseline instead of
+      // detected, silently absorbing exactly one external write per id.
+      const updatedAt = await this.monsterRepository.findUpdatedAtByIds([monsterId]);
+      const seen = updatedAt[monsterId];
+      if (seen !== undefined) this.lastSeenUpdatedAt.set(monsterId, seen);
+    }
     return monster;
   }
 

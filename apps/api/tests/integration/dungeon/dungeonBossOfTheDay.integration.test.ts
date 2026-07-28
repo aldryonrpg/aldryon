@@ -18,9 +18,18 @@ class CountingDungeonBossRepository implements DungeonBossRepository {
   async findById(id: string): Promise<DungeonBoss | null> {
     return this.real.findById(id);
   }
+  async findByName(name: string): Promise<DungeonBoss | null> {
+    return this.real.findByName(name);
+  }
   async findAll(): Promise<DungeonBoss[]> {
     this.calls += 1;
     return this.real.findAll();
+  }
+  async create(dungeonBoss: DungeonBoss): Promise<DungeonBoss> {
+    return this.real.create(dungeonBoss);
+  }
+  async update(dungeonBoss: DungeonBoss): Promise<DungeonBoss> {
+    return this.real.update(dungeonBoss);
   }
 }
 

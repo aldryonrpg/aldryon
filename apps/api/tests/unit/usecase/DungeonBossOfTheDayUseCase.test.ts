@@ -38,8 +38,20 @@ class FakeDungeonBossRepository implements DungeonBossRepository {
   async findById(id: string) {
     return this.bosses.find((b) => b.id === id) ?? null;
   }
+  async findByName(name: string) {
+    return this.bosses.find((b) => b.name === name) ?? null;
+  }
   async findAll() {
     return [...this.bosses];
+  }
+  async create(dungeonBoss: DungeonBoss) {
+    this.bosses.push(dungeonBoss);
+    return dungeonBoss;
+  }
+  async update(dungeonBoss: DungeonBoss) {
+    const index = this.bosses.findIndex((b) => b.id === dungeonBoss.id);
+    if (index !== -1) this.bosses[index] = dungeonBoss;
+    return dungeonBoss;
   }
 }
 
@@ -61,6 +73,13 @@ class FakeMonsterRepository implements MonsterRepository {
   async create(monster: Monster) {
     this.byName.set(monster.name, monster);
     return monster;
+  }
+  async update(monster: Monster) {
+    this.byName.set(monster.name, monster);
+    return monster;
+  }
+  async findUpdatedAtByIds() {
+    return {};
   }
   async deleteStaleDungeonBossRows(currentBossName: string) {
     this.deleteCalls.push(currentBossName);
