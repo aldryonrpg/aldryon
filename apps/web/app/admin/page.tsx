@@ -25,6 +25,9 @@ import {
   createItemAdmin,
   createMonsterAdmin,
   createMonsterAttackAdmin,
+  getDungeonBossNormalAttacksAdmin,
+  getDungeonBossSpecialAttacksAdmin,
+  getMonsterNormalAttacksAdmin,
   listAttacksAdmin,
   listDungeonBossesAdmin,
   listItemsAdmin,
@@ -35,6 +38,9 @@ import {
   patchItemAdmin,
   patchMonsterAdmin,
   patchMonsterAttackAdmin,
+  setDungeonBossNormalAttacksAdmin,
+  setDungeonBossSpecialAttacksAdmin,
+  setMonsterNormalAttacksAdmin,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
@@ -579,16 +585,153 @@ function CheckboxField({
   );
 }
 
+/**
+ * Multi-select picker backing GET/PUT /admin/{monsters,dungeon-bosses}/:id/
+ * {normal,special}-attacks — a separate resource from the entity's own
+ * create/patch flow (own GET/save lifecycle, own DTO), so it manages its own
+ * fetch-on-mount + save state rather than folding into the parent form's
+ * submit. `fetchFn`/`saveFn` must be stable module-level function
+ * references (not inline closures) — they're a useEffect dependency, and an
+ * inline closure would re-identity every parent render and refetch on every
+ * keystroke elsewhere in the form.
+ */
+function AttackMultiSelect({
+  title,
+  options,
+  entityId,
+  fetchFn,
+  saveFn,
+  maxSelected,
+}: {
+  title: string;
+  options: MonsterAttackAdminDto[];
+  entityId: string;
+  fetchFn: (id: string) => Promise<string[]>;
+  saveFn: (id: string, attackIds: string[]) => Promise<string[]>;
+  maxSelected?: number;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    fetchFn(entityId)
+      .then((ids) => {
+        if (cancelled) return;
+        setSelected(ids);
+        setDirty(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : "Failed to load");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchFn, entityId]);
+
+  const atCap = maxSelected !== undefined && selected.length >= maxSelected;
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const ids = Array.from(e.target.selectedOptions).map((option) => option.value);
+    // Belt-and-suspenders: each option beyond the cap is also individually
+    // `disabled` below, so the browser shouldn't let this fire with too many
+    // selected in the first place.
+    if (maxSelected !== undefined && ids.length > maxSelected) return;
+    setSelected(ids);
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const saved = await saveFn(entityId, selected);
+      setSelected(saved);
+      setDirty(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border border-white bg-black p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-stone-400">
+          {title}
+          {maxSelected !== undefined && ` (${selected.length}/${maxSelected})`}
+        </p>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || loading || !dirty}
+          className="battle-button rounded-md px-3 py-1 text-xs"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+      {loadError && <p className="text-sm text-red-400">{loadError}</p>}
+      {saveError && <p className="text-sm text-red-400">{saveError}</p>}
+      {loading ? (
+        <p className="text-xs text-stone-400">Loading...</p>
+      ) : options.length === 0 ? (
+        <p className="text-xs text-stone-400">No matching attacks in the catalog yet.</p>
+      ) : (
+        <>
+          <select
+            multiple
+            value={selected}
+            onChange={handleChange}
+            size={Math.min(Math.max(options.length, 3), 8)}
+            className="border border-white bg-black px-2 py-1 text-sm text-stone-100"
+          >
+            {options.map((attack) => (
+              <option
+                key={attack.id}
+                value={attack.id}
+                disabled={!selected.includes(attack.id) && atCap}
+              >
+                {attack.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-stone-500">
+            Ctrl/Cmd-click (or Shift-click for a range) to select multiple.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MonsterForm({
   initial,
   submitLabel,
   onSubmit,
   onCancel,
+  monsterId,
+  monsterAttackCatalog,
 }: {
   initial: MonsterFormState;
   submitLabel: string;
   onSubmit: (form: MonsterFormState) => Promise<void>;
   onCancel?: () => void;
+  /** Only set when editing an existing monster — the normal-attacks picker
+   * below needs a saved row to link against, so it's omitted entirely on
+   * the "New Monster" create form. */
+  monsterId?: string;
+  monsterAttackCatalog?: MonsterAttackAdminDto[];
 }) {
   const [form, setForm] = useState(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -736,6 +879,16 @@ function MonsterForm({
         </label>
       </div>
 
+      {monsterId && (
+        <AttackMultiSelect
+          title="Normal Attacks"
+          options={(monsterAttackCatalog ?? []).filter((attack) => !attack.isSpecial)}
+          entityId={monsterId}
+          fetchFn={getMonsterNormalAttacksAdmin}
+          saveFn={setMonsterNormalAttacksAdmin}
+        />
+      )}
+
       <div className="flex gap-2">
         <button type="submit" disabled={submitting} className="battle-button rounded-md px-4 py-2">
           {submitting ? "Saving..." : submitLabel}
@@ -759,11 +912,18 @@ function DungeonBossForm({
   submitLabel,
   onSubmit,
   onCancel,
+  bossId,
+  monsterAttackCatalog,
 }: {
   initial: DungeonBossFormState;
   submitLabel: string;
   onSubmit: (form: DungeonBossFormState) => Promise<void>;
   onCancel?: () => void;
+  /** Only set when editing an existing boss — the attack pickers below need
+   * a saved row to link against, so they're omitted on the "New Boss"
+   * create form. */
+  bossId?: string;
+  monsterAttackCatalog?: MonsterAttackAdminDto[];
 }) {
   const [form, setForm] = useState(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -889,6 +1049,26 @@ function DungeonBossForm({
           />
         </label>
       </div>
+
+      {bossId && (
+        <>
+          <AttackMultiSelect
+            title="Normal Attacks"
+            options={(monsterAttackCatalog ?? []).filter((attack) => !attack.isSpecial)}
+            entityId={bossId}
+            fetchFn={getDungeonBossNormalAttacksAdmin}
+            saveFn={setDungeonBossNormalAttacksAdmin}
+          />
+          <AttackMultiSelect
+            title="Special Attacks"
+            options={(monsterAttackCatalog ?? []).filter((attack) => attack.isSpecial)}
+            entityId={bossId}
+            fetchFn={getDungeonBossSpecialAttacksAdmin}
+            saveFn={setDungeonBossSpecialAttacksAdmin}
+            maxSelected={2}
+          />
+        </>
+      )}
 
       <div className="flex gap-2">
         <button type="submit" disabled={submitting} className="battle-button rounded-md px-4 py-2">
@@ -1360,10 +1540,16 @@ export default function AdminPage() {
   const [creatingAttack, setCreatingAttack] = useState(false);
   const [editingAttackId, setEditingAttackId] = useState<string | null>(null);
   const [attackSearchQuery, setAttackSearchQuery] = useState("");
+  const [attackTypeFilter, setAttackTypeFilter] = useState<
+    "all" | (typeof ATTACK_SCALING_ATTRIBUTES)[number]
+  >("all");
   const [monsterAttacks, setMonsterAttacks] = useState<MonsterAttackAdminDto[]>([]);
   const [creatingMonsterAttack, setCreatingMonsterAttack] = useState(false);
   const [editingMonsterAttackId, setEditingMonsterAttackId] = useState<string | null>(null);
   const [monsterAttackSearchQuery, setMonsterAttackSearchQuery] = useState("");
+  const [monsterAttackTypeFilter, setMonsterAttackTypeFilter] = useState<
+    "all" | (typeof ATTACK_SCALING_ATTRIBUTES)[number]
+  >("all");
   const [activeTab, setActiveTab] = useState<
     "monsters" | "bosses" | "items" | "attacks" | "monsterAttacks"
   >("monsters");
@@ -1524,17 +1710,23 @@ export default function AdminPage() {
   });
 
   const normalizedAttackQuery = attackSearchQuery.trim().toLowerCase();
-  const filteredAttacks = attacks.filter(
-    (attack) =>
-      normalizedAttackQuery === "" || attack.name.toLowerCase().includes(normalizedAttackQuery),
-  );
+  const filteredAttacks = attacks.filter((attack) => {
+    const matchesType = attackTypeFilter === "all" || attack.scalingAttribute === attackTypeFilter;
+    const matchesQuery =
+      normalizedAttackQuery === "" || attack.name.toLowerCase().includes(normalizedAttackQuery);
+    return matchesType && matchesQuery;
+  });
 
   const normalizedMonsterAttackQuery = monsterAttackSearchQuery.trim().toLowerCase();
-  const filteredMonsterAttacks = monsterAttacks.filter(
-    (monsterAttack) =>
+  const filteredMonsterAttacks = monsterAttacks.filter((monsterAttack) => {
+    const matchesType =
+      monsterAttackTypeFilter === "all" ||
+      monsterAttack.scalingAttribute === monsterAttackTypeFilter;
+    const matchesQuery =
       normalizedMonsterAttackQuery === "" ||
-      monsterAttack.name.toLowerCase().includes(normalizedMonsterAttackQuery),
-  );
+      monsterAttack.name.toLowerCase().includes(normalizedMonsterAttackQuery);
+    return matchesType && matchesQuery;
+  });
 
   return (
     <main className="min-h-screen bg-black p-6 text-stone-100">
@@ -1669,6 +1861,8 @@ export default function AdminPage() {
                     submitLabel="Save Changes"
                     onSubmit={(form) => handleEdit(monster.id, form)}
                     onCancel={() => setEditingId(null)}
+                    monsterId={monster.id}
+                    monsterAttackCatalog={monsterAttacks}
                   />
                 ) : (
                   <div
@@ -1745,6 +1939,8 @@ export default function AdminPage() {
                     submitLabel="Save Changes"
                     onSubmit={(form) => handleEditBoss(dungeonBoss.id, form)}
                     onCancel={() => setEditingBossId(null)}
+                    bossId={dungeonBoss.id}
+                    monsterAttackCatalog={monsterAttacks}
                   />
                 ) : (
                   <div
@@ -1924,6 +2120,25 @@ export default function AdminPage() {
                   className="w-96 border border-white bg-black px-2 py-1 text-sm text-stone-100"
                 />
               </label>
+              <label className="flex flex-col gap-1 text-xs text-stone-400">
+                Type
+                <select
+                  value={attackTypeFilter}
+                  onChange={(e) =>
+                    setAttackTypeFilter(
+                      e.target.value as "all" | (typeof ATTACK_SCALING_ATTRIBUTES)[number],
+                    )
+                  }
+                  className="border border-white bg-black px-2 py-1 text-sm text-stone-100"
+                >
+                  <option value="all">All types</option>
+                  {ATTACK_SCALING_ATTRIBUTES.map((scalingAttribute) => (
+                    <option key={scalingAttribute} value={scalingAttribute}>
+                      {formatEnumLabel(scalingAttribute)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <span className="text-xs text-stone-400">
                 {filteredAttacks.length} of {attacks.length} attacks
               </span>
@@ -2006,6 +2221,25 @@ export default function AdminPage() {
                   placeholder="Monster attack name..."
                   className="w-96 border border-white bg-black px-2 py-1 text-sm text-stone-100"
                 />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-stone-400">
+                Type
+                <select
+                  value={monsterAttackTypeFilter}
+                  onChange={(e) =>
+                    setMonsterAttackTypeFilter(
+                      e.target.value as "all" | (typeof ATTACK_SCALING_ATTRIBUTES)[number],
+                    )
+                  }
+                  className="border border-white bg-black px-2 py-1 text-sm text-stone-100"
+                >
+                  <option value="all">All types</option>
+                  {ATTACK_SCALING_ATTRIBUTES.map((scalingAttribute) => (
+                    <option key={scalingAttribute} value={scalingAttribute}>
+                      {formatEnumLabel(scalingAttribute)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <span className="text-xs text-stone-400">
                 {filteredMonsterAttacks.length} of {monsterAttacks.length} monster attacks

@@ -35,8 +35,12 @@ import { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase
 import { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
+import { GetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossNormalAttacksUseCase";
+import { GetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossSpecialAttacksUseCase";
 import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
+import { SetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossNormalAttacksUseCase";
+import { SetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossSpecialAttacksUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
@@ -46,9 +50,11 @@ import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import { UpdateItemUseCase } from "@/usecase/item/UpdateItemUseCase";
 import { CreateMonsterAttackUseCase } from "@/usecase/monster/CreateMonsterAttackUseCase";
 import { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import { GetMonsterNormalAttacksUseCase } from "@/usecase/monster/GetMonsterNormalAttacksUseCase";
 import { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
 import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
+import { SetMonsterNormalAttacksUseCase } from "@/usecase/monster/SetMonsterNormalAttacksUseCase";
 import { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
@@ -257,11 +263,35 @@ const updateMonsterUseCase = new UpdateMonsterUseCase(
   monsterCatalogCache,
   battleRepository,
 );
+const getMonsterNormalAttacksUseCase = new GetMonsterNormalAttacksUseCase(
+  monsterRepository,
+  monsterAttackRepository,
+);
+const setMonsterNormalAttacksUseCase = new SetMonsterNormalAttacksUseCase(
+  monsterRepository,
+  monsterAttackRepository,
+);
 const listDungeonBossesForAdminUseCase = new ListDungeonBossesForAdminUseCase(
   dungeonBossRepository,
 );
 const createDungeonBossUseCase = new CreateDungeonBossUseCase(dungeonBossRepository);
 const updateDungeonBossUseCase = new UpdateDungeonBossUseCase(dungeonBossRepository);
+const getDungeonBossSpecialAttacksUseCase = new GetDungeonBossSpecialAttacksUseCase(
+  dungeonBossRepository,
+  monsterAttackRepository,
+);
+const setDungeonBossSpecialAttacksUseCase = new SetDungeonBossSpecialAttacksUseCase(
+  dungeonBossRepository,
+  monsterAttackRepository,
+);
+const getDungeonBossNormalAttacksUseCase = new GetDungeonBossNormalAttacksUseCase(
+  dungeonBossRepository,
+  monsterAttackRepository,
+);
+const setDungeonBossNormalAttacksUseCase = new SetDungeonBossNormalAttacksUseCase(
+  dungeonBossRepository,
+  monsterAttackRepository,
+);
 const listItemsForAdminUseCase = new ListItemsForAdminUseCase(itemRepository);
 const createItemUseCase = new CreateItemUseCase(itemRepository);
 const updateItemUseCase = new UpdateItemUseCase(itemRepository);
@@ -306,9 +336,15 @@ const app = createApp({
   listMonstersForAdminUseCase,
   createMonsterUseCase,
   updateMonsterUseCase,
+  getMonsterNormalAttacksUseCase,
+  setMonsterNormalAttacksUseCase,
   listDungeonBossesForAdminUseCase,
   createDungeonBossUseCase,
   updateDungeonBossUseCase,
+  getDungeonBossSpecialAttacksUseCase,
+  setDungeonBossSpecialAttacksUseCase,
+  getDungeonBossNormalAttacksUseCase,
+  setDungeonBossNormalAttacksUseCase,
   listItemsForAdminUseCase,
   createItemUseCase,
   updateItemUseCase,

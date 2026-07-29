@@ -28,8 +28,12 @@ import type { UseBagItemUseCase } from "@/usecase/battle/UseBagItemUseCase";
 import type { ContinueDungeonUseCase } from "@/usecase/dungeon/ContinueDungeonUseCase";
 import type { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import type { ExitDungeonRunUseCase } from "@/usecase/dungeon/ExitDungeonRunUseCase";
+import type { GetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossNormalAttacksUseCase";
+import type { GetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossSpecialAttacksUseCase";
 import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeonSlayerLeaderboardUseCase";
 import type { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
+import type { SetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossNormalAttacksUseCase";
+import type { SetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossSpecialAttacksUseCase";
 import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import type { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import type { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
@@ -39,8 +43,10 @@ import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
 import type { UpdateItemUseCase } from "@/usecase/item/UpdateItemUseCase";
 import type { CreateMonsterAttackUseCase } from "@/usecase/monster/CreateMonsterAttackUseCase";
 import type { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import type { GetMonsterNormalAttacksUseCase } from "@/usecase/monster/GetMonsterNormalAttacksUseCase";
 import type { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import type { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
+import type { SetMonsterNormalAttacksUseCase } from "@/usecase/monster/SetMonsterNormalAttacksUseCase";
 import type { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import type { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
@@ -87,9 +93,15 @@ export interface AppDependencies {
   listMonstersForAdminUseCase: ListMonstersForAdminUseCase;
   createMonsterUseCase: CreateMonsterUseCase;
   updateMonsterUseCase: UpdateMonsterUseCase;
+  getMonsterNormalAttacksUseCase: GetMonsterNormalAttacksUseCase;
+  setMonsterNormalAttacksUseCase: SetMonsterNormalAttacksUseCase;
   listDungeonBossesForAdminUseCase: ListDungeonBossesForAdminUseCase;
   createDungeonBossUseCase: CreateDungeonBossUseCase;
   updateDungeonBossUseCase: UpdateDungeonBossUseCase;
+  getDungeonBossSpecialAttacksUseCase: GetDungeonBossSpecialAttacksUseCase;
+  setDungeonBossSpecialAttacksUseCase: SetDungeonBossSpecialAttacksUseCase;
+  getDungeonBossNormalAttacksUseCase: GetDungeonBossNormalAttacksUseCase;
+  setDungeonBossNormalAttacksUseCase: SetDungeonBossNormalAttacksUseCase;
   listItemsForAdminUseCase: ListItemsForAdminUseCase;
   createItemUseCase: CreateItemUseCase;
   updateItemUseCase: UpdateItemUseCase;
@@ -182,9 +194,15 @@ export function createApp(deps: AppDependencies): Hono {
       listMonstersForAdminUseCase: deps.listMonstersForAdminUseCase,
       createMonsterUseCase: deps.createMonsterUseCase,
       updateMonsterUseCase: deps.updateMonsterUseCase,
+      getMonsterNormalAttacksUseCase: deps.getMonsterNormalAttacksUseCase,
+      setMonsterNormalAttacksUseCase: deps.setMonsterNormalAttacksUseCase,
       listDungeonBossesForAdminUseCase: deps.listDungeonBossesForAdminUseCase,
       createDungeonBossUseCase: deps.createDungeonBossUseCase,
       updateDungeonBossUseCase: deps.updateDungeonBossUseCase,
+      getDungeonBossSpecialAttacksUseCase: deps.getDungeonBossSpecialAttacksUseCase,
+      setDungeonBossSpecialAttacksUseCase: deps.setDungeonBossSpecialAttacksUseCase,
+      getDungeonBossNormalAttacksUseCase: deps.getDungeonBossNormalAttacksUseCase,
+      setDungeonBossNormalAttacksUseCase: deps.setDungeonBossNormalAttacksUseCase,
       listItemsForAdminUseCase: deps.listItemsForAdminUseCase,
       createItemUseCase: deps.createItemUseCase,
       updateItemUseCase: deps.updateItemUseCase,

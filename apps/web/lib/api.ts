@@ -18,6 +18,9 @@ import type {
   DungeonLeaderboardResponse,
   EquipItemResponse,
   ExitDungeonRunResponse,
+  GetDungeonBossNormalAttacksResponse,
+  GetDungeonBossSpecialAttacksResponse,
+  GetMonsterNormalAttacksResponse,
   ItemCatalogResponse,
   ItemRarityColorsResponse,
   ListAttacksAdminResponse,
@@ -41,6 +44,9 @@ import type {
   PlayerProfileResponse,
   PurchaseItemResponse,
   SellItemResponse,
+  SetDungeonBossNormalAttacksResponse,
+  SetDungeonBossSpecialAttacksResponse,
+  SetMonsterNormalAttacksResponse,
   StartBattleResponse,
   StartDungeonResponse,
   StoreListResponse,
@@ -232,6 +238,27 @@ export function patchMonsterAdmin(
   return authedFetch(`/admin/monsters/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
+/** Normalized to a plain string[] (unwrapping the `{normalAttackIds}`
+ * envelope) so callers/UI don't need to know the response field name — same
+ * for the other 5 moveset get/set functions below. */
+export async function getMonsterNormalAttacksAdmin(id: string): Promise<string[]> {
+  const res = await authedFetch<GetMonsterNormalAttacksResponse>(
+    `/admin/monsters/${id}/normal-attacks`,
+  );
+  return res.normalAttackIds;
+}
+
+export async function setMonsterNormalAttacksAdmin(
+  id: string,
+  attackIds: string[],
+): Promise<string[]> {
+  const res = await authedFetch<SetMonsterNormalAttacksResponse>(
+    `/admin/monsters/${id}/normal-attacks`,
+    { method: "PUT", body: JSON.stringify({ attackIds }) },
+  );
+  return res.normalAttackIds;
+}
+
 export function listDungeonBossesAdmin(): Promise<ListDungeonBossesAdminResponse> {
   return authedFetch("/admin/dungeon-bosses");
 }
@@ -240,6 +267,42 @@ export function createDungeonBossAdmin(
   input: CreateDungeonBossRequest,
 ): Promise<CreateDungeonBossResponse> {
   return authedFetch("/admin/dungeon-bosses", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function getDungeonBossNormalAttacksAdmin(id: string): Promise<string[]> {
+  const res = await authedFetch<GetDungeonBossNormalAttacksResponse>(
+    `/admin/dungeon-bosses/${id}/normal-attacks`,
+  );
+  return res.normalAttackIds;
+}
+
+export async function setDungeonBossNormalAttacksAdmin(
+  id: string,
+  attackIds: string[],
+): Promise<string[]> {
+  const res = await authedFetch<SetDungeonBossNormalAttacksResponse>(
+    `/admin/dungeon-bosses/${id}/normal-attacks`,
+    { method: "PUT", body: JSON.stringify({ attackIds }) },
+  );
+  return res.normalAttackIds;
+}
+
+export async function getDungeonBossSpecialAttacksAdmin(id: string): Promise<string[]> {
+  const res = await authedFetch<GetDungeonBossSpecialAttacksResponse>(
+    `/admin/dungeon-bosses/${id}/special-attacks`,
+  );
+  return res.specialAttackIds;
+}
+
+export async function setDungeonBossSpecialAttacksAdmin(
+  id: string,
+  attackIds: string[],
+): Promise<string[]> {
+  const res = await authedFetch<SetDungeonBossSpecialAttacksResponse>(
+    `/admin/dungeon-bosses/${id}/special-attacks`,
+    { method: "PUT", body: JSON.stringify({ attackIds }) },
+  );
+  return res.specialAttackIds;
 }
 
 export function patchDungeonBossAdmin(

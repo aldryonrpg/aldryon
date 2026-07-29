@@ -9,6 +9,9 @@ import {
   PatchItemRequestSchema,
   PatchMonsterAttackRequestSchema,
   PatchMonsterRequestSchema,
+  SetDungeonBossNormalAttacksRequestSchema,
+  SetDungeonBossSpecialAttacksRequestSchema,
+  SetMonsterNormalAttacksRequestSchema,
 } from "@aldryon/dtos";
 import { Hono } from "hono";
 import type { AdminVariables } from "@/interface/http/adminMiddleware";
@@ -23,7 +26,11 @@ import type { ListAttacksForAdminUseCase } from "@/usecase/attack/ListAttacksFor
 import type { UpdateAttackUseCase } from "@/usecase/attack/UpdateAttackUseCase";
 import type { CreateDungeonBossUseCase } from "@/usecase/dungeon/CreateDungeonBossUseCase";
 import { DungeonBossNotFoundError, DuplicateDungeonBossNameError } from "@/usecase/dungeon/errors";
+import type { GetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossNormalAttacksUseCase";
+import type { GetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/GetDungeonBossSpecialAttacksUseCase";
 import type { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
+import type { SetDungeonBossNormalAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossNormalAttacksUseCase";
+import type { SetDungeonBossSpecialAttacksUseCase } from "@/usecase/dungeon/SetDungeonBossSpecialAttacksUseCase";
 import type { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
 import type { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
 import { DuplicateItemNameError, ItemNotFoundError } from "@/usecase/item/errors";
@@ -37,8 +44,10 @@ import {
   MonsterAttackNotFoundError,
   MonsterNotFoundError,
 } from "@/usecase/monster/errors";
+import type { GetMonsterNormalAttacksUseCase } from "@/usecase/monster/GetMonsterNormalAttacksUseCase";
 import type { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import type { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
+import type { SetMonsterNormalAttacksUseCase } from "@/usecase/monster/SetMonsterNormalAttacksUseCase";
 import type { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import type { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 
@@ -46,9 +55,15 @@ export interface AdminControllerDeps {
   listMonstersForAdminUseCase: ListMonstersForAdminUseCase;
   createMonsterUseCase: CreateMonsterUseCase;
   updateMonsterUseCase: UpdateMonsterUseCase;
+  getMonsterNormalAttacksUseCase: GetMonsterNormalAttacksUseCase;
+  setMonsterNormalAttacksUseCase: SetMonsterNormalAttacksUseCase;
   listDungeonBossesForAdminUseCase: ListDungeonBossesForAdminUseCase;
   createDungeonBossUseCase: CreateDungeonBossUseCase;
   updateDungeonBossUseCase: UpdateDungeonBossUseCase;
+  getDungeonBossSpecialAttacksUseCase: GetDungeonBossSpecialAttacksUseCase;
+  setDungeonBossSpecialAttacksUseCase: SetDungeonBossSpecialAttacksUseCase;
+  getDungeonBossNormalAttacksUseCase: GetDungeonBossNormalAttacksUseCase;
+  setDungeonBossNormalAttacksUseCase: SetDungeonBossNormalAttacksUseCase;
   listItemsForAdminUseCase: ListItemsForAdminUseCase;
   createItemUseCase: CreateItemUseCase;
   updateItemUseCase: UpdateItemUseCase;
@@ -118,6 +133,50 @@ export function createAdminController(
     }
   });
 
+  app.get("/admin/monsters/:id/normal-attacks", async (c) => {
+    try {
+      const normalAttackIds = await deps.getMonsterNormalAttacksUseCase.execute(c.req.param("id"));
+      return c.json({ normalAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof MonsterNotFoundError) {
+        return c.json({ error: { code: "MONSTER_NOT_FOUND", message: err.message } }, 404);
+      }
+      throw err;
+    }
+  });
+
+  app.put("/admin/monsters/:id/normal-attacks", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = SetMonsterNormalAttacksRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        {
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Malformed set-monster-normal-attacks request",
+          },
+        },
+        400,
+      );
+    }
+
+    try {
+      const normalAttackIds = await deps.setMonsterNormalAttacksUseCase.execute({
+        monsterId: c.req.param("id"),
+        attackIds: parsed.data.attackIds,
+      });
+      return c.json({ normalAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof MonsterNotFoundError) {
+        return c.json({ error: { code: "MONSTER_NOT_FOUND", message: err.message } }, 404);
+      }
+      if (err instanceof MonsterAttackNotFoundError) {
+        return c.json({ error: { code: "MONSTER_ATTACK_NOT_FOUND", message: err.message } }, 404);
+      }
+      throw err;
+    }
+  });
+
   app.get("/admin/dungeon-bosses", async (c) => {
     const dungeonBosses = await deps.listDungeonBossesForAdminUseCase.execute();
     return c.json({ dungeonBosses: dungeonBosses.map(mapDungeonBossToAdminDto) }, 200);
@@ -172,6 +231,98 @@ export function createAdminController(
           { error: { code: "DUPLICATE_DUNGEON_BOSS_NAME", message: err.message } },
           409,
         );
+      }
+      throw err;
+    }
+  });
+
+  app.get("/admin/dungeon-bosses/:id/special-attacks", async (c) => {
+    try {
+      const specialAttackIds = await deps.getDungeonBossSpecialAttacksUseCase.execute(
+        c.req.param("id"),
+      );
+      return c.json({ specialAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof DungeonBossNotFoundError) {
+        return c.json({ error: { code: "DUNGEON_BOSS_NOT_FOUND", message: err.message } }, 404);
+      }
+      throw err;
+    }
+  });
+
+  app.put("/admin/dungeon-bosses/:id/special-attacks", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = SetDungeonBossSpecialAttacksRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        {
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Malformed set-dungeon-boss-special-attacks request",
+          },
+        },
+        400,
+      );
+    }
+
+    try {
+      const specialAttackIds = await deps.setDungeonBossSpecialAttacksUseCase.execute({
+        dungeonBossId: c.req.param("id"),
+        attackIds: parsed.data.attackIds,
+      });
+      return c.json({ specialAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof DungeonBossNotFoundError) {
+        return c.json({ error: { code: "DUNGEON_BOSS_NOT_FOUND", message: err.message } }, 404);
+      }
+      if (err instanceof MonsterAttackNotFoundError) {
+        return c.json({ error: { code: "MONSTER_ATTACK_NOT_FOUND", message: err.message } }, 404);
+      }
+      throw err;
+    }
+  });
+
+  app.get("/admin/dungeon-bosses/:id/normal-attacks", async (c) => {
+    try {
+      const normalAttackIds = await deps.getDungeonBossNormalAttacksUseCase.execute(
+        c.req.param("id"),
+      );
+      return c.json({ normalAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof DungeonBossNotFoundError) {
+        return c.json({ error: { code: "DUNGEON_BOSS_NOT_FOUND", message: err.message } }, 404);
+      }
+      throw err;
+    }
+  });
+
+  app.put("/admin/dungeon-bosses/:id/normal-attacks", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = SetDungeonBossNormalAttacksRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        {
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Malformed set-dungeon-boss-normal-attacks request",
+          },
+        },
+        400,
+      );
+    }
+
+    try {
+      const normalAttackIds = await deps.setDungeonBossNormalAttacksUseCase.execute({
+        dungeonBossId: c.req.param("id"),
+        attackIds: parsed.data.attackIds,
+      });
+      return c.json({ normalAttackIds }, 200);
+    } catch (err) {
+      if (err instanceof DungeonBossNotFoundError) {
+        return c.json({ error: { code: "DUNGEON_BOSS_NOT_FOUND", message: err.message } }, 404);
+      }
+      if (err instanceof MonsterAttackNotFoundError) {
+        return c.json({ error: { code: "MONSTER_ATTACK_NOT_FOUND", message: err.message } }, 404);
       }
       throw err;
     }
