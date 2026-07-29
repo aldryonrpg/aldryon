@@ -123,4 +123,68 @@ export class PostgresItemRepository implements ItemRepository {
     const rows = await this.sql<ItemRow[]>`select * from items order by name asc`;
     return rows.map(toDomain);
   }
+
+  /** Refreshes this repository's own per-id cache with the freshly-saved
+   * row immediately — unlike Monster (a separate injectable
+   * MonsterCatalogCache the usecase evicts), this cache is private to the
+   * repository itself, so keeping it correct on write is this class's own
+   * job, not something an external caller needs to know to do. */
+  async create(item: Item): Promise<Item> {
+    const props = item.toProps();
+    const attrs = props.attributeBonuses;
+
+    const rows = await this.sql<ItemRow[]>`
+      insert into items (
+        id, name, description, value, rarity, slot,
+        strength, dexterity, agility, intelligence, vitality, luck,
+        hp_restore, reveals_all_monster_attributes, set_name, store_purchasable,
+        item_image, is_permanent
+      ) values (
+        ${props.id}, ${props.name}, ${props.description}, ${props.value}, ${props.rarity}, ${props.slot},
+        ${attrs.strength}, ${attrs.dexterity}, ${attrs.agility}, ${attrs.intelligence}, ${attrs.vitality}, ${attrs.luck},
+        ${props.hpRestore}, ${props.revealsAllMonsterAttributes}, ${props.setName}, ${props.storePurchasable},
+        ${props.itemImage}, ${props.isPermanent}
+      )
+      returning *
+    `;
+    const saved = rows[0];
+    if (!saved) throw new Error("Failed to create item: no row returned");
+    const domain = toDomain(saved);
+    this.cache.set(domain.id, domain);
+    return domain;
+  }
+
+  async update(item: Item): Promise<Item> {
+    const props = item.toProps();
+    const attrs = props.attributeBonuses;
+
+    const rows = await this.sql<ItemRow[]>`
+      update items set
+        name = ${props.name},
+        description = ${props.description},
+        value = ${props.value},
+        rarity = ${props.rarity},
+        slot = ${props.slot},
+        strength = ${attrs.strength},
+        dexterity = ${attrs.dexterity},
+        agility = ${attrs.agility},
+        intelligence = ${attrs.intelligence},
+        vitality = ${attrs.vitality},
+        luck = ${attrs.luck},
+        hp_restore = ${props.hpRestore},
+        reveals_all_monster_attributes = ${props.revealsAllMonsterAttributes},
+        set_name = ${props.setName},
+        store_purchasable = ${props.storePurchasable},
+        item_image = ${props.itemImage},
+        is_permanent = ${props.isPermanent},
+        updated_at = now()
+      where id = ${props.id}
+      returning *
+    `;
+    const saved = rows[0];
+    if (!saved) throw new Error(`Failed to update item: no row returned for id ${props.id}`);
+    const domain = toDomain(saved);
+    this.cache.set(domain.id, domain);
+    return domain;
+  }
 }

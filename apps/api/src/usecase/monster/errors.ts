@@ -11,3 +11,17 @@ export class MonsterNotFoundError extends Error {
     this.name = "MonsterNotFoundError";
   }
 }
+
+export class DuplicateMonsterAttackNameError extends Error {
+  constructor(name: string) {
+    super(`A monster attack named "${name}" already exists`);
+    this.name = "DuplicateMonsterAttackNameError";
+  }
+}
+
+export class MonsterAttackNotFoundError extends Error {
+  constructor() {
+    super("Monster attack not found");
+    this.name = "MonsterAttackNotFoundError";
+  }
+}

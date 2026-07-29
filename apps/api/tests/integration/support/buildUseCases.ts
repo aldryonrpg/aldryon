@@ -13,6 +13,9 @@ import { PostgresMonsterRepository } from "@/infrastructure/persistence/Postgres
 import { PostgresPlayerItemRepository } from "@/infrastructure/persistence/PostgresPlayerItemRepository";
 import { PostgresPlayerRepository } from "@/infrastructure/persistence/PostgresPlayerRepository";
 import { PostgresUniqueItemOwnershipRepository } from "@/infrastructure/persistence/PostgresUniqueItemOwnershipRepository";
+import { CreateAttackUseCase } from "@/usecase/attack/CreateAttackUseCase";
+import { ListAttacksForAdminUseCase } from "@/usecase/attack/ListAttacksForAdminUseCase";
+import { UpdateAttackUseCase } from "@/usecase/attack/UpdateAttackUseCase";
 import { AttackUseCase } from "@/usecase/battle/AttackUseCase";
 import { ClaimLootUseCase } from "@/usecase/battle/ClaimLootUseCase";
 import { GetActiveBattleUseCase } from "@/usecase/battle/GetActiveBattleUseCase";
@@ -28,11 +31,17 @@ import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeon
 import { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
+import { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
+import { ListItemsForAdminUseCase } from "@/usecase/item/ListItemsForAdminUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { UpdateItemUseCase } from "@/usecase/item/UpdateItemUseCase";
+import { CreateMonsterAttackUseCase } from "@/usecase/monster/CreateMonsterAttackUseCase";
 import { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
 import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
+import { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -253,5 +262,16 @@ export function buildUseCases(sql: SQL, rng: Rng, now: () => number = Date.now) 
     listDungeonBossesForAdminUseCase: new ListDungeonBossesForAdminUseCase(dungeonBossRepository),
     createDungeonBossUseCase: new CreateDungeonBossUseCase(dungeonBossRepository),
     updateDungeonBossUseCase: new UpdateDungeonBossUseCase(dungeonBossRepository),
+    listItemsForAdminUseCase: new ListItemsForAdminUseCase(itemRepository),
+    createItemUseCase: new CreateItemUseCase(itemRepository),
+    updateItemUseCase: new UpdateItemUseCase(itemRepository),
+    listAttacksForAdminUseCase: new ListAttacksForAdminUseCase(attackRepository),
+    createAttackUseCase: new CreateAttackUseCase(attackRepository),
+    updateAttackUseCase: new UpdateAttackUseCase(attackRepository),
+    listMonsterAttacksForAdminUseCase: new ListMonsterAttacksForAdminUseCase(
+      monsterAttackRepository,
+    ),
+    createMonsterAttackUseCase: new CreateMonsterAttackUseCase(monsterAttackRepository),
+    updateMonsterAttackUseCase: new UpdateMonsterAttackUseCase(monsterAttackRepository),
   };
 }

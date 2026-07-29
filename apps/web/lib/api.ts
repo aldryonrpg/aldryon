@@ -4,8 +4,14 @@ import type {
   AttributeKeyDto,
   ClaimLootResponse,
   ContinueDungeonResponse,
+  CreateAttackRequest,
+  CreateAttackResponse,
   CreateDungeonBossRequest,
   CreateDungeonBossResponse,
+  CreateItemRequest,
+  CreateItemResponse,
+  CreateMonsterAttackRequest,
+  CreateMonsterAttackResponse,
   CreateMonsterRequest,
   CreateMonsterResponse,
   DestroyBagItemResponse,
@@ -14,12 +20,21 @@ import type {
   ExitDungeonRunResponse,
   ItemCatalogResponse,
   ItemRarityColorsResponse,
+  ListAttacksAdminResponse,
   ListDungeonBossesAdminResponse,
+  ListItemsAdminResponse,
+  ListMonsterAttacksAdminResponse,
   ListMonstersAdminResponse,
   LoginResponse,
   MonsterRegionDto,
+  PatchAttackRequest,
+  PatchAttackResponse,
   PatchDungeonBossRequest,
   PatchDungeonBossResponse,
+  PatchItemRequest,
+  PatchItemResponse,
+  PatchMonsterAttackRequest,
+  PatchMonsterAttackResponse,
   PatchMonsterRequest,
   PatchMonsterResponse,
   PatchPlayerResponse,
@@ -232,6 +247,53 @@ export function patchDungeonBossAdmin(
   patch: PatchDungeonBossRequest,
 ): Promise<PatchDungeonBossResponse> {
   return authedFetch(`/admin/dungeon-bosses/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function listItemsAdmin(): Promise<ListItemsAdminResponse> {
+  return authedFetch("/admin/items");
+}
+
+export function createItemAdmin(input: CreateItemRequest): Promise<CreateItemResponse> {
+  return authedFetch("/admin/items", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function patchItemAdmin(id: string, patch: PatchItemRequest): Promise<PatchItemResponse> {
+  return authedFetch(`/admin/items/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function listAttacksAdmin(): Promise<ListAttacksAdminResponse> {
+  return authedFetch("/admin/attacks");
+}
+
+export function createAttackAdmin(input: CreateAttackRequest): Promise<CreateAttackResponse> {
+  return authedFetch("/admin/attacks", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function patchAttackAdmin(
+  id: string,
+  patch: PatchAttackRequest,
+): Promise<PatchAttackResponse> {
+  return authedFetch(`/admin/attacks/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function listMonsterAttacksAdmin(): Promise<ListMonsterAttacksAdminResponse> {
+  return authedFetch("/admin/monster-attacks");
+}
+
+export function createMonsterAttackAdmin(
+  input: CreateMonsterAttackRequest,
+): Promise<CreateMonsterAttackResponse> {
+  return authedFetch("/admin/monster-attacks", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function patchMonsterAttackAdmin(
+  id: string,
+  patch: PatchMonsterAttackRequest,
+): Promise<PatchMonsterAttackResponse> {
+  return authedFetch(`/admin/monster-attacks/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });

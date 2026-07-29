@@ -26,6 +26,14 @@ export class TtlCache<T> {
     this.value = value;
     this.expiresAt = this.now() + (ttlMsOverride ?? this.ttlMs);
   }
+
+  /** Forces the next get() to miss — for a write path (e.g. an admin
+   * create/update) that needs the next read to reflect the change
+   * immediately instead of waiting out the TTL. */
+  clear(): void {
+    this.value = null;
+    this.expiresAt = 0;
+  }
 }
 
 /**

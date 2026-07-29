@@ -61,11 +61,14 @@ describe("legendary_drops pool (integration)", () => {
     return { playerId, battle };
   }
 
-  it("a seeded hit yields the legendary item alongside the (empty) regular pools", async () => {
+  it("a seeded hit yields the legendary item alongside the (empty) regular drops pool", async () => {
     const legendaryItemId = await createTestItem(sql, { name: "Legendary Drop Test Hit" });
     const { playerId, battle } = await setupOneShotBattle(100, legendaryItemId);
-    // tuple-check (50<=100 -> success), winner-index (only option).
-    const uc = buildUseCases(sql, new FakeRng([50, 0]));
+    // exclusive_drops roll first: [tuple-roll(99999 > 30000 -> misses the auto-seeded
+    // "<Monster> Part" exclusive drop every monster now carries, see
+    // 20260729033823_add_monster_part_drop_trigger.sql)], then legendary_drops roll:
+    // [tuple-roll(50<=10000 -> success), winner-index (only option)].
+    const uc = buildUseCases(sql, new FakeRng([99999, 50, 0]));
     await uc.battleRepository.create(battle);
 
     const result = await uc.attackUseCase.execute({ playerId, attackName: "HIT" });

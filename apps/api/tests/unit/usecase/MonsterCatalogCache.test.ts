@@ -70,10 +70,22 @@ class FakeMonsterAttackRepository implements MonsterAttackRepository {
   async findById() {
     return null;
   }
+  async findByName() {
+    return null;
+  }
+  async findAll(): Promise<MonsterAttack[]> {
+    return [];
+  }
   async findMovesetByMonsterId(): Promise<MonsterAttack[]> {
     return [];
   }
   async copyDungeonBossMoveset() {}
+  create(monsterAttack: MonsterAttack) {
+    return Promise.resolve(monsterAttack);
+  }
+  update(monsterAttack: MonsterAttack) {
+    return Promise.resolve(monsterAttack);
+  }
 }
 
 describe("MonsterCatalogCache.evict", () => {
