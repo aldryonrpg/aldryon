@@ -226,6 +226,17 @@ export async function linkMonsterMoveset(
   `;
 }
 
+export async function linkDungeonBossMoveset(
+  sql: SQL,
+  dungeonBossId: string,
+  monsterAttackId: string,
+): Promise<void> {
+  await sql`
+    insert into dungeon_boss_movesets (dungeon_boss_id, monster_attack_id)
+    values (${dungeonBossId}, ${monsterAttackId})
+  `;
+}
+
 export interface TestItemOverrides {
   name?: string;
   value?: number;

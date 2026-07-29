@@ -111,4 +111,100 @@ export class PostgresMonsterAttackRepository implements MonsterAttackRepository 
       on conflict do nothing
     `;
   }
+
+  async findDungeonBossSpecialAttackIds(dungeonBossId: string): Promise<string[]> {
+    const rows = await this.sql<{ monster_attack_id: string }[]>`
+      select dbm.monster_attack_id
+      from dungeon_boss_movesets dbm
+      inner join monster_attacks ma on ma.id = dbm.monster_attack_id
+      where dbm.dungeon_boss_id = ${dungeonBossId} and ma.is_special = true
+      order by ma.name asc
+    `;
+    return rows.map((row) => row.monster_attack_id);
+  }
+
+  async setDungeonBossSpecialAttacks(
+    dungeonBossId: string,
+    monsterAttackIds: string[],
+  ): Promise<void> {
+    await this.sql.begin(async (tx) => {
+      await tx`
+        delete from dungeon_boss_movesets
+        using monster_attacks
+        where dungeon_boss_movesets.monster_attack_id = monster_attacks.id
+          and dungeon_boss_movesets.dungeon_boss_id = ${dungeonBossId}
+          and monster_attacks.is_special = true
+      `;
+      for (const monsterAttackId of monsterAttackIds) {
+        await tx`
+          insert into dungeon_boss_movesets (dungeon_boss_id, monster_attack_id)
+          values (${dungeonBossId}, ${monsterAttackId})
+          on conflict do nothing
+        `;
+      }
+    });
+  }
+
+  async findMonsterNormalAttackIds(monsterId: string): Promise<string[]> {
+    const rows = await this.sql<{ monster_attack_id: string }[]>`
+      select mm.monster_attack_id
+      from monster_movesets mm
+      inner join monster_attacks ma on ma.id = mm.monster_attack_id
+      where mm.monster_id = ${monsterId} and ma.is_special = false
+      order by ma.name asc
+    `;
+    return rows.map((row) => row.monster_attack_id);
+  }
+
+  async setMonsterNormalAttacks(monsterId: string, monsterAttackIds: string[]): Promise<void> {
+    await this.sql.begin(async (tx) => {
+      await tx`
+        delete from monster_movesets
+        using monster_attacks
+        where monster_movesets.monster_attack_id = monster_attacks.id
+          and monster_movesets.monster_id = ${monsterId}
+          and monster_attacks.is_special = false
+      `;
+      for (const monsterAttackId of monsterAttackIds) {
+        await tx`
+          insert into monster_movesets (monster_id, monster_attack_id)
+          values (${monsterId}, ${monsterAttackId})
+          on conflict do nothing
+        `;
+      }
+    });
+  }
+
+  async findDungeonBossNormalAttackIds(dungeonBossId: string): Promise<string[]> {
+    const rows = await this.sql<{ monster_attack_id: string }[]>`
+      select dbm.monster_attack_id
+      from dungeon_boss_movesets dbm
+      inner join monster_attacks ma on ma.id = dbm.monster_attack_id
+      where dbm.dungeon_boss_id = ${dungeonBossId} and ma.is_special = false
+      order by ma.name asc
+    `;
+    return rows.map((row) => row.monster_attack_id);
+  }
+
+  async setDungeonBossNormalAttacks(
+    dungeonBossId: string,
+    monsterAttackIds: string[],
+  ): Promise<void> {
+    await this.sql.begin(async (tx) => {
+      await tx`
+        delete from dungeon_boss_movesets
+        using monster_attacks
+        where dungeon_boss_movesets.monster_attack_id = monster_attacks.id
+          and dungeon_boss_movesets.dungeon_boss_id = ${dungeonBossId}
+          and monster_attacks.is_special = false
+      `;
+      for (const monsterAttackId of monsterAttackIds) {
+        await tx`
+          insert into dungeon_boss_movesets (dungeon_boss_id, monster_attack_id)
+          values (${dungeonBossId}, ${monsterAttackId})
+          on conflict do nothing
+        `;
+      }
+    });
+  }
 }

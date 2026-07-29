@@ -96,3 +96,33 @@ export type PatchMonsterRequest = z.infer<typeof PatchMonsterRequestSchema>;
 
 export const PatchMonsterResponseSchema = z.object({ monster: MonsterAdminSchema });
 export type PatchMonsterResponse = z.infer<typeof PatchMonsterResponseSchema>;
+
+// --- GET/PUT /admin/monsters/:id/normal-attacks ---
+
+/** A monster's *normal* (non-special) attacks — unlike a dungeon boss's
+ * special-attack picker (adminDungeonBoss.ts), there's no count cap here:
+ * only the monster-side moveset-special-limit trigger caps specials, normal
+ * attacks are unbounded (mirrored by the DB trigger's own "does not limit
+ * normal attacks" behavior). Special attacks are edited separately — see
+ * SetMonsterNormalAttacksUseCase, which rejects any id whose isSpecial is
+ * true. */
+export const MonsterNormalAttacksSchema = z.object({
+  normalAttackIds: z.array(z.string()),
+});
+export type MonsterNormalAttacksDto = z.infer<typeof MonsterNormalAttacksSchema>;
+
+export const GetMonsterNormalAttacksResponseSchema = MonsterNormalAttacksSchema;
+export type GetMonsterNormalAttacksResponse = z.infer<typeof GetMonsterNormalAttacksResponseSchema>;
+
+export const SetMonsterNormalAttacksRequestSchema = z
+  .object({
+    attackIds: z.array(z.string()),
+  })
+  .refine((data) => new Set(data.attackIds).size === data.attackIds.length, {
+    message: "attackIds must not contain duplicates",
+    path: ["attackIds"],
+  });
+export type SetMonsterNormalAttacksRequest = z.infer<typeof SetMonsterNormalAttacksRequestSchema>;
+
+export const SetMonsterNormalAttacksResponseSchema = MonsterNormalAttacksSchema;
+export type SetMonsterNormalAttacksResponse = z.infer<typeof SetMonsterNormalAttacksResponseSchema>;
