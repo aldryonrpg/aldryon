@@ -1,4 +1,7 @@
-import type { AttributeValues } from "@/domain/shared/Attributes";
+import { ATTRIBUTE_KEYS, type AttributeValues } from "@/domain/shared/Attributes";
+
+const ITEM_ATTRIBUTE_BONUS_MIN = -5;
+const ITEM_ATTRIBUTE_BONUS_MAX = 5;
 
 /**
  * Full rarity ladder (plan3 Store follow-up). 'basic' is store-only stock,
@@ -74,6 +77,18 @@ export class Item {
     }
     if (props.hpRestore !== null && props.hpRestore <= 0) {
       throw new Error("Item hpRestore must be > 0 when set");
+    }
+    for (const key of ATTRIBUTE_KEYS) {
+      const bonus = props.attributeBonuses[key];
+      if (
+        !Number.isInteger(bonus) ||
+        bonus < ITEM_ATTRIBUTE_BONUS_MIN ||
+        bonus > ITEM_ATTRIBUTE_BONUS_MAX
+      ) {
+        throw new Error(
+          `Item attributeBonuses.${key} must be an integer between ${ITEM_ATTRIBUTE_BONUS_MIN} and ${ITEM_ATTRIBUTE_BONUS_MAX}, got ${bonus}`,
+        );
+      }
     }
     return new Item(props);
   }

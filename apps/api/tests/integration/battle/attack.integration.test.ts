@@ -145,8 +145,10 @@ describe("AttackUseCase (integration)", () => {
     });
 
     // pick(monster attack, unused since monster dies before acting) not consumed;
-    // drop roll: [tuple-roll(<=100000 always succeeds at dropRate 1000), winner-index(0, only success)]
-    const uc = buildUseCases(sql, new FakeRng([50, 0]));
+    // drop roll: [tuple-roll(<=100000 always succeeds at dropRate 1000), winner-index(0, only success)],
+    // then exclusive_drops roll: [tuple-roll(99999 > 30000 -> misses the auto-seeded "<Monster> Part"
+    // exclusive drop every monster now carries, see 20260729033823_add_monster_part_drop_trigger.sql)]
+    const uc = buildUseCases(sql, new FakeRng([50, 0, 99999]));
     await uc.battleRepository.create(battle);
 
     const monsterBefore = await uc.monsterRepository.findById(monsterId);

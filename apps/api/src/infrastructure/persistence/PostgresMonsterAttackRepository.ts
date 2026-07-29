@@ -37,6 +37,60 @@ export class PostgresMonsterAttackRepository implements MonsterAttackRepository 
     return rows[0] ? toDomain(rows[0]) : null;
   }
 
+  async findByName(name: string): Promise<MonsterAttack | null> {
+    const rows = await this.sql<
+      MonsterAttackRow[]
+    >`select * from monster_attacks where name = ${name} limit 1`;
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
+  async findAll(): Promise<MonsterAttack[]> {
+    const rows = await this.sql<
+      MonsterAttackRow[]
+    >`select * from monster_attacks order by name asc`;
+    return rows.map(toDomain);
+  }
+
+  async create(monsterAttack: MonsterAttack): Promise<MonsterAttack> {
+    const props = monsterAttack.toProps();
+
+    const rows = await this.sql<MonsterAttackRow[]>`
+      insert into monster_attacks (
+        id, name, stamina_cost, multiplier, scaling_attribute, applies_effect,
+        is_special, charge_turns
+      ) values (
+        ${props.id}, ${props.name}, ${props.staminaCost}, ${props.multiplier},
+        ${props.scalingAttribute}, ${props.appliesEffect}, ${props.isSpecial}, ${props.chargeTurns}
+      )
+      returning *
+    `;
+    const saved = rows[0];
+    if (!saved) throw new Error("Failed to create monster attack: no row returned");
+    return toDomain(saved);
+  }
+
+  async update(monsterAttack: MonsterAttack): Promise<MonsterAttack> {
+    const props = monsterAttack.toProps();
+
+    const rows = await this.sql<MonsterAttackRow[]>`
+      update monster_attacks set
+        name = ${props.name},
+        stamina_cost = ${props.staminaCost},
+        multiplier = ${props.multiplier},
+        scaling_attribute = ${props.scalingAttribute},
+        applies_effect = ${props.appliesEffect},
+        is_special = ${props.isSpecial},
+        charge_turns = ${props.chargeTurns}
+      where id = ${props.id}
+      returning *
+    `;
+    const saved = rows[0];
+    if (!saved) {
+      throw new Error(`Failed to update monster attack: no row returned for id ${props.id}`);
+    }
+    return toDomain(saved);
+  }
+
   async findMovesetByMonsterId(monsterId: string): Promise<MonsterAttack[]> {
     const rows = await this.sql<MonsterAttackRow[]>`
       select ma.*

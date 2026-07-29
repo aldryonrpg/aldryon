@@ -18,6 +18,9 @@ import { PostgresUserRepository } from "@/infrastructure/persistence/PostgresUse
 import { createPostgresClient } from "@/infrastructure/persistence/postgresClient";
 import { RandomRng } from "@/infrastructure/random/RandomRng";
 import { createApp } from "@/interface/http/createApp";
+import { CreateAttackUseCase } from "@/usecase/attack/CreateAttackUseCase";
+import { ListAttacksForAdminUseCase } from "@/usecase/attack/ListAttacksForAdminUseCase";
+import { UpdateAttackUseCase } from "@/usecase/attack/UpdateAttackUseCase";
 import { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
 import { CachedAuthGateway } from "@/usecase/auth/CachedAuthGateway";
@@ -36,11 +39,17 @@ import { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDungeon
 import { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
+import { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
 import { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
+import { ListItemsForAdminUseCase } from "@/usecase/item/ListItemsForAdminUseCase";
 import { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import { UpdateItemUseCase } from "@/usecase/item/UpdateItemUseCase";
+import { CreateMonsterAttackUseCase } from "@/usecase/monster/CreateMonsterAttackUseCase";
 import { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
 import { MonsterCatalogCache } from "@/usecase/monster/MonsterCatalogCache";
+import { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -253,6 +262,17 @@ const listDungeonBossesForAdminUseCase = new ListDungeonBossesForAdminUseCase(
 );
 const createDungeonBossUseCase = new CreateDungeonBossUseCase(dungeonBossRepository);
 const updateDungeonBossUseCase = new UpdateDungeonBossUseCase(dungeonBossRepository);
+const listItemsForAdminUseCase = new ListItemsForAdminUseCase(itemRepository);
+const createItemUseCase = new CreateItemUseCase(itemRepository);
+const updateItemUseCase = new UpdateItemUseCase(itemRepository);
+const listAttacksForAdminUseCase = new ListAttacksForAdminUseCase(attackRepository);
+const createAttackUseCase = new CreateAttackUseCase(attackRepository);
+const updateAttackUseCase = new UpdateAttackUseCase(attackRepository);
+const listMonsterAttacksForAdminUseCase = new ListMonsterAttacksForAdminUseCase(
+  monsterAttackRepository,
+);
+const createMonsterAttackUseCase = new CreateMonsterAttackUseCase(monsterAttackRepository);
+const updateMonsterAttackUseCase = new UpdateMonsterAttackUseCase(monsterAttackRepository);
 
 const app = createApp({
   authenticateUserUseCase,
@@ -289,6 +309,15 @@ const app = createApp({
   listDungeonBossesForAdminUseCase,
   createDungeonBossUseCase,
   updateDungeonBossUseCase,
+  listItemsForAdminUseCase,
+  createItemUseCase,
+  updateItemUseCase,
+  listAttacksForAdminUseCase,
+  createAttackUseCase,
+  updateAttackUseCase,
+  listMonsterAttacksForAdminUseCase,
+  createMonsterAttackUseCase,
+  updateMonsterAttackUseCase,
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
 });
 

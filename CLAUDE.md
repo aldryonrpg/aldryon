@@ -155,12 +155,16 @@ A back-end commit MUST NOT pass unless **all** of these succeed:
    hijacked in a March 2026 supply-chain attack).
 3. **Unit tests** (`bun test`)
 4. **Build** (`docker build` on `apps/api/Dockerfile`)
-5. **Deploy on Render** — push to `main` only
+
+No deploy step — Render's own GitHub integration auto-deploys on push to
+`main` independently of this workflow (see Deployment below). A
+`curl`-a-deploy-hook step used to sit here too; it was removed for being
+redundant/confusing alongside that already-working auto-deploy.
 
 Every step in that job blocks the next on failure. **Integration tests are a
 separate, optional job** in the same workflow file — no `needs:` link to the
 pipeline job, `continue-on-error: true`, so it never blocks lint/vuln/unit/
-build/deploy. It still produces the `usecase/` ≥ 85% coverage report; that
+build. It still produces the `usecase/` ≥ 85% coverage report; that
 gate is hard-enforced in **pre-commit** (integration tests always run there —
 see above) but only advisory in CI, matching its optional status.
 
@@ -171,6 +175,12 @@ see above) but only advisory in CI, matching its optional status.
   (deleted; it was never wired to a Blueprint sync and didn't reflect the real
   config). Don't recreate one unless the setup actually switches to Blueprint
   sync — until then it would just be more dead weight.
+- **Deploys happen via Render's own GitHub integration** — a webhook on
+  push/merge to `main`, dashboard-configured per service, independent of
+  the CI workflow. CI passing/failing doesn't gate whether a deploy
+  happens; merging to `main` does. There is no deploy-hook `curl` step in
+  CI (removed — it was redundant alongside this already-working
+  auto-deploy).
 - Secrets (Supabase keys, Google OAuth credentials, API URLs) are configured as
   Render env vars (tracked in the README) and are **never committed**.
 - **`apps/cron-sweep`** (a `psql`-only image running

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { DungeonBoss } from "@/domain/dungeon/DungeonBoss";
 import type { Monster } from "@/domain/monster/Monster";
+import type { MonsterAttack } from "@/domain/monster/MonsterAttack";
 import type { AttributeValues } from "@/domain/shared/Attributes";
 import { DungeonBossOfTheDayUseCase } from "@/usecase/dungeon/DungeonBossOfTheDayUseCase";
 import type { DungeonBossRepository } from "@/usecase/dungeon/DungeonBossRepository";
@@ -94,10 +95,22 @@ class FakeMonsterAttackRepository implements MonsterAttackRepository {
   async findById() {
     return null;
   }
+  async findByName() {
+    return null;
+  }
+  async findAll() {
+    return [];
+  }
   async findMovesetByMonsterId() {
     return [];
   }
   async copyDungeonBossMoveset() {}
+  create(monsterAttack: MonsterAttack) {
+    return Promise.resolve(monsterAttack);
+  }
+  update(monsterAttack: MonsterAttack) {
+    return Promise.resolve(monsterAttack);
+  }
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

@@ -20,11 +20,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # One sequential pipeline: linter -> vulnerability -> unit test -> build ->
-  # deploy. Each step blocks the next on failure. Integration tests run as a
-  # separate, optional job (see below) and never gate this one.
+  # One sequential pipeline: linter -> vulnerability -> unit test -> build.
+  # Each step blocks the next on failure. Integration tests run as a
+  # separate, optional job (see below) and never gate this one. No deploy
+  # step here — Render's own GitHub integration auto-deploys on push to
+  # main, dashboard-configured, independent of this workflow.
   pipeline:
-    name: Lint, scan, test, build, deploy
+    name: Lint, scan, test, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -58,12 +60,6 @@ jobs:
 
       - name: Build (validate Docker image)
         run: docker build -f apps/api/Dockerfile -t aldryon-api:ci .
-
-      - name: Deploy on Render
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: curl --fail-with-body -sS -X POST "$RENDER_DEPLOY_HOOK_URL"
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_API_DEPLOY_HOOK_URL }}
 
   integration-tests:
     name: Integration tests (testcontainers) — optional

@@ -12,6 +12,9 @@ import { createItemController } from "@/interface/http/itemController";
 import { createPlayerController } from "@/interface/http/playerController";
 import { createStoreController } from "@/interface/http/storeController";
 import type { AdminRepository } from "@/usecase/admin/AdminRepository";
+import type { CreateAttackUseCase } from "@/usecase/attack/CreateAttackUseCase";
+import type { ListAttacksForAdminUseCase } from "@/usecase/attack/ListAttacksForAdminUseCase";
+import type { UpdateAttackUseCase } from "@/usecase/attack/UpdateAttackUseCase";
 import type { AuthenticateUserUseCase } from "@/usecase/auth/AuthenticateUserUseCase";
 import type { AuthGateway } from "@/usecase/auth/AuthGateway";
 import type { AuthIdentityCache } from "@/usecase/auth/AuthIdentityCache";
@@ -29,10 +32,16 @@ import type { GetDungeonSlayerLeaderboardUseCase } from "@/usecase/dungeon/GetDu
 import type { ListDungeonBossesForAdminUseCase } from "@/usecase/dungeon/ListDungeonBossesForAdminUseCase";
 import type { StartDungeonUseCase } from "@/usecase/dungeon/StartDungeonUseCase";
 import type { UpdateDungeonBossUseCase } from "@/usecase/dungeon/UpdateDungeonBossUseCase";
+import type { CreateItemUseCase } from "@/usecase/item/CreateItemUseCase";
 import type { GetItemRarityColorsUseCase } from "@/usecase/item/GetItemRarityColorsUseCase";
+import type { ListItemsForAdminUseCase } from "@/usecase/item/ListItemsForAdminUseCase";
 import type { ListItemsUseCase } from "@/usecase/item/ListItemsUseCase";
+import type { UpdateItemUseCase } from "@/usecase/item/UpdateItemUseCase";
+import type { CreateMonsterAttackUseCase } from "@/usecase/monster/CreateMonsterAttackUseCase";
 import type { CreateMonsterUseCase } from "@/usecase/monster/CreateMonsterUseCase";
+import type { ListMonsterAttacksForAdminUseCase } from "@/usecase/monster/ListMonsterAttacksForAdminUseCase";
 import type { ListMonstersForAdminUseCase } from "@/usecase/monster/ListMonstersForAdminUseCase";
+import type { UpdateMonsterAttackUseCase } from "@/usecase/monster/UpdateMonsterAttackUseCase";
 import type { UpdateMonsterUseCase } from "@/usecase/monster/UpdateMonsterUseCase";
 import type { AllocateAttributePointsUseCase } from "@/usecase/player/AllocateAttributePointsUseCase";
 import type { DestroyBagItemUseCase } from "@/usecase/player/DestroyBagItemUseCase";
@@ -81,6 +90,15 @@ export interface AppDependencies {
   listDungeonBossesForAdminUseCase: ListDungeonBossesForAdminUseCase;
   createDungeonBossUseCase: CreateDungeonBossUseCase;
   updateDungeonBossUseCase: UpdateDungeonBossUseCase;
+  listItemsForAdminUseCase: ListItemsForAdminUseCase;
+  createItemUseCase: CreateItemUseCase;
+  updateItemUseCase: UpdateItemUseCase;
+  listAttacksForAdminUseCase: ListAttacksForAdminUseCase;
+  createAttackUseCase: CreateAttackUseCase;
+  updateAttackUseCase: UpdateAttackUseCase;
+  listMonsterAttacksForAdminUseCase: ListMonsterAttacksForAdminUseCase;
+  createMonsterAttackUseCase: CreateMonsterAttackUseCase;
+  updateMonsterAttackUseCase: UpdateMonsterAttackUseCase;
   webOrigin: string;
 }
 
@@ -167,6 +185,15 @@ export function createApp(deps: AppDependencies): Hono {
       listDungeonBossesForAdminUseCase: deps.listDungeonBossesForAdminUseCase,
       createDungeonBossUseCase: deps.createDungeonBossUseCase,
       updateDungeonBossUseCase: deps.updateDungeonBossUseCase,
+      listItemsForAdminUseCase: deps.listItemsForAdminUseCase,
+      createItemUseCase: deps.createItemUseCase,
+      updateItemUseCase: deps.updateItemUseCase,
+      listAttacksForAdminUseCase: deps.listAttacksForAdminUseCase,
+      createAttackUseCase: deps.createAttackUseCase,
+      updateAttackUseCase: deps.updateAttackUseCase,
+      listMonsterAttacksForAdminUseCase: deps.listMonsterAttacksForAdminUseCase,
+      createMonsterAttackUseCase: deps.createMonsterAttackUseCase,
+      updateMonsterAttackUseCase: deps.updateMonsterAttackUseCase,
     }),
   );
   app.route("/", admin);
