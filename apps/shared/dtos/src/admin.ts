@@ -21,11 +21,20 @@ export type MonsterRegionAdminDto = z.infer<typeof MonsterRegionAdminSchema>;
 export const MonsterTypeSchema = z.enum(["normal", "poisonous"]);
 export type MonsterTypeDto = z.infer<typeof MonsterTypeSchema>;
 
+/** dropRate is per-mille (out of 1000), not a percent — 1000 is a
+ * guaranteed drop, 100 is a 10% chance, 1 is the smallest possible chance
+ * (0.1%). Same scale for drops/exclusiveDrops/legendaryDrops alike. */
 export const DropTupleSchema = z.object({
   itemId: z.string(),
   dropRate: z.number().int().min(1).max(1000),
 });
 export type DropTupleDto = z.infer<typeof DropTupleSchema>;
+
+/** One drop pool (drops/exclusiveDrops/legendaryDrops) — exported on its
+ * own so the admin UI can validate a pasted JSON array against the exact
+ * same rules the backend enforces, before ever sending it. */
+export const DropPoolSchema = z.array(DropTupleSchema);
+export type DropPoolDto = z.infer<typeof DropPoolSchema>;
 
 export const MonsterAdminSchema = z.object({
   id: z.string(),

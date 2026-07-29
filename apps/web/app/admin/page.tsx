@@ -1,12 +1,13 @@
 "use client";
 
-import type {
-  CreateDungeonBossRequest,
-  CreateMonsterRequest,
-  DropTupleDto,
-  DungeonBossAdminDto,
-  MonsterAdminDto,
-  MonsterRegionAdminDto,
+import {
+  type CreateDungeonBossRequest,
+  type CreateMonsterRequest,
+  DropPoolSchema,
+  type DropTupleDto,
+  type DungeonBossAdminDto,
+  type MonsterAdminDto,
+  type MonsterRegionAdminDto,
 } from "@aldryon/dtos";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -93,12 +94,15 @@ function monsterToFormState(monster: MonsterAdminDto): MonsterFormState {
     luck: String(monster.attributes.luck),
     monsterType: monster.monsterType,
     ambushChance: String(monster.ambushChance),
-    drops: JSON.stringify(monster.drops),
-    exclusiveDrops: JSON.stringify(monster.exclusiveDrops),
-    legendaryDrops: JSON.stringify(monster.legendaryDrops),
+    drops: JSON.stringify(monster.drops, null, 2),
+    exclusiveDrops: JSON.stringify(monster.exclusiveDrops, null, 2),
+    legendaryDrops: JSON.stringify(monster.legendaryDrops, null, 2),
   };
 }
 
+/** Validates against the exact same DropPoolSchema the backend enforces
+ * (dropRate: integer, 1-1000 per-mille) — a bad pool is caught here with a
+ * pointed message instead of surfacing as a raw 400 from the API. */
 function parseDropPool(raw: string, fieldLabel: string): DropTupleDto[] {
   let parsed: unknown;
   try {
@@ -106,10 +110,19 @@ function parseDropPool(raw: string, fieldLabel: string): DropTupleDto[] {
   } catch {
     throw new Error(`${fieldLabel} must be valid JSON, e.g. []`);
   }
-  if (!Array.isArray(parsed)) {
-    throw new Error(`${fieldLabel} must be a JSON array`);
+
+  const result = DropPoolSchema.safeParse(parsed);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    const path = issue?.path.join(".");
+    const detail = issue?.message ?? "invalid drop pool";
+    throw new Error(
+      `${fieldLabel}${path ? ` [${path}]` : ""}: ${detail}. Each entry must be ` +
+        `{"itemId": "...", "dropRate": <integer 1-1000>} — dropRate is per-mille ` +
+        `(1000 = guaranteed, 100 = 10%).`,
+    );
   }
-  return parsed as DropTupleDto[];
+  return result.data;
 }
 
 function formStateToRequest(form: MonsterFormState): CreateMonsterRequest {
@@ -194,9 +207,9 @@ function dungeonBossToFormState(dungeonBoss: DungeonBossAdminDto): DungeonBossFo
     intelligence: String(dungeonBoss.baseAttributes.intelligence),
     vitality: String(dungeonBoss.baseAttributes.vitality),
     luck: String(dungeonBoss.baseAttributes.luck),
-    drops: JSON.stringify(dungeonBoss.drops),
-    exclusiveDrops: JSON.stringify(dungeonBoss.exclusiveDrops),
-    legendaryDrops: JSON.stringify(dungeonBoss.legendaryDrops),
+    drops: JSON.stringify(dungeonBoss.drops, null, 2),
+    exclusiveDrops: JSON.stringify(dungeonBoss.exclusiveDrops, null, 2),
+    legendaryDrops: JSON.stringify(dungeonBoss.legendaryDrops, null, 2),
   };
 }
 
@@ -221,6 +234,22 @@ function bossFormStateToRequest(form: DungeonBossFormState): CreateDungeonBossRe
     exclusiveDrops: parseDropPool(form.exclusiveDrops, "Exclusive drops"),
     legendaryDrops: parseDropPool(form.legendaryDrops, "Legendary drops"),
   };
+}
+
+/** Shared explanation for all three drop-pool fields (Drops/Exclusive/
+ * Legendary) in both MonsterForm and DungeonBossForm — dropRate is
+ * per-mille, not a percent, and this is easy to get wrong once (e.g.
+ * typing 10 meaning "10%" when it actually means 1%). */
+function DropPoolHint() {
+  return (
+    <p className="text-xs text-stone-400">
+      Each entry: <code>{'{ "itemId": "...", "dropRate": 1-1000 }'}</code> —{" "}
+      <span className="text-stone-300">dropRate is per-mille (out of 1000)</span>, not a percent.{" "}
+      <span className="font-bold text-stone-300">1000</span> = guaranteed drop,{" "}
+      <span className="font-bold text-stone-300">100</span> = 10% chance,{" "}
+      <span className="font-bold text-stone-300">1</span> = 0.1% chance.
+    </p>
+  );
 }
 
 function NumberField({
@@ -371,13 +400,14 @@ function MonsterForm({
         />
       </div>
 
+      <DropPoolHint />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs text-stone-400">
           Drops (JSON)
           <textarea
             value={form.drops}
             onChange={(e) => field("drops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
@@ -386,7 +416,7 @@ function MonsterForm({
           <textarea
             value={form.exclusiveDrops}
             onChange={(e) => field("exclusiveDrops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
@@ -395,7 +425,7 @@ function MonsterForm({
           <textarea
             value={form.legendaryDrops}
             onChange={(e) => field("legendaryDrops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
@@ -524,13 +554,14 @@ function DungeonBossForm({
         <NumberField label="Luck" value={form.luck} onChange={field("luck")} />
       </div>
 
+      <DropPoolHint />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs text-stone-400">
           Drops (JSON)
           <textarea
             value={form.drops}
             onChange={(e) => field("drops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
@@ -539,7 +570,7 @@ function DungeonBossForm({
           <textarea
             value={form.exclusiveDrops}
             onChange={(e) => field("exclusiveDrops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
@@ -548,7 +579,7 @@ function DungeonBossForm({
           <textarea
             value={form.legendaryDrops}
             onChange={(e) => field("legendaryDrops")(e.target.value)}
-            rows={2}
+            rows={6}
             className="border border-white bg-black px-2 py-1 font-mono text-xs text-stone-100"
           />
         </label>
